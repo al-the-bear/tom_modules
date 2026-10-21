@@ -1,3 +1,12 @@
+## 1.0.1
+
+- No longer depends on `tom_basics`. The YAML line writers the codec uses
+  (`yaml_lines.dart`, from `tom_basics` 3.3.0) are carried as a private copy,
+  so the model fits a dependency graph that takes `tom_basics` by path as well
+  as one that takes it from pub.dev. A test in the package holds the copy to
+  the original while both are in one workspace. Once `tom_basics` is taken from
+  pub.dev throughout, the copy goes and the dependency returns.
+
 ## 1.0.0
 
 - First release. The shared todo model and the `*.todo.yaml` codec, moved out

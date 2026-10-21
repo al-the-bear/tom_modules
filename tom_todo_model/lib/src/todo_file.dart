@@ -10,7 +10,7 @@
 library;
 
 import 'package:meta/meta.dart';
-import 'package:tom_basics/utilities.dart';
+import 'yaml_lines.dart';
 import 'package:yaml/yaml.dart';
 
 import 'todo.dart';

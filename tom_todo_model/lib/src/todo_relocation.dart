@@ -7,7 +7,7 @@
 /// workspace tooling's order (target, journal, source), is the caller's.
 library;
 
-import 'package:tom_basics/utilities.dart';
+import 'yaml_lines.dart';
 
 import 'decisions_journal.dart';
 import 'todo.dart';
