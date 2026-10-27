@@ -1,0 +1,19 @@
+name: tom_calendar_model
+description: >-
+  Calendar values and rules: appointments with a UTC-first time policy,
+  an RRULE subset with live expansion, occurrence and series edits, a
+  display time frame and clock, and a deterministic iCalendar (RFC 5545) codec
+  for events and tasks.
+version: 0.1.0
+publish_to: none
+repository: https://github.com/al-the-bear/tom_modules
+
+environment:
+  sdk: ^3.10.8
+
+dependencies:
+  uuid: ^4.0.0
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.25.6

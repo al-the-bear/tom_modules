@@ -1,0 +1,30 @@
+name: tom_file_session
+description: >-
+  What an editor and a file browser build on the tom_file_system
+  contract: the per-file editing session that keeps encoding, line endings and
+  every untouched byte, the tree filter with its presets, and the `.env`
+  codec.
+version: 1.0.0
+publish_to: none
+repository: https://github.com/al-the-bear/tom_modules
+
+environment:
+  sdk: ^3.10.8
+
+dependencies:
+  # The undo stack the session's history runs on.
+  tom_undo:
+    path: ../../basics/tom_undo
+  # The file-system contract the session reads and writes through.
+  tom_file_system:
+    path: ../../basics/tom_file_system
+  meta: ^1.16.0
+  # Text decoding that keeps the encoding, and globs.
+  tom_basics: ">=3.3.0"
+  # The todo file names the filter's todo-siblings rule reads.
+  tom_todo_model: ^1.0.1
+
+dev_dependencies:
+  lints: ^6.0.0
+  path: ^1.9.0
+  test: ^1.25.6

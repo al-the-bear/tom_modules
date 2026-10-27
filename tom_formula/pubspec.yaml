@@ -1,0 +1,19 @@
+name: tom_formula
+description: >-
+  A spreadsheet formula engine: an Excel-style grammar and printer, a function
+  library of plain Dart functions, exact dependency-tracked recalculation with
+  cycle detection across sheets, lowering of a formula to a Dart expression,
+  and a port for the backend that evaluates it.
+version: 0.1.0
+publish_to: none
+repository: https://github.com/al-the-bear/tom_modules
+
+environment:
+  sdk: ^3.10.8
+
+dependencies:
+  meta: ^1.15.0
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.25.6
