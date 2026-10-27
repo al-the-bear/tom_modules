@@ -1,7 +1,9 @@
 # tom_calendar_model
 
+Published on pub.dev as [`tom_calendar_model` 0.1.0](https://pub.dev/packages/tom_calendar_model).
+
 > **Attribution.** The Tom Framework is developed by Peter Nicolai Alexis Kyaw.
-> These packages are BSD-3-Clause licensed and internal (`publish_to: none`).
+> These packages are BSD-3-Clause licensed and published on pub.dev.
 
 Calendar model and iCalendar interchange: an appointment that is timed in UTC
 or all-day by date, a recurrence subset that is parsed, written and expanded on
@@ -51,12 +53,11 @@ its appointments where it likes; it gets the rules that make them a calendar.
 
 ## Installation
 
-The package is consumed by path inside this workspace:
+Add it from pub.dev:
 
 ```yaml
 dependencies:
-  tom_calendar_model:
-    path: ../../tom_ai/modules/tom_calendar_model
+  tom_calendar_model: ^0.1.0
 ```
 
 Dart SDK `^3.10.8`. It uses no Flutter and no `dart:io`, so it links into a

@@ -5,7 +5,6 @@ description: >-
   cycle detection across sheets, lowering of a formula to a Dart expression,
   and a port for the backend that evaluates it.
 version: 0.1.0
-publish_to: none
 repository: https://github.com/al-the-bear/tom_modules
 
 environment:

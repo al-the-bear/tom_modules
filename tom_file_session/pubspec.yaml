@@ -5,7 +5,6 @@ description: >-
   every untouched byte, the tree filter with its presets, and the `.env`
   codec.
 version: 1.0.0
-publish_to: none
 repository: https://github.com/al-the-bear/tom_modules
 
 environment:
@@ -20,7 +19,7 @@ dependencies:
     path: ../../basics/tom_file_system
   meta: ^1.16.0
   # Text decoding that keeps the encoding, and globs.
-  tom_basics: ">=3.3.0"
+  tom_basics: ^3.3.0
   # The todo file names the filter's todo-siblings rule reads.
   tom_todo_model: ^1.0.1
 

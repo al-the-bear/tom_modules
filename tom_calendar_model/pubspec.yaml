@@ -5,7 +5,6 @@ description: >-
   display time frame and clock, and a deterministic iCalendar (RFC 5545) codec
   for events and tasks.
 version: 0.1.0
-publish_to: none
 repository: https://github.com/al-the-bear/tom_modules
 
 environment:

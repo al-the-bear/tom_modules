@@ -1,5 +1,7 @@
 # tom_file_session
 
+Published on pub.dev as [`tom_file_session` 1.0.0](https://pub.dev/packages/tom_file_session).
+
 What an editor and a file browser build on the file-system contract of
 `tom_file_system`: the editing session of one file, the filter that decides
 what a file tree shows, and the `.env` codec. Pure Dart: no `dart:io`, no

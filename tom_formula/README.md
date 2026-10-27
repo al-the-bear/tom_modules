@@ -1,7 +1,9 @@
 # tom_formula
 
+Published on pub.dev as [`tom_formula` 0.1.0](https://pub.dev/packages/tom_formula).
+
 > **Attribution.** The Tom Framework is developed by Peter Nicolai Alexis Kyaw.
-> These packages are BSD-3-Clause licensed and internal (`publish_to: none`).
+> These packages are BSD-3-Clause licensed and published on pub.dev.
 
 A spreadsheet formula engine: an Excel-style grammar and its printer, a library
 of formula functions implemented once as plain Dart, recalculation that tracks
@@ -56,12 +58,11 @@ resolves; it gets computed values.
 
 ## Installation
 
-The package is consumed by path inside this workspace:
+Add it from pub.dev:
 
 ```yaml
 dependencies:
-  tom_formula:
-    path: ../../tom_ai/modules/tom_formula
+  tom_formula: ^0.1.0
 ```
 
 Dart SDK `^3.10.8`. The default entry point uses no Flutter and no `dart:io`,
