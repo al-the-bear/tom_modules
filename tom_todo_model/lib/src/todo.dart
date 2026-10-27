@@ -117,6 +117,12 @@ class TomTodo {
   String? derivedFrom;
   String? feedbackSource;
 
+  /// The todo is the user's to do (looking at something, answering, deciding
+  /// by hand): an agent only prepares and reports, so a `<prefix>*` queue walk
+  /// passes it by and lets the series go on. Stored as `user_action: true`;
+  /// absent when false.
+  bool userAction;
+
   DateTime? _due;
   DateTime? _created;
   DateTime? _updated;
@@ -153,6 +159,7 @@ class TomTodo {
     this.bundleId,
     this.derivedFrom,
     this.feedbackSource,
+    this.userAction = false,
   }) : tags = List.of(tags),
        decisions = [for (final d in decisions) d.copy()],
        references = List.of(references),
@@ -264,6 +271,7 @@ class TomTodo {
     bundleId: bundleId,
     derivedFrom: derivedFrom,
     feedbackSource: feedbackSource,
+    userAction: userAction,
   );
 
   /// The calendar day [value] names, held as UTC midnight of that day.
@@ -349,6 +357,7 @@ class TomTodo {
     if (dependencies.isNotEmpty) 'dependencies': List.of(dependencies),
     if (blockedBy.isNotEmpty) 'blocked_by': List.of(blockedBy),
     if (blockedUntil.isNotEmpty) 'blocked_until': List.of(blockedUntil),
+    if (userAction) 'user_action': true,
     if (notes != null) 'notes': notes,
     if (_created != null) 'created': encodeDate(_created!),
     if (_updated != null) 'updated': encodeDate(_updated!),
@@ -384,6 +393,7 @@ class TomTodo {
     'dependencies',
     'blocked_by',
     'blocked_until',
+    'user_action',
     'notes',
     'created',
     'updated',
@@ -463,7 +473,16 @@ class TomTodo {
       bundleId: map['bundle_id'] as String?,
       derivedFrom: map['derived_from'] as String?,
       feedbackSource: map['feedback_source'] as String?,
+      userAction: _userAction(map['user_action']),
     );
+  }
+
+  /// `user_action` is a boolean; anything else is a format error, like an
+  /// unknown key.
+  static bool _userAction(Object? value) {
+    if (value == null) return false;
+    if (value is bool) return value;
+    throw FormatException('Todo "user_action" must be true or false, not "$value"');
   }
 
   /// Equal when the stored forms are equal — every field, in its wire form.

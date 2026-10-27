@@ -3,7 +3,7 @@ description: >-
   The Tom workspace's shared todo model (TomTodo: the todo schema's field set,
   statuses and priorities) and the *.todo.yaml file codec, which edits a todo
   file as splices into its own text.
-version: 1.0.1
+version: 1.1.0
 repository: https://github.com/al-the-bear/tom_modules
 issue_tracker: https://github.com/al-the-bear/tom_modules/issues
 topics:

@@ -7,7 +7,7 @@ files.
   `title`, `description`, `status` (`not-started`, `in-progress`, `blocked`,
   `decision-needed`, `completed`, `cancelled`), `priority`, `due`, `estimate`,
   `tags`, `scope`, `decisions`, `references`, `dependencies`, `blocked_by`,
-  `blocked_until`, `notes`, the dates (`created`, `updated`, `completed_date`,
+  `blocked_until`, `user_action` (the todo is the user's to do), `notes`, the dates (`created`, `updated`, `completed_date`,
   `archived`, `deleted`, always `YYYY-MM-DD` — a `DateTime` stands for the
   calendar day its own fields name, local or UTC) and the orchestration fields
   (`execution_role`, `qa_role`, `orchestration_role`, `bundle_id`,

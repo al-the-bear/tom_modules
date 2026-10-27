@@ -1,3 +1,13 @@
+## 1.1.0
+
+- `TomTodo.userAction` — the schema's new `user_action` field: the todo is the
+  user's to do (looking at something, answering, deciding by hand), so an
+  agent only prepares and reports and a `<prefix>*` queue walk passes it by.
+  Written as `user_action: true` only when set; a value that is not a boolean
+  is a format error. An older reader (1.0.x) refuses a todo carrying the field
+  as an unknown key and reports it, leaving the rest of its file readable:
+  upgrade every package that reads todo files before marking todos.
+
 ## 1.0.1
 
 - No longer depends on `tom_basics`. The YAML line writers the codec uses

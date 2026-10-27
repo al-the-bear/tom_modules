@@ -5,7 +5,7 @@ library;
 import 'package:test/test.dart';
 import 'package:tom_todo_model/tom_todo_model.dart';
 
-/// An item carrying every one of the schema's 28 fields.
+/// An item carrying every one of the schema's 29 fields.
 TomTodo everyField() => TomTodo(
   id: 'launch-plan',
   title: 'Plan the launch',
@@ -42,6 +42,7 @@ TomTodo everyField() => TomTodo(
   dependencies: ['budget'],
   blockedBy: ['legal-review', 'other_quest/its-todo'],
   blockedUntil: ['tom_basics >= 1.2.0'],
+  userAction: true,
   notes: 'Ask Ada first.',
   created: DateTime.utc(2026, 10, 1),
   updated: DateTime.utc(2026, 10, 11),
@@ -60,9 +61,9 @@ TomTodo everyField() => TomTodo(
 
 void main() {
   group('WONETESTA5-A the codec', () {
-    test('WONETESTA5-01: the closed field set is the schema\'s 28 fields, '
+    test('WONETESTA5-01: the closed field set is the schema\'s 29 fields, '
         'emitted in the schema\'s order [1011]', () {
-      expect(TomTodo.fields, hasLength(28));
+      expect(TomTodo.fields, hasLength(29));
       expect(everyField().toMap().keys.toList(), [
         'id',
         'title',
@@ -78,6 +79,7 @@ void main() {
         'dependencies',
         'blocked_by',
         'blocked_until',
+        'user_action',
         'notes',
         'created',
         'updated',
@@ -105,6 +107,21 @@ void main() {
       expect(read.references[1].url, 'https://example.com');
       expect(read.bundleId, 'launch');
       expect(read.feedbackSource, 'retro-2026-10');
+      expect(read.userAction, isTrue);
+    });
+
+    test('TODOMODEL-U1: user_action is written only when true, and only a '
+        'boolean reads back [1027]', () {
+      final plain = TomTodo(id: 'a', title: 'A', status: TomTodoStatus.notStarted);
+      expect(plain.userAction, isFalse);
+      expect(plain.toMap().containsKey('user_action'), isFalse,
+          reason: 'an agent\'s todo writes nothing new');
+      final users = plain.copy()..userAction = true;
+      expect(users.toMap()['user_action'], isTrue);
+      expect(TomTodo.fromMap(users.toMap()).userAction, isTrue);
+      expect(TomTodo.fromMap({...plain.toMap(), 'user_action': false}).userAction, isFalse);
+      expect(() => TomTodo.fromMap({...plain.toMap(), 'user_action': 'yes'}), throwsFormatException);
+      expect(users.copy().userAction, isTrue, reason: 'copy() carries it');
     });
 
     test('WONETESTA5-03: copy() is detached and complete [1011]', () {
