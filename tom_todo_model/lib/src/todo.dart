@@ -92,6 +92,13 @@ class TomTodo {
   /// Todos (or `<quest>/<todo>` pairs) that block this one.
   List<String> blockedBy;
 
+  /// The reverse of [blockedBy]: the live todos whose `blocked_by` names this
+  /// one — a bare id in the same quest, `<quest>/<todo>` from another. Derived:
+  /// the VS Code extension's writers keep it in step after every write, and
+  /// `validate_todo_corpus.py` reports a pair that does not match. A writer
+  /// using this model that changes [blockedBy] leaves the other end to them.
+  List<String> blocking;
+
   /// Publish conditions that block this one, each `<package> >= <x.y.z>`
   /// — the form `_bin/check_todo_blocks.py` reads.
   List<String> blockedUntil;
@@ -144,6 +151,7 @@ class TomTodo {
     List<TomTodoReference> references = const [],
     List<String> dependencies = const [],
     List<String> blockedBy = const [],
+    List<String> blocking = const [],
     List<String> blockedUntil = const [],
     this.notes,
     DateTime? created,
@@ -165,6 +173,7 @@ class TomTodo {
        references = List.of(references),
        dependencies = List.of(dependencies),
        blockedBy = List.of(blockedBy),
+       blocking = List.of(blocking),
        blockedUntil = List.of(blockedUntil),
        _due = _canonicalDue(due),
        _created = _canonicalDue(created),
@@ -256,6 +265,7 @@ class TomTodo {
     references: references,
     dependencies: dependencies,
     blockedBy: blockedBy,
+    blocking: blocking,
     blockedUntil: blockedUntil,
     notes: notes,
     created: _created,
@@ -356,6 +366,7 @@ class TomTodo {
       'references': [for (final r in references) r.toMap()],
     if (dependencies.isNotEmpty) 'dependencies': List.of(dependencies),
     if (blockedBy.isNotEmpty) 'blocked_by': List.of(blockedBy),
+    if (blocking.isNotEmpty) 'blocking': List.of(blocking),
     if (blockedUntil.isNotEmpty) 'blocked_until': List.of(blockedUntil),
     if (userAction) 'user_action': true,
     if (notes != null) 'notes': notes,
@@ -392,6 +403,7 @@ class TomTodo {
     'references',
     'dependencies',
     'blocked_by',
+    'blocking',
     'blocked_until',
     'user_action',
     'notes',
@@ -458,6 +470,7 @@ class TomTodo {
       ],
       dependencies: _strings(map['dependencies']),
       blockedBy: _strings(map['blocked_by']),
+      blocking: _strings(map['blocking']),
       blockedUntil: _strings(map['blocked_until']),
       notes: map['notes'] as String?,
       created: _date(map, 'created'),

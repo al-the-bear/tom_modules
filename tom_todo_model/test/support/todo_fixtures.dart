@@ -82,6 +82,7 @@ const String todoSchema = '''
         "references": {"type": ["array", "null"]},
         "dependencies": {"type": ["array", "null"]},
         "blocked_by": {"type": ["array", "null"]},
+        "blocking": {"type": ["array", "null"]},
         "blocked_until": {"type": ["array", "null"]},
         "decisions": {"type": ["array", "null"]}
       },

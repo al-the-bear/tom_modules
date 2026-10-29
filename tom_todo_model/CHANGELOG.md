@@ -1,3 +1,16 @@
+## 1.2.0
+
+- `TomTodo.blocking` — the schema's new `blocking` field, the reverse of
+  `blocked_by`: the live todos whose `blocked_by` names this one (a bare id in
+  the same quest, `<quest>/<todo>` from another), so the relation can be read
+  from either end. It is derived: the VS Code extension's todo writers keep it
+  in step after every write and `validate_todo_corpus.py` reports a pair that
+  does not match. This model reads and writes it as it stands; a writer on it
+  that changes `blocked_by` leaves `blocking` to the extension's sync. An older
+  reader (1.1.x and earlier) refuses a todo carrying the field as an unknown
+  key and reports it, leaving the rest of its file readable: upgrade every
+  package that reads todo files.
+
 ## 1.1.0
 
 - `TomTodo.userAction` — the schema's new `user_action` field: the todo is the

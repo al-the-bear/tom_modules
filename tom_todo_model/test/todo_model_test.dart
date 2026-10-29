@@ -41,6 +41,7 @@ TomTodo everyField() => TomTodo(
   ],
   dependencies: ['budget'],
   blockedBy: ['legal-review', 'other_quest/its-todo'],
+  blocking: ['launch-party', 'other_quest/press'],
   blockedUntil: ['tom_basics >= 1.2.0'],
   userAction: true,
   notes: 'Ask Ada first.',
@@ -61,9 +62,9 @@ TomTodo everyField() => TomTodo(
 
 void main() {
   group('WONETESTA5-A the codec', () {
-    test('WONETESTA5-01: the closed field set is the schema\'s 29 fields, '
+    test('WONETESTA5-01: the closed field set is the schema\'s 30 fields, '
         'emitted in the schema\'s order [1011]', () {
-      expect(TomTodo.fields, hasLength(29));
+      expect(TomTodo.fields, hasLength(30));
       expect(everyField().toMap().keys.toList(), [
         'id',
         'title',
@@ -78,6 +79,7 @@ void main() {
         'references',
         'dependencies',
         'blocked_by',
+        'blocking',
         'blocked_until',
         'user_action',
         'notes',
@@ -108,6 +110,7 @@ void main() {
       expect(read.bundleId, 'launch');
       expect(read.feedbackSource, 'retro-2026-10');
       expect(read.userAction, isTrue);
+      expect(read.blocking, ['launch-party', 'other_quest/press']);
     });
 
     test('TODOMODEL-U1: user_action is written only when true, and only a '
