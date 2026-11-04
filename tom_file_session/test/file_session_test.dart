@@ -76,6 +76,27 @@ void main() {
       });
       tearDown(() => s.close());
 
+      test('SESSION-20: endGesture ends a typing burst; adoptText is saved, '
+          'clears the history, and the next save still checks the disk',
+          () async {
+        final session = await open('q/todos.yaml');
+        final base = session.text;
+        session.edit('${base}a', 'Typing', group: 'typing');
+        session.endGesture();
+        session.edit('${base}ab', 'Typing', group: 'typing');
+        expect(session.history, hasLength(2), reason: 'two gestures');
+
+        await s.writeBehind('q/todos.yaml', utf8.encode('restored\n'));
+        session.adoptText('restored\n');
+        expect(session.text, 'restored\n');
+        expect(session.dirty, isFalse);
+        expect(session.canUndo, isFalse);
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+        session.edit('restored, edited\n', 'Typing');
+        expect(await session.save(), ForgeFileSaveOutcome.saved);
+        expect(await onDisk('q/todos.yaml'), 'restored, edited\n');
+      });
+
       test('SESSION-1: opening never writes, and an edit saves only its '
           'text', () async {
         final before = (await s.fs.stat(s.fs.uriOf('q/todos.yaml')))!;

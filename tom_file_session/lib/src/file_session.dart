@@ -7,6 +7,8 @@
 /// are one implementation rather than one per kind of file.
 library;
 
+import 'dart:async';
+
 import 'package:tom_basics/utilities.dart';
 
 import 'package:tom_file_system/tom_file_system.dart';
@@ -300,6 +302,41 @@ class ForgeFileSession {
 
   String? _lastGroup;
   DateTime? _lastEditAt;
+
+  /// The typing gesture in progress ends: the next edit starts a new history
+  /// entry even within [forgeFileTypingPause] — the caret moved, the editor
+  /// lost focus.
+  void endGesture() => _lastGroup = null;
+
+  /// Content arrived from outside the session's history — a revision
+  /// restore, a reload the host made: the text becomes [text], it is the
+  /// saved state, and the history and any pending external change are
+  /// cleared. The revision is learned from the file when the file holds
+  /// [text], so the next save still checks the disk.
+  void adoptText(String text) {
+    _lastGroup = null;
+    _text = text;
+    _saved = text;
+    _history.clear();
+    _external = null;
+    _deletedOnDisk = false;
+    if (_state == ForgeFileSessionState.loading) {
+      _state = ForgeFileSessionState.ready;
+    }
+    _notifyListeners();
+    unawaited(_learnRevision(text));
+  }
+
+  Future<void> _learnRevision(String text) async {
+    try {
+      final content = await fileSystem.read(uri);
+      if (tomDecodeTextBytes(content.bytes).text == text) {
+        _revision = content.revision;
+      }
+    } on Object {
+      // Not on disk (yet): the next save writes it.
+    }
+  }
 
   /// The smallest single replacement turning [a] into [b].
   static (int, String, String) _diff(String a, String b) {

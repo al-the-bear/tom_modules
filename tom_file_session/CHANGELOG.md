@@ -1,3 +1,11 @@
+## 1.1.0
+
+- `ForgeFileSession.endGesture`: the typing burst in progress ends (the
+  caret moved, the editor lost focus), so the next edit starts a new entry.
+- `ForgeFileSession.adoptText`: content from outside the session's history
+  (a revision restore) becomes the saved text and clears the history; the
+  revision is learned from the file when it holds that text.
+
 ## 1.0.0
 
 The package was `tom_forge_files` in the `tom_forge` repository; it is now
