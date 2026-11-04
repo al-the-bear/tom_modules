@@ -1,3 +1,9 @@
+## 1.2.0
+
+- `ForgeFileSession.historyDepth`: the number of entries the history keeps,
+  settable by a host that follows its editor's undo-depth setting; lowering
+  it drops the oldest entries at once.
+
 ## 1.1.0
 
 - `ForgeFileSession.endGesture`: the typing burst in progress ends (the

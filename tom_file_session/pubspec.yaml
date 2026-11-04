@@ -4,7 +4,7 @@ description: >-
   contract: the per-file editing session that keeps encoding, line endings and
   every untouched byte, the tree filter with its presets, and the `.env`
   codec.
-version: 1.1.0
+version: 1.2.0
 repository: https://github.com/al-the-bear/tom_modules
 
 environment:

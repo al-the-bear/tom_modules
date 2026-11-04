@@ -200,6 +200,15 @@ class ForgeFileSession {
   /// the file is invalid unless the user insists.
   Future<bool> Function()? beforeSave;
 
+  /// How many entries the history keeps ([forgeFileHistoryDepth] until a
+  /// host sets its own); lowering it drops the oldest at once.
+  int get historyDepth => _history.maxEntries;
+  set historyDepth(int value) {
+    if (value == _history.maxEntries) return;
+    _history.maxEntries = value;
+    _notifyListeners();
+  }
+
   bool get canUndo => _history.canUndo;
   bool get canRedo => _history.canRedo;
 

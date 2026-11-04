@@ -97,6 +97,22 @@ void main() {
         expect(await onDisk('q/todos.yaml'), 'restored, edited\n');
       });
 
+      test('SESSION-21: historyDepth bounds the history and drops the '
+          'oldest at once', () async {
+        final session = await open('q/todos.yaml');
+        final base = session.text;
+        expect(session.historyDepth, forgeFileHistoryDepth);
+        for (final x in ['a', 'b', 'c']) {
+          session.endGesture();
+          session.edit('$base$x', 'Typing', group: 'typing');
+        }
+        session.historyDepth = 1;
+        expect(session.history, hasLength(1));
+        await session.undo();
+        expect(session.canUndo, isFalse);
+        expect(session.text, '${base}b');
+      });
+
       test('SESSION-1: opening never writes, and an edit saves only its '
           'text', () async {
         final before = (await s.fs.stat(s.fs.uriOf('q/todos.yaml')))!;

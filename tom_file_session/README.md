@@ -36,7 +36,9 @@ One file, read once and edited in memory, shared by every view of it:
   (`external`) for *keep mine*, *take theirs* or a merged save
   (`saveMerged`). A file deleted on disk is marked; a save recreates it.
 - **History.** Undo and redo of its own, one entry per edit or per typing
-  burst (`group`), at most a thousand. An act that already wrote to disk —
+  burst (`group`; `endGesture` ends a burst), at most a thousand unless the
+  host sets `historyDepth`. `adoptText` takes content from outside the
+  history (a revision restore) as the saved text and clears the history. An act that already wrote to disk —
   moving a todo between files, say — joins it as a `ForgeFileDiskAct`.
 - **Limits.** Larger than 2 MiB opens read-only; larger than 50 MiB, binary,
   or unreadable does not open, and says why. What counts as binary is the
