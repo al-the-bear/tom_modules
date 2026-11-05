@@ -50,6 +50,7 @@ TomTodo everyField() => TomTodo(
   completedDate: DateTime.utc(2026, 10, 12),
   author: 'alexis',
   completedBy: 'ada',
+  lastAnswer: 'Done: the venue is booked.',
   archived: DateTime.utc(2026, 10, 13),
   deleted: DateTime.utc(2026, 10, 14),
   executionRole: 'implementer',
@@ -62,9 +63,9 @@ TomTodo everyField() => TomTodo(
 
 void main() {
   group('WONETESTA5-A the codec', () {
-    test('WONETESTA5-01: the closed field set is the schema\'s 30 fields, '
+    test('WONETESTA5-01: the closed field set is the schema\'s 31 fields, '
         'emitted in the schema\'s order [1011]', () {
-      expect(TomTodo.fields, hasLength(30));
+      expect(TomTodo.fields, hasLength(31));
       expect(everyField().toMap().keys.toList(), [
         'id',
         'title',
@@ -88,6 +89,7 @@ void main() {
         'completed_date',
         'author',
         'completed_by',
+        'last_answer',
         'archived',
         'deleted',
         'execution_role',
@@ -111,6 +113,19 @@ void main() {
       expect(read.feedbackSource, 'retro-2026-10');
       expect(read.userAction, isTrue);
       expect(read.blocking, ['launch-party', 'other_quest/press']);
+      expect(read.lastAnswer, 'Done: the venue is booked.');
+    });
+
+    test('TODOMODEL-LA1: last_answer is written only when set, and a string '
+        'reads back [1105]', () {
+      final plain = TomTodo(id: 'a', title: 'A', status: TomTodoStatus.completed);
+      expect(plain.lastAnswer, isNull);
+      expect(plain.toMap().containsKey('last_answer'), isFalse);
+      final answered = plain.copy()..lastAnswer = '# Done\n\nAll green.';
+      expect(answered.toMap()['last_answer'], '# Done\n\nAll green.');
+      expect(TomTodo.fromMap(answered.toMap()).lastAnswer, '# Done\n\nAll green.');
+      expect(answered.copy().lastAnswer, '# Done\n\nAll green.', reason: 'copy() carries it');
+      expect(() => TomTodo.fromMap({...plain.toMap(), 'last_answer': 42}), throwsA(anything));
     });
 
     test('TODOMODEL-U1: user_action is written only when true, and only a '

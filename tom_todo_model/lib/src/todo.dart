@@ -110,6 +110,12 @@ class TomTodo {
   String? author;
   String? completedBy;
 
+  /// The final answer of the queue run that executed the todo (the last one:
+  /// a second run replaces it), so the result can be read from the todo.
+  /// Written by the prompt queue when a walked todo is completed; removed when
+  /// the todo is archived. Markdown.
+  String? lastAnswer;
+
   /// The role that carries the todo out, and the one that checks it.
   String? executionRole;
   String? qaRole;
@@ -159,6 +165,7 @@ class TomTodo {
     DateTime? completedDate,
     this.author,
     this.completedBy,
+    this.lastAnswer,
     DateTime? archived,
     DateTime? deleted,
     this.executionRole,
@@ -273,6 +280,7 @@ class TomTodo {
     completedDate: _completedDate,
     author: author,
     completedBy: completedBy,
+    lastAnswer: lastAnswer,
     archived: _archived,
     deleted: _deleted,
     executionRole: executionRole,
@@ -375,6 +383,7 @@ class TomTodo {
     if (_completedDate != null) 'completed_date': encodeDate(_completedDate!),
     if (author != null) 'author': author,
     if (completedBy != null) 'completed_by': completedBy,
+    if (lastAnswer != null) 'last_answer': lastAnswer,
     if (_archived != null) 'archived': encodeDate(_archived!),
     if (_deleted != null) 'deleted': encodeDate(_deleted!),
     if (executionRole != null) 'execution_role': executionRole,
@@ -412,6 +421,7 @@ class TomTodo {
     'completed_date',
     'author',
     'completed_by',
+    'last_answer',
     'archived',
     'deleted',
     'execution_role',
@@ -478,6 +488,7 @@ class TomTodo {
       completedDate: _date(map, 'completed_date'),
       author: map['author'] as String?,
       completedBy: map['completed_by'] as String?,
+      lastAnswer: map['last_answer'] as String?,
       archived: _date(map, 'archived'),
       deleted: _date(map, 'deleted'),
       executionRole: map['execution_role'] as String?,

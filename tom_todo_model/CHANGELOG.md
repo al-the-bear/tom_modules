@@ -1,3 +1,14 @@
+## 1.3.0
+
+- `TomTodo.lastAnswer` — the schema's new `last_answer` field: the final
+  answer (Markdown) of the prompt-queue run that executed and completed the
+  todo, so the result can be read from the todo. Only the last run's answer is
+  kept; the VS Code extension writes it when a `<prefix>*` walk's todo is
+  completed and removes it when the todo is archived. Written only when set. An
+  older reader (1.2.x and earlier) refuses a todo carrying the field as an
+  unknown key and reports it, leaving the rest of its file readable: upgrade
+  every package that reads todo files.
+
 ## 1.2.0
 
 - `TomTodo.blocking` — the schema's new `blocking` field, the reverse of
