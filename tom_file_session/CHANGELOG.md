@@ -1,3 +1,9 @@
+## 1.2.1
+
+- Takes `tom_todo_model` ^1.3.0: a reader of todo files takes the model's
+  newest fields (`user_action`, `blocking`, `last_answer`), so a fresh
+  resolution never picks a model that reports them as unknown keys.
+
 ## 1.2.0
 
 - `ForgeFileSession.historyDepth`: the number of entries the history keeps,
