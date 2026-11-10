@@ -6,9 +6,15 @@
 /// or a priority is written with the wire names below and no others.
 library;
 
+import 'todo_repeat.dart';
+
 /// Todo lifecycle state. Wire names match the workspace `todo.schema.json`
-/// enum exactly, in both directions: the six values here are the six the
+/// enum exactly, in both directions: the seven values here are the seven the
 /// schema lists, which `_bin/check_todo_model.py` in the workspace holds.
+///
+/// [waitingForRepeat] is a repeated todo that was done and waits for its next
+/// repetition ([TomTodo.repeat], [TomTodo.nextRepeat]); like [decisionNeeded]
+/// it is an open status, not in the done group.
 ///
 /// [decisionNeeded] is the workspace's: a todo with an open question the user
 /// has to answer before work can start. It is an **open** status (not in the
@@ -18,6 +24,7 @@ enum TomTodoStatus {
   inProgress('in-progress'),
   blocked('blocked'),
   decisionNeeded('decision-needed'),
+  waitingForRepeat('waiting-for-repeat'),
   completed('completed'),
   cancelled('cancelled');
 
@@ -136,6 +143,16 @@ class TomTodo {
   /// absent when false.
   bool userAction;
 
+  /// The rule a repeated todo comes back by; null for a todo done once.
+  TomTodoRepeat? repeat;
+
+  /// When a `waiting-for-repeat` todo is due again: `yyyy-MM-ddTHH:MM` with
+  /// `Z` or an offset, kept verbatim. Absent for a manual rule.
+  String? nextRepeat;
+
+  /// How many times the todo has been done and repeated.
+  int? repeatCount;
+
   DateTime? _due;
   DateTime? _created;
   DateTime? _updated;
@@ -175,6 +192,9 @@ class TomTodo {
     this.derivedFrom,
     this.feedbackSource,
     this.userAction = false,
+    this.repeat,
+    this.nextRepeat,
+    this.repeatCount,
   }) : tags = List.of(tags),
        decisions = [for (final d in decisions) d.copy()],
        references = List.of(references),
@@ -192,7 +212,16 @@ class TomTodo {
     for (final condition in this.blockedUntil) {
       checkBlockedUntil(condition);
     }
+    if (nextRepeat != null && !TomTodoRepeat.nextRepeatRe.hasMatch(nextRepeat!)) {
+      throw FormatException('Todo "next_repeat" must read yyyy-MM-ddTHH:MM with Z or an offset: "$nextRepeat"');
+    }
+    if (repeatCount != null && repeatCount! < 0) {
+      throw FormatException('Todo "repeat_count" must be 0 or more: $repeatCount');
+    }
   }
+
+  /// True for a todo with a repeat rule.
+  bool get isRepeated => repeat != null;
 
   /// Due date, always UTC midnight.
   DateTime? get due => _due;
@@ -290,6 +319,9 @@ class TomTodo {
     derivedFrom: derivedFrom,
     feedbackSource: feedbackSource,
     userAction: userAction,
+    repeat: repeat?.copy(),
+    nextRepeat: nextRepeat,
+    repeatCount: repeatCount,
   );
 
   /// The calendar day [value] names, held as UTC midnight of that day.
@@ -377,6 +409,9 @@ class TomTodo {
     if (blocking.isNotEmpty) 'blocking': List.of(blocking),
     if (blockedUntil.isNotEmpty) 'blocked_until': List.of(blockedUntil),
     if (userAction) 'user_action': true,
+    if (repeat != null) 'repeat': repeat!.toMap(),
+    if (nextRepeat != null) 'next_repeat': nextRepeat,
+    if (repeatCount != null) 'repeat_count': repeatCount,
     if (notes != null) 'notes': notes,
     if (_created != null) 'created': encodeDate(_created!),
     if (_updated != null) 'updated': encodeDate(_updated!),
@@ -415,6 +450,9 @@ class TomTodo {
     'blocking',
     'blocked_until',
     'user_action',
+    'repeat',
+    'next_repeat',
+    'repeat_count',
     'notes',
     'created',
     'updated',
@@ -498,6 +536,11 @@ class TomTodo {
       derivedFrom: map['derived_from'] as String?,
       feedbackSource: map['feedback_source'] as String?,
       userAction: _userAction(map['user_action']),
+      repeat: map['repeat'] == null ? null : TomTodoRepeat.fromMap(map['repeat'] as Map),
+      nextRepeat: map['next_repeat']?.toString(),
+      repeatCount: map['repeat_count'] == null ? null : (map['repeat_count'] is int
+          ? map['repeat_count'] as int
+          : throw FormatException('Todo "repeat_count" must be a whole number, not "${map['repeat_count']}"')),
     );
   }
 

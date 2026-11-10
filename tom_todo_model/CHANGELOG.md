@@ -1,3 +1,21 @@
+## 2.0.0
+
+- Repeated todos. `TomTodoStatus.waitingForRepeat` (`waiting-for-repeat`): a
+  repeated todo that was done and waits for its next repetition — an open
+  status, not in the done group. `TomTodo.repeat` (`TomTodoRepeat`, the
+  schema's `repeat` map: `rule` manual / after / daily / weekly / monthly /
+  yearly, `every`, `unit`, `weekdays`, `day` (1–31 or `last`), `nth` (1–5 or
+  `last`) with `weekday`, `working_day` (first / last), `month`, `time`,
+  `until`, `count`; validated on read and construction), `TomTodo.nextRepeat`
+  (`next_repeat`, the moment it is due again, `yyyy-MM-ddTHH:MM` with `Z` or an
+  offset, kept verbatim) and `TomTodo.repeatCount` (`repeat_count`). The model
+  holds the rule; computing the next moment is the VS Code extension's
+  repeated-todo controller.
+- Breaking: the new enum value fails an exhaustive `switch` over
+  `TomTodoStatus` until it gains a case, and a 1.x reader refuses a todo with
+  the new status or fields (an unknown value / key). Upgrade every package that
+  reads todo files.
+
 ## 1.3.0
 
 - `TomTodo.lastAnswer` — the schema's new `last_answer` field: the final

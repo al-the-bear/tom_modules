@@ -5,9 +5,9 @@ files.
 
 - **`TomTodo`** — one todo with the workspace todo schema's field set: `id`,
   `title`, `description`, `status` (`not-started`, `in-progress`, `blocked`,
-  `decision-needed`, `completed`, `cancelled`), `priority`, `due`, `estimate`,
+  `decision-needed`, `waiting-for-repeat`, `completed`, `cancelled`), `priority`, `due`, `estimate`,
   `tags`, `scope`, `decisions`, `references`, `dependencies`, `blocked_by`,
-  `blocking` (its reverse: the todos this one blocks), `blocked_until`, `user_action` (the todo is the user's to do), `notes`, `last_answer` (the final answer of the queue run that completed the todo), the dates (`created`, `updated`, `completed_date`,
+  `blocking` (its reverse: the todos this one blocks), `blocked_until`, `user_action` (the todo is the user's to do), `repeat` (a repeated todo's rule, `TomTodoRepeat`), `next_repeat` and `repeat_count`, `notes`, `last_answer` (the final answer of the queue run that completed the todo), the dates (`created`, `updated`, `completed_date`,
   `archived`, `deleted`, always `YYYY-MM-DD` — a `DateTime` stands for the
   calendar day its own fields name, local or UTC) and the orchestration fields
   (`execution_role`, `qa_role`, `orchestration_role`, `bundle_id`,

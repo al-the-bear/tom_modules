@@ -5,7 +5,7 @@ library;
 import 'package:test/test.dart';
 import 'package:tom_todo_model/tom_todo_model.dart';
 
-/// An item carrying every one of the schema's 29 fields.
+/// An item carrying every one of the schema's 34 fields.
 TomTodo everyField() => TomTodo(
   id: 'launch-plan',
   title: 'Plan the launch',
@@ -44,6 +44,9 @@ TomTodo everyField() => TomTodo(
   blocking: ['launch-party', 'other_quest/press'],
   blockedUntil: ['tom_basics >= 1.2.0'],
   userAction: true,
+  repeat: TomTodoRepeat(rule: TomTodoRepeatRule.monthly, nth: -1, weekday: 'fri', time: '10:00'),
+  nextRepeat: '2026-11-27T10:00+01:00',
+  repeatCount: 2,
   notes: 'Ask Ada first.',
   created: DateTime.utc(2026, 10, 1),
   updated: DateTime.utc(2026, 10, 11),
@@ -63,9 +66,9 @@ TomTodo everyField() => TomTodo(
 
 void main() {
   group('WONETESTA5-A the codec', () {
-    test('WONETESTA5-01: the closed field set is the schema\'s 31 fields, '
+    test('WONETESTA5-01: the closed field set is the schema\'s 34 fields, '
         'emitted in the schema\'s order [1011]', () {
-      expect(TomTodo.fields, hasLength(31));
+      expect(TomTodo.fields, hasLength(34));
       expect(everyField().toMap().keys.toList(), [
         'id',
         'title',
@@ -83,6 +86,9 @@ void main() {
         'blocking',
         'blocked_until',
         'user_action',
+        'repeat',
+        'next_repeat',
+        'repeat_count',
         'notes',
         'created',
         'updated',

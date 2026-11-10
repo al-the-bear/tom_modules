@@ -17,3 +17,4 @@ export 'src/todo_file.dart';
 export 'src/todo_file_name.dart';
 export 'src/todo_ids.dart';
 export 'src/todo_relocation.dart';
+export 'src/todo_repeat.dart';
