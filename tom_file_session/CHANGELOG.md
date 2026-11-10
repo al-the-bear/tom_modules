@@ -1,3 +1,10 @@
+## 1.3.0
+
+- Takes `tom_todo_model` ^2.0.0 (repeated todos). This package only names
+  todo files (`TomTodoFileName` for the `todoSiblings` filter rule), but with
+  ^1.x it kept every package that depends on it and on the 2.x model from
+  resolving.
+
 ## 1.2.1
 
 - Takes `tom_todo_model` ^1.3.0: a reader of todo files takes the model's
