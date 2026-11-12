@@ -21,8 +21,11 @@ files.
   An item the model refuses is listed with its reason and is never rewritten.
 - **File names, ids, relocation, decisions** — `TomTodoFileName` (a todo
   file's `-archived` and `-deleted` siblings), the date-coded ids
-  (`<base>_<date code>-<what>`), moving a todo between files, and the
-  decisions journal an archived todo's decisions are copied into.
+  (`<base>_<date code>-<what>`), the id rule (`tomTodoIdPattern`,
+  `tomIsTodoId`) and an id's group and number (`tomTodoGroupOf`: a leading
+  number names the group and sorts it, `001_cleanup1` is todo 1 of
+  `001_cleanup`), moving a todo between files, and the decisions journal an
+  archived todo's decisions are copied into.
 
 The package reaches no `dart:io` and no Flutter: it works on the text of a
 file, and reading and writing the file is the application's. A browser build
