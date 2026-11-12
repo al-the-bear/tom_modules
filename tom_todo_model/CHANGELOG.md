@@ -1,3 +1,16 @@
+## 2.1.0
+
+- Todo groups may start with a number (`001_cleanup1_akki-x`). `tomTodoGroupOf`
+  answers a todo id's group and number: a leading number is part of the
+  group's name and only sorts the groups (`001_cleanup`, number 1); after it,
+  the prefix runs to the first digit, and that digit run is the number
+  (`ccparity_b_panels-7_akds-x` → `ccparity_b_panels-`, 7; `csm2r1` → `csm`,
+  2), so every id that starts with a letter keeps its group and number. An id
+  without a number after its prefix is in no group (prefix `''`).
+- `tomTodoIdPattern` / `tomIsTodoId`: the id rule, now allowing a leading
+  digit (at least one letter somewhere). It is the workspace todo schema's
+  `id.pattern`, held equal by `_bin/check_todo_model.py`.
+
 ## 2.0.0
 
 - Repeated todos. `TomTodoStatus.waitingForRepeat` (`waiting-for-repeat`): a

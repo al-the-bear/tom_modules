@@ -101,3 +101,34 @@ String tomNextTodoBase(String previousId, Iterable<String> existing) {
   }
   return '$series${highest + 1}';
 }
+
+/// The pattern every todo id matches: lower case letters, digits, `_` and
+/// `-` (and the five day-code letters `äñößü`), starting with a letter or a
+/// digit, with at least one letter. The workspace todo schema's `id.pattern`
+/// is this text; `_bin/check_todo_model.py` holds the two equal.
+const String tomTodoIdPattern =
+    r'^(?=.*[a-zäñößü])[a-z0-9][a-z0-9_äñößü-]*$';
+
+final RegExp _todoId = RegExp(tomTodoIdPattern);
+
+/// Whether [id] is a valid todo id ([tomTodoIdPattern]).
+bool tomIsTodoId(String id) => _todoId.hasMatch(id);
+
+/// The group a todo id belongs to and its number in it.
+///
+/// A leading number is part of the group's name and only sorts the groups:
+/// `001_cleanup1_akki-x` is in group `001_cleanup`. After it, the prefix runs
+/// up to the first digit, and that digit run is the todo's number:
+/// `ccparity_b_panels-7_akds-x` is todo 7 of `ccparity_b_panels-`, `csm2r1`
+/// todo 2 of `csm`. An id without a number after its prefix (`aaa_cleanup`,
+/// `001_cleanup`) is in no group: prefix `''`, number null.
+({String prefix, int? number}) tomTodoGroupOf(String id) {
+  final lead = RegExp(r'^[0-9]*').firstMatch(id)!.group(0)!;
+  final rest = id.substring(lead.length);
+  final name = RegExp(r'^[^0-9]*').firstMatch(rest)!.group(0)!;
+  // A leading number names the group only together with what follows it.
+  if (lead.isNotEmpty && name.isEmpty) return (prefix: '', number: null);
+  final digits = RegExp(r'^[0-9]+').firstMatch(rest.substring(name.length));
+  if (digits == null) return (prefix: '', number: null);
+  return (prefix: lead + name, number: int.parse(digits.group(0)!));
+}
