@@ -1,0 +1,30 @@
+name: tom_ai_trail_ui
+description: >-
+  The live trails of AI sessions over tom_llm: a tab per session, thinking,
+  answers rendered as Markdown, tool calls with their results and a per-run
+  summary, as a panel, a status-line chip or a phone sheet. License:
+  BSD-3-Clause.
+version: 0.1.0
+repository: https://github.com/al-the-bear/tom_modules
+
+environment:
+  sdk: ^3.10.8
+
+dependencies:
+  flutter:
+    sdk: flutter
+  tom_file_editors:
+    path: ../tom_file_editors
+  # The AI sessions and trails the view shows.
+  tom_llm:
+    path: ../../basics/tom_llm
+  tom_ui_support:
+    path: ../tom_ui_support
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

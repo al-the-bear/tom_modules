@@ -1,0 +1,28 @@
+name: tom_sync_ui
+description: >-
+  Showing synchronisation to a person: the sync status as one line, a tooltip
+  and the action it asks for, the status-line indicator, and a three-way merge
+  view over any application's conflicts. License: BSD-3-Clause.
+version: 0.1.0
+repository: https://github.com/al-the-bear/tom_modules
+
+environment:
+  sdk: ^3.10.8
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # The key material, secret store port and storage outcomes.
+  tom_core_storage:
+    path: ../../core/tom_core_storage
+  # The sync states and status the indicator presents.
+  tom_core_sync:
+    path: ../../core_extension/tom_core_sync
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

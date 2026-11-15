@@ -12,9 +12,23 @@ applications use the same model, so it lives here once.
 | [`tom_formula`](tom_formula/) | A spreadsheet formula engine: the grammar and printer, the function library, dependency-tracked recalculation, lowering to Dart, and the backend port, with a conformance corpus in `testing.dart`. |
 | [`tom_file_session`](tom_file_session/) | The editing session of one file over `tom_file_system` (encoding, byte preservation, explicit save, external changes, undo), the file-tree filter with its presets, and the `.env` codec. |
 
-Each package has its own README and changelog. `tom_todo_model` is published
-on pub.dev; the others are consumed by path inside the workspace until they are
-published.
+The Tom UI modules — Flutter widgets and host capabilities that several Tom
+applications share, each package one purpose:
+
+| Package | What it is |
+| --- | --- |
+| [`tom_ui_support`](tom_ui_support/) | Colours kept readable (WCAG AA), the editing-surface marker, the notice queue, running a change after the frame. |
+| [`tom_ui_testing`](tom_ui_testing/) | Test support: the golden harness (real fonts, content, contrast and machine-path checks) and `tester.pumpUntil`. |
+| [`tom_host_ui`](tom_host_ui/) | Copy with formatting, the protected-value clipboard binding, printing HTML through the platform's dialog; desktop and browser. |
+| [`tom_credentials_ui`](tom_credentials_ui/) | Key and token prompts, the sign-in item, the platform keychain as a secret store. |
+| [`tom_sync_ui`](tom_sync_ui/) | The sync status and its indicator, the three-way merge view. |
+| [`tom_calendar_ui`](tom_calendar_ui/) | Date, time and repeat fields over `tom_calendar_model`, the appointment editor. |
+| [`tom_file_editors`](tom_file_editors/) | Byte-preserving file editors over `tom_file_session` (text, `.env`, YAML and Markdown highlighting), the schema cache, the Markdown renderer. |
+| [`tom_todo_ui`](tom_todo_ui/) | The todo row, badges and details editor, and the `*.todo.yaml` file editor. |
+| [`tom_ai_trail_ui`](tom_ai_trail_ui/) | The live trails of AI sessions over `tom_llm`, as a panel, a chip or a phone sheet. |
+
+Each package has its own README and changelog, and each is published on
+pub.dev; inside the workspace they are taken by path.
 
 ## License
 

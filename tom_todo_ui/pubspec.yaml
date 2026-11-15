@@ -1,0 +1,38 @@
+name: tom_todo_ui
+description: >-
+  Todo widgets over tom_todo_model: the todo row, its badges and the details
+  editor, and the editor of a *.todo.yaml file with validation, archive and
+  delete, and the aggregate over a folder's todo files. License: BSD-3-Clause.
+version: 0.1.0
+repository: https://github.com/al-the-bear/tom_modules
+
+environment:
+  sdk: ^3.10.8
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # Path arithmetic.
+  path: ^1.9.0
+  # The protected-clipboard port and the shared utilities.
+  tom_basics: ">=3.3.0"
+  tom_file_editors:
+    path: ../tom_file_editors
+  # The editing session every file editor edits one file through.
+  tom_file_session:
+    path: ../tom_file_session
+  # The file tree the aggregate walks and a relocation writes through.
+  tom_file_system:
+    path: ../../basics/tom_file_system
+  # The shared todo model and the *.todo.yaml codec.
+  tom_todo_model: ^2.2.0
+  tom_ui_support:
+    path: ../tom_ui_support
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

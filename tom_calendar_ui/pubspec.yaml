@@ -1,0 +1,26 @@
+name: tom_calendar_ui
+description: >-
+  Calendar editing widgets over tom_calendar_model: date and time fields that
+  read and write UTC storage in the time frame the host gives, the repeat
+  control for the recurrence subset, and the appointment editor. License:
+  BSD-3-Clause.
+version: 0.1.0
+repository: https://github.com/al-the-bear/tom_modules
+
+environment:
+  sdk: ^3.10.8
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # The recurrence rule, time frame and clock the fields edit.
+  tom_calendar_model:
+    path: ../tom_calendar_model
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

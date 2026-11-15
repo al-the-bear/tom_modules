@@ -1,0 +1,28 @@
+name: tom_credentials_ui
+description: >-
+  Asking for keys and access tokens the same way everywhere: the key fields
+  and key prompt, the token dialog and the flow that asks when a backend needs
+  a token, the status-line sign-in, and the platform keychain as a secret
+  store. License: BSD-3-Clause.
+version: 0.1.0
+repository: https://github.com/al-the-bear/tom_modules
+
+environment:
+  sdk: ^3.10.8
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # The platform keychain behind TomPlatformSecretStore (desktop.dart).
+  flutter_secure_storage: ^10.0.0
+  # The key material, secret store port and storage outcomes.
+  tom_core_storage:
+    path: ../../core/tom_core_storage
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

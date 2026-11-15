@@ -1,0 +1,30 @@
+name: tom_host_ui
+description: >-
+  Host capabilities of a Flutter application on desktop and in the browser:
+  copy with formatting (HTML and plain text placed together), the
+  protected-value clipboard binding that clears a copied secret, and printing
+  a self-contained HTML document through the platform's own print dialog.
+  License: BSD-3-Clause.
+version: 0.1.0
+repository: https://github.com/al-the-bear/tom_modules
+
+environment:
+  sdk: ^3.10.8
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # The protected-clipboard port and the shared utilities.
+  tom_basics: ">=3.3.0"
+  # The browser halves (web.dart).
+  web: ^1.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  tom_test_support:
+    path: ../../basics/tom_test_support
+
+flutter:
+  uses-material-design: true
