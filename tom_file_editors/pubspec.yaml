@@ -22,7 +22,7 @@ dependencies:
   # Path arithmetic.
   path: ^1.9.0
   # The protected-clipboard port and the shared utilities.
-  tom_basics: ">=3.3.0"
+  tom_basics: ^3.3.0
   # The editing session every file editor edits one file through.
   tom_file_session:
     path: ../tom_file_session

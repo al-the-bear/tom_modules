@@ -15,7 +15,7 @@ dependencies:
   flutter:
     sdk: flutter
   # The protected-clipboard port and the shared utilities.
-  tom_basics: ">=3.3.0"
+  tom_basics: ^3.3.0
   # The browser halves (web.dart).
   web: ^1.1.0
 
