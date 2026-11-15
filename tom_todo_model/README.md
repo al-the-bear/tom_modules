@@ -11,7 +11,10 @@ files.
   `archived`, `deleted`, always `YYYY-MM-DD` — a `DateTime` stands for the
   calendar day its own fields name, local or UTC) and the orchestration fields
   (`execution_role`, `qa_role`, `orchestration_role`, `bundle_id`,
-  `derived_from`, `feedback_source`). `TomTodo.fromMap` is the wire boundary:
+  `derived_from`, `feedback_source`) and the collaboration fields (`on_done`,
+  `TomTodoOnDone`: what happens when the todo is completed; `filed_by`,
+  `TomTodoFiledBy`: who filed it; `resources`, the resources it claims;
+  `claim_hold` / `claim_free`). `TomTodo.fromMap` is the wire boundary:
   it refuses a value the schema does not allow, with the reason.
 - **`TomTodoFile`** — parses a todo file and edits it **as splices into its
   own text**: changing one todo rewrites only the keys that changed, so the

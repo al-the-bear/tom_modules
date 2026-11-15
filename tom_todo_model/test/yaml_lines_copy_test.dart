@@ -8,7 +8,7 @@ import 'package:test/test.dart';
 const _marker = '// ---- tom_basics/lib/src/utilities/yaml_lines.dart below, unchanged ----\n';
 
 void main() {
-  final original = File('../../tom_ai/basics/tom_basics/lib/src/utilities/yaml_lines.dart');
+  final original = File('../../basics/tom_basics/lib/src/utilities/yaml_lines.dart');
   test(
     'TODOMODEL-Y1: the copy of yaml_lines.dart equals tom_basics\' file [1021]',
     () {

@@ -153,6 +153,25 @@ class TomTodo {
   /// How many times the todo has been done and repeated.
   int? repeatCount;
 
+  /// What happens when the todo is completed: the todos to unblock, notify
+  /// about or queue, and where the outcome is reported.
+  TomTodoOnDone? onDone;
+
+  /// Who filed the todo: quest, run, session, todo and time.
+  TomTodoFiledBy? filedBy;
+
+  /// The resources the todo claims. Null: not given (its `scope`, else the
+  /// quest's defaults, says what it claims); an empty list: it claims nothing.
+  List<String>? resources;
+
+  /// The queue holds the todo's claims for its group (`hold: group`).
+  /// Stored as `claim_hold: true`; absent when false.
+  bool claimHold;
+
+  /// Completing the todo releases everything its group holds. Stored as
+  /// `claim_free: true`; absent when false.
+  bool claimFree;
+
   DateTime? _due;
   DateTime? _created;
   DateTime? _updated;
@@ -195,7 +214,13 @@ class TomTodo {
     this.repeat,
     this.nextRepeat,
     this.repeatCount,
+    this.onDone,
+    this.filedBy,
+    List<String>? resources,
+    this.claimHold = false,
+    this.claimFree = false,
   }) : tags = List.of(tags),
+       resources = resources == null ? null : List.of(resources),
        decisions = [for (final d in decisions) d.copy()],
        references = List.of(references),
        dependencies = List.of(dependencies),
@@ -212,12 +237,18 @@ class TomTodo {
     for (final condition in this.blockedUntil) {
       checkBlockedUntil(condition);
     }
-    if (nextRepeat != null && !TomTodoRepeat.nextRepeatRe.hasMatch(nextRepeat!)) {
-      throw FormatException('Todo "next_repeat" must read yyyy-MM-ddTHH:MM with Z or an offset: "$nextRepeat"');
+    if (nextRepeat != null &&
+        !TomTodoRepeat.nextRepeatRe.hasMatch(nextRepeat!)) {
+      throw FormatException(
+        'Todo "next_repeat" must read yyyy-MM-ddTHH:MM with Z or an offset: "$nextRepeat"',
+      );
     }
     if (repeatCount != null && repeatCount! < 0) {
-      throw FormatException('Todo "repeat_count" must be 0 or more: $repeatCount');
+      throw FormatException(
+        'Todo "repeat_count" must be 0 or more: $repeatCount',
+      );
     }
+    filedBy?.check();
   }
 
   /// True for a todo with a repeat rule.
@@ -322,6 +353,11 @@ class TomTodo {
     repeat: repeat?.copy(),
     nextRepeat: nextRepeat,
     repeatCount: repeatCount,
+    onDone: onDone?.copy(),
+    filedBy: filedBy?.copy(),
+    resources: resources,
+    claimHold: claimHold,
+    claimFree: claimFree,
   );
 
   /// The calendar day [value] names, held as UTC midnight of that day.
@@ -427,6 +463,11 @@ class TomTodo {
     if (bundleId != null) 'bundle_id': bundleId,
     if (derivedFrom != null) 'derived_from': derivedFrom,
     if (feedbackSource != null) 'feedback_source': feedbackSource,
+    if (onDone != null) 'on_done': onDone!.toMap(),
+    if (filedBy != null) 'filed_by': filedBy!.toMap(),
+    if (resources != null) 'resources': List.of(resources!),
+    if (claimHold) 'claim_hold': true,
+    if (claimFree) 'claim_free': true,
   };
 
   /// The closed field set: exactly the workspace todo schema's properties
@@ -468,6 +509,11 @@ class TomTodo {
     'bundle_id',
     'derived_from',
     'feedback_source',
+    'on_done',
+    'filed_by',
+    'resources',
+    'claim_hold',
+    'claim_free',
   };
 
   static List<String> _strings(Object? value) => [
@@ -535,21 +581,36 @@ class TomTodo {
       bundleId: map['bundle_id'] as String?,
       derivedFrom: map['derived_from'] as String?,
       feedbackSource: map['feedback_source'] as String?,
-      userAction: _userAction(map['user_action']),
-      repeat: map['repeat'] == null ? null : TomTodoRepeat.fromMap(map['repeat'] as Map),
+      userAction: _flag(map['user_action'], 'user_action'),
+      onDone: map['on_done'] == null
+          ? null
+          : TomTodoOnDone.fromMap(map['on_done'] as Map),
+      filedBy: map['filed_by'] == null
+          ? null
+          : TomTodoFiledBy.fromMap(map['filed_by'] as Map),
+      resources: map['resources'] == null ? null : _strings(map['resources']),
+      claimHold: _flag(map['claim_hold'], 'claim_hold'),
+      claimFree: _flag(map['claim_free'], 'claim_free'),
+      repeat: map['repeat'] == null
+          ? null
+          : TomTodoRepeat.fromMap(map['repeat'] as Map),
       nextRepeat: map['next_repeat']?.toString(),
-      repeatCount: map['repeat_count'] == null ? null : (map['repeat_count'] is int
-          ? map['repeat_count'] as int
-          : throw FormatException('Todo "repeat_count" must be a whole number, not "${map['repeat_count']}"')),
+      repeatCount: map['repeat_count'] == null
+          ? null
+          : (map['repeat_count'] is int
+                ? map['repeat_count'] as int
+                : throw FormatException(
+                    'Todo "repeat_count" must be a whole number, not "${map['repeat_count']}"',
+                  )),
     );
   }
 
-  /// `user_action` is a boolean; anything else is a format error, like an
-  /// unknown key.
-  static bool _userAction(Object? value) {
+  /// `user_action`, `claim_hold` and `claim_free` are booleans; anything else
+  /// is a format error, like an unknown key.
+  static bool _flag(Object? value, String field) {
     if (value == null) return false;
     if (value is bool) return value;
-    throw FormatException('Todo "user_action" must be true or false, not "$value"');
+    throw FormatException('Todo "$field" must be true or false, not "$value"');
   }
 
   /// Equal when the stored forms are equal — every field, in its wire form.
@@ -787,4 +848,182 @@ class TomTodoReference {
 
   @override
   int get hashCode => Object.hash(type, path, url, description, lines);
+}
+
+/// One action of [TomTodoOnDone.action] (workspace schema `on_done.action`).
+enum TomTodoOnDoneAction {
+  /// Remove the completed todo from the named todos' `blocked_by`.
+  unblock('unblock'),
+
+  /// Queue the notify prompt (or a default report) in the filing session.
+  notify('notify'),
+
+  /// Queue the named todos.
+  queue('queue'),
+
+  /// Nothing; also what an absent `action` means.
+  none('none');
+
+  const TomTodoOnDoneAction(this.wire);
+
+  final String wire;
+
+  static TomTodoOnDoneAction fromWire(String value) => values.firstWhere(
+    (a) => a.wire == value,
+    orElse: () =>
+        throw FormatException('Unknown todo on_done action: "$value"'),
+  );
+}
+
+/// What happens when a todo is completed (workspace schema `on_done`). Every
+/// part is optional; an absent [action] means `[none]`.
+class TomTodoOnDone {
+  TomTodoOnDone({
+    this.quest,
+    this.run,
+    List<String> todos = const [],
+    List<TomTodoOnDoneAction> action = const [],
+    this.instructions,
+    this.notifyPrompt,
+    this.reportTo,
+  }) : todos = List.of(todos),
+       action = List.of(action);
+
+  /// The quest [todos] are in; null: the todo's own quest.
+  String? quest;
+
+  /// The process run of that quest.
+  String? run;
+
+  /// The todos the actions act on.
+  List<String> todos;
+
+  /// The actions, in order; empty means `[none]`.
+  List<TomTodoOnDoneAction> action;
+
+  /// What the agent doing the actions should know.
+  String? instructions;
+
+  /// The prompt a `notify` queues.
+  String? notifyPrompt;
+
+  /// The document (`path#section`) the outcome is recorded in.
+  String? reportTo;
+
+  /// The actions as they apply: `[none]` when none are given.
+  List<TomTodoOnDoneAction> get effectiveActions => action.isEmpty
+      ? const [TomTodoOnDoneAction.none]
+      : List.unmodifiable(action);
+
+  TomTodoOnDone copy() => TomTodoOnDone(
+    quest: quest,
+    run: run,
+    todos: todos,
+    action: action,
+    instructions: instructions,
+    notifyPrompt: notifyPrompt,
+    reportTo: reportTo,
+  );
+
+  static const Set<String> fields = {
+    'quest',
+    'run',
+    'todos',
+    'action',
+    'instructions',
+    'notify_prompt',
+    'report_to',
+  };
+
+  Map<String, Object?> toMap() => {
+    if (quest != null) 'quest': quest,
+    if (run != null) 'run': run,
+    if (todos.isNotEmpty) 'todos': List.of(todos),
+    if (action.isNotEmpty) 'action': [for (final a in action) a.wire],
+    if (instructions != null) 'instructions': instructions,
+    if (notifyPrompt != null) 'notify_prompt': notifyPrompt,
+    if (reportTo != null) 'report_to': reportTo,
+  };
+
+  static TomTodoOnDone fromMap(Map<dynamic, dynamic> map) {
+    for (final key in map.keys) {
+      if (!fields.contains(key)) {
+        throw FormatException('Unknown todo on_done field: "$key"');
+      }
+    }
+    final action = map['action'];
+    if (action != null && action is! List) {
+      throw FormatException(
+        'Todo "on_done.action" must be a list, not "$action"',
+      );
+    }
+    return TomTodoOnDone(
+      quest: map['quest']?.toString(),
+      run: map['run']?.toString(),
+      todos: [for (final t in (map['todos'] as List? ?? const [])) '$t'],
+      action: [
+        for (final a in (action as List? ?? const []))
+          TomTodoOnDoneAction.fromWire('$a'),
+      ],
+      instructions: map['instructions']?.toString(),
+      notifyPrompt: map['notify_prompt']?.toString(),
+      reportTo: map['report_to']?.toString(),
+    );
+  }
+}
+
+/// Who filed a todo (workspace schema `filed_by`). Every part is optional;
+/// [at] is `yyyy-MM-ddTHH:MM` with `Z` or an offset, kept verbatim.
+class TomTodoFiledBy {
+  TomTodoFiledBy({this.quest, this.run, this.session, this.todo, this.at}) {
+    check();
+  }
+
+  String? quest;
+  String? run;
+  String? session;
+  String? todo;
+  String? at;
+
+  /// Rejects an [at] that is not `yyyy-MM-ddTHH:MM` with `Z` or an offset.
+  void check() {
+    if (at != null && !TomTodoRepeat.nextRepeatRe.hasMatch(at!)) {
+      throw FormatException(
+        'Todo "filed_by.at" must read yyyy-MM-ddTHH:MM with Z or an offset: "$at"',
+      );
+    }
+  }
+
+  TomTodoFiledBy copy() => TomTodoFiledBy(
+    quest: quest,
+    run: run,
+    session: session,
+    todo: todo,
+    at: at,
+  );
+
+  static const Set<String> fields = {'quest', 'run', 'session', 'todo', 'at'};
+
+  Map<String, Object?> toMap() => {
+    if (quest != null) 'quest': quest,
+    if (run != null) 'run': run,
+    if (session != null) 'session': session,
+    if (todo != null) 'todo': todo,
+    if (at != null) 'at': at,
+  };
+
+  static TomTodoFiledBy fromMap(Map<dynamic, dynamic> map) {
+    for (final key in map.keys) {
+      if (!fields.contains(key)) {
+        throw FormatException('Unknown todo filed_by field: "$key"');
+      }
+    }
+    return TomTodoFiledBy(
+      quest: map['quest']?.toString(),
+      run: map['run']?.toString(),
+      session: map['session']?.toString(),
+      todo: map['todo']?.toString(),
+      at: map['at']?.toString(),
+    );
+  }
 }

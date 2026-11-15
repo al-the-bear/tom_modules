@@ -5,7 +5,7 @@ library;
 import 'package:test/test.dart';
 import 'package:tom_todo_model/tom_todo_model.dart';
 
-/// An item carrying every one of the schema's 34 fields.
+/// An item carrying every one of the schema's 39 fields.
 TomTodo everyField() => TomTodo(
   id: 'launch-plan',
   title: 'Plan the launch',
@@ -44,7 +44,12 @@ TomTodo everyField() => TomTodo(
   blocking: ['launch-party', 'other_quest/press'],
   blockedUntil: ['tom_basics >= 1.2.0'],
   userAction: true,
-  repeat: TomTodoRepeat(rule: TomTodoRepeatRule.monthly, nth: -1, weekday: 'fri', time: '10:00'),
+  repeat: TomTodoRepeat(
+    rule: TomTodoRepeatRule.monthly,
+    nth: -1,
+    weekday: 'fri',
+    time: '10:00',
+  ),
   nextRepeat: '2026-11-27T10:00+01:00',
   repeatCount: 2,
   notes: 'Ask Ada first.',
@@ -62,13 +67,32 @@ TomTodo everyField() => TomTodo(
   bundleId: 'launch',
   derivedFrom: 'venue-search',
   feedbackSource: 'retro-2026-10',
+  onDone: TomTodoOnDone(
+    quest: 'tom_core',
+    run: 'chg7',
+    todos: ['tsm_a3_akll-wire-vault'],
+    action: [TomTodoOnDoneAction.unblock, TomTodoOnDoneAction.notify],
+    instructions: 'Check the vault first.',
+    notifyPrompt: 'The launch plan is done.',
+    reportTo: 'ideas/x/x.md#todos',
+  ),
+  filedBy: TomTodoFiledBy(
+    quest: 'al_the_bear',
+    run: 'default',
+    session: 'chat',
+    todo: 'atb12_aklk-idea-to-todos',
+    at: '2026-11-12T15:20+01:00',
+  ),
+  resources: ['tom_vscode', 'infra:vsix-release'],
+  claimHold: true,
+  claimFree: true,
 );
 
 void main() {
   group('WONETESTA5-A the codec', () {
-    test('WONETESTA5-01: the closed field set is the schema\'s 34 fields, '
+    test('WONETESTA5-01: the closed field set is the schema\'s 39 fields, '
         'emitted in the schema\'s order [1011]', () {
-      expect(TomTodo.fields, hasLength(34));
+      expect(TomTodo.fields, hasLength(39));
       expect(everyField().toMap().keys.toList(), [
         'id',
         'title',
@@ -104,6 +128,11 @@ void main() {
         'bundle_id',
         'derived_from',
         'feedback_source',
+        'on_done',
+        'filed_by',
+        'resources',
+        'claim_hold',
+        'claim_free',
       ]);
     });
 
@@ -120,31 +149,65 @@ void main() {
       expect(read.userAction, isTrue);
       expect(read.blocking, ['launch-party', 'other_quest/press']);
       expect(read.lastAnswer, 'Done: the venue is booked.');
+      expect(read.onDone!.action, [
+        TomTodoOnDoneAction.unblock,
+        TomTodoOnDoneAction.notify,
+      ]);
+      expect(read.filedBy!.at, '2026-11-12T15:20+01:00');
+      expect(read.resources, ['tom_vscode', 'infra:vsix-release']);
+      expect(read.claimHold && read.claimFree, isTrue);
     });
 
     test('TODOMODEL-LA1: last_answer is written only when set, and a string '
         'reads back [1105]', () {
-      final plain = TomTodo(id: 'a', title: 'A', status: TomTodoStatus.completed);
+      final plain = TomTodo(
+        id: 'a',
+        title: 'A',
+        status: TomTodoStatus.completed,
+      );
       expect(plain.lastAnswer, isNull);
       expect(plain.toMap().containsKey('last_answer'), isFalse);
       final answered = plain.copy()..lastAnswer = '# Done\n\nAll green.';
       expect(answered.toMap()['last_answer'], '# Done\n\nAll green.');
-      expect(TomTodo.fromMap(answered.toMap()).lastAnswer, '# Done\n\nAll green.');
-      expect(answered.copy().lastAnswer, '# Done\n\nAll green.', reason: 'copy() carries it');
-      expect(() => TomTodo.fromMap({...plain.toMap(), 'last_answer': 42}), throwsA(anything));
+      expect(
+        TomTodo.fromMap(answered.toMap()).lastAnswer,
+        '# Done\n\nAll green.',
+      );
+      expect(
+        answered.copy().lastAnswer,
+        '# Done\n\nAll green.',
+        reason: 'copy() carries it',
+      );
+      expect(
+        () => TomTodo.fromMap({...plain.toMap(), 'last_answer': 42}),
+        throwsA(anything),
+      );
     });
 
     test('TODOMODEL-U1: user_action is written only when true, and only a '
         'boolean reads back [1027]', () {
-      final plain = TomTodo(id: 'a', title: 'A', status: TomTodoStatus.notStarted);
+      final plain = TomTodo(
+        id: 'a',
+        title: 'A',
+        status: TomTodoStatus.notStarted,
+      );
       expect(plain.userAction, isFalse);
-      expect(plain.toMap().containsKey('user_action'), isFalse,
-          reason: 'an agent\'s todo writes nothing new');
+      expect(
+        plain.toMap().containsKey('user_action'),
+        isFalse,
+        reason: 'an agent\'s todo writes nothing new',
+      );
       final users = plain.copy()..userAction = true;
       expect(users.toMap()['user_action'], isTrue);
       expect(TomTodo.fromMap(users.toMap()).userAction, isTrue);
-      expect(TomTodo.fromMap({...plain.toMap(), 'user_action': false}).userAction, isFalse);
-      expect(() => TomTodo.fromMap({...plain.toMap(), 'user_action': 'yes'}), throwsFormatException);
+      expect(
+        TomTodo.fromMap({...plain.toMap(), 'user_action': false}).userAction,
+        isFalse,
+      );
+      expect(
+        () => TomTodo.fromMap({...plain.toMap(), 'user_action': 'yes'}),
+        throwsFormatException,
+      );
       expect(users.copy().userAction, isTrue, reason: 'copy() carries it');
     });
 
@@ -195,6 +258,162 @@ void main() {
         );
       },
     );
+  });
+
+  group('COLLAB2 on_done, filed_by and the claim fields', () {
+    final plain = TomTodo(id: 'a', title: 'A');
+
+    test(
+      'COLLAB2-01: absent fields write nothing; each reads back as stored',
+      () {
+        final map = plain.toMap();
+        for (final key in [
+          'on_done',
+          'filed_by',
+          'resources',
+          'claim_hold',
+          'claim_free',
+        ]) {
+          expect(map.containsKey(key), isFalse, reason: key);
+        }
+        final stored = {
+          ...map,
+          'on_done': {
+            'todos': ['b'],
+            'action': ['queue'],
+          },
+          'filed_by': {'session': 'chat', 'at': '2026-11-12T15:20Z'},
+          'resources': ['github/al-the-bear/tom_vscode'],
+          'claim_hold': true,
+          'claim_free': false,
+        };
+        final read = TomTodo.fromMap(stored);
+        expect(read.toMap(), {
+          ...map,
+          'on_done': {
+            'todos': ['b'],
+            'action': ['queue'],
+          },
+          'filed_by': {'session': 'chat', 'at': '2026-11-12T15:20Z'},
+          'resources': ['github/al-the-bear/tom_vscode'],
+          'claim_hold': true,
+        }, reason: 'claim_free: false is written as absent');
+      },
+    );
+
+    test(
+      'COLLAB2-02: resources: [] claims nothing and is kept, unlike an absent list',
+      () {
+        final none = TomTodo.fromMap({
+          ...plain.toMap(),
+          'resources': <String>[],
+        });
+        expect(none.resources, isEmpty);
+        expect(none.toMap()['resources'], isEmpty);
+        expect(none.copy().resources, isEmpty);
+        expect(plain.resources, isNull);
+      },
+    );
+
+    test('COLLAB2-03: an on_done without action means [none]', () {
+      final onDone = TomTodoOnDone.fromMap({
+        'todos': ['b'],
+      });
+      expect(onDone.action, isEmpty);
+      expect(onDone.effectiveActions, [TomTodoOnDoneAction.none]);
+      expect(onDone.toMap(), {
+        'todos': ['b'],
+      });
+      expect(TomTodoOnDone().toMap(), isEmpty);
+    });
+
+    test('COLLAB2-04: copy() is detached', () {
+      final original = everyField();
+      final copy = original.copy()
+        ..onDone!.todos.add('other')
+        ..filedBy!.session = 'idea'
+        ..resources!.add('tom_core');
+      expect(original.onDone!.todos, ['tsm_a3_akll-wire-vault']);
+      expect(original.filedBy!.session, 'chat');
+      expect(original.resources, ['tom_vscode', 'infra:vsix-release']);
+      expect(copy, isNot(original));
+    });
+
+    test('COLLAB2-05: what the schema refuses, the codec refuses', () {
+      final base = plain.toMap();
+      expect(
+        () => TomTodo.fromMap({
+          ...base,
+          'on_done': {'when': 'later'},
+        }),
+        throwsFormatException,
+        reason: 'on_done is closed',
+      );
+      expect(
+        () => TomTodo.fromMap({
+          ...base,
+          'on_done': {
+            'action': ['wake'],
+          },
+        }),
+        throwsFormatException,
+      );
+      expect(
+        () => TomTodo.fromMap({
+          ...base,
+          'on_done': {'action': 'unblock'},
+        }),
+        throwsFormatException,
+        reason: 'action is a list',
+      );
+      expect(
+        () => TomTodo.fromMap({
+          ...base,
+          'filed_by': {'host': 'mbp'},
+        }),
+        throwsFormatException,
+        reason: 'filed_by is closed',
+      );
+      expect(
+        () => TomTodo.fromMap({
+          ...base,
+          'filed_by': {'at': '2026-11-12'},
+        }),
+        throwsFormatException,
+      );
+      expect(
+        () => TomTodo.fromMap({...base, 'claim_hold': 'yes'}),
+        throwsFormatException,
+      );
+      expect(
+        () => TomTodo.fromMap({...base, 'claim_free': 1}),
+        throwsFormatException,
+      );
+    });
+
+    test('COLLAB2-06: every action reads back from its wire name', () {
+      for (final a in TomTodoOnDoneAction.values) {
+        expect(TomTodoOnDoneAction.fromWire(a.wire), a);
+      }
+    });
+
+    test('COLLAB2-07: a todo file writes and reads the new fields', () {
+      const text =
+          'todos:\n  - id: a\n    title: A\n    description: D\n    status: not-started\n';
+      final file = TomTodoFile.parse(text);
+      final todo = file.entries.single.todo!.copy()
+        ..onDone = TomTodoOnDone(
+          todos: ['b'],
+          action: [TomTodoOnDoneAction.unblock],
+        )
+        ..filedBy = TomTodoFiledBy(quest: 'q', at: '2026-11-12T15:20+01:00')
+        ..resources = []
+        ..claimHold = true;
+      final written = TomTodoFile.parse(file.withTodo(0, todo));
+      final read = written.entries.single.todo!;
+      expect(read, todo);
+      expect(read.resources, isEmpty);
+    });
   });
 
   group('WONETESTA5-C the decision rule', () {
@@ -284,18 +503,42 @@ void main() {
     test('TODOMODEL-D1: a local DateTime keeps its own day [1021]', () {
       for (final hour in [0, 23]) {
         final when = DateTime(2026, 10, 21, hour, 30);
-        final todo = TomTodo(id: 'd1', title: 'Dated', due: when, completedDate: when);
+        final todo = TomTodo(
+          id: 'd1',
+          title: 'Dated',
+          due: when,
+          completedDate: when,
+        );
         expect(todo.toMap()['due'], '2026-10-21', reason: '$hour:30 local');
-        expect(todo.toMap()['completed_date'], '2026-10-21', reason: '$hour:30 local');
-        expect(TomTodo.encodeDate(when), '2026-10-21', reason: '$hour:30 local');
+        expect(
+          todo.toMap()['completed_date'],
+          '2026-10-21',
+          reason: '$hour:30 local',
+        );
+        expect(
+          TomTodo.encodeDate(when),
+          '2026-10-21',
+          reason: '$hour:30 local',
+        );
       }
     });
 
-    test('TODOMODEL-D2: a UTC DateTime keeps its UTC day; a stored date reads back unchanged [1021]', () {
-      expect(TomTodo.encodeDate(DateTime.utc(2026, 10, 21, 23, 30)), '2026-10-21');
-      final read = TomTodo.fromMap({'id': 'd2', 'title': 'Read', 'status': 'completed', 'completed_date': '2026-10-21'});
-      expect(read.toMap()['completed_date'], '2026-10-21');
-      expect(read.completedDate, DateTime.utc(2026, 10, 21));
-    });
+    test(
+      'TODOMODEL-D2: a UTC DateTime keeps its UTC day; a stored date reads back unchanged [1021]',
+      () {
+        expect(
+          TomTodo.encodeDate(DateTime.utc(2026, 10, 21, 23, 30)),
+          '2026-10-21',
+        );
+        final read = TomTodo.fromMap({
+          'id': 'd2',
+          'title': 'Read',
+          'status': 'completed',
+          'completed_date': '2026-10-21',
+        });
+        expect(read.toMap()['completed_date'], '2026-10-21');
+        expect(read.completedDate, DateTime.utc(2026, 10, 21));
+      },
+    );
   });
 }

@@ -1,4 +1,4 @@
-// A COPY of tom_basics' `lib/src/utilities/yaml_lines.dart` (tom_basics 3.3.0),
+// A COPY of tom_basics' `lib/src/utilities/yaml_lines.dart` (tom_basics 3.3.1),
 // held here so this package depends on no tom_basics.
 //
 // Why: inside the Tom workspace most packages take tom_basics by PATH while
@@ -17,8 +17,9 @@
 /// The few YAML shapes a todo file holds, written the way the workspace's own
 /// tools write them — for the keys an edit changes, and nothing else.
 ///
-/// Every value a todo carries is a string, a list of strings, a map of those,
-/// or a list of such maps. Strings are where the care goes: the workspace's
+/// Every value a todo carries is a string, a boolean, a whole number, a list
+/// of strings, a map of those, or a list of such maps. Booleans and numbers
+/// are written plain, so they read back as what they are. Strings are where the care goes: the workspace's
 /// validator reads YAML 1.1 (PyYAML), which turns an unquoted `2026-10-11`
 /// into a date and an unquoted `yes` into a boolean, and the schema then
 /// refuses a value nobody wrote. So a string is written plain only when no
@@ -132,6 +133,8 @@ void _value(StringBuffer out, Object? value, int indent, String nl) {
       for (final e in value.entries) {
         out.write(tomYamlEntry('${e.key}', e.value, indent + 2, nl));
       }
+    case bool() || num():
+      out.write(' $value$nl');
     default:
       out.write(' ${tomYamlScalar('$value')}$nl');
   }

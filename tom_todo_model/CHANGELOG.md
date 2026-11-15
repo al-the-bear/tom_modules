@@ -1,3 +1,26 @@
+## 2.2.0
+
+- The agent-collaboration fields of the workspace todo schema, all optional:
+  - `TomTodo.onDone` (`on_done`, `TomTodoOnDone`): what happens when the todo
+    is completed — `quest`, `run`, `todos`, `action` (a list of
+    `TomTodoOnDoneAction` `unblock` / `notify` / `queue` / `none`; absent
+    means `[none]`, `effectiveActions`), `instructions`, `notify_prompt`,
+    `report_to`;
+  - `TomTodo.filedBy` (`filed_by`, `TomTodoFiledBy`): the `quest`, `run`,
+    `session` and `todo` it was filed from, and `at` (`yyyy-MM-ddTHH:MM` with
+    `Z` or an offset, kept verbatim);
+  - `TomTodo.resources` (`resources`): the resources it claims; null when
+    absent, and an empty list (`resources: []`, claims nothing) is kept;
+  - `TomTodo.claimHold` / `TomTodo.claimFree` (`claim_hold` / `claim_free`):
+    booleans, written only when true.
+
+  `on_done` and `filed_by` are closed like the schema's objects: an unknown
+  key, an unknown action or a malformed `at` is a format error.
+- Fixed: a todo file writes a boolean or a number plain (`user_action: true`,
+  `repeat_count: 2`); they were quoted and did not read back (the copy of
+  tom_basics 3.3.1's `yaml_lines.dart`). The test that holds the copy equal to
+  tom_basics' file now finds it in the workspace; it skipped everywhere.
+
 ## 2.1.0
 
 - Todo groups may start with a number (`001_cleanup1_akki-x`). `tomTodoGroupOf`
