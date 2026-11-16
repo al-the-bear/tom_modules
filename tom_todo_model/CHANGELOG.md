@@ -1,3 +1,19 @@
+## 3.0.0
+
+- Todo groups. `TomTodoStatus.group` (`group`): a todo that is a group of
+  todos, not work itself; `TomTodo.isGroup`. Its members are
+  `TomTodo.comprisedOf` (`comprised_of`): todo ids in the same quest or
+  `<quest>/<todo>` from another, as `blocked_by` names its blockers. A
+  member's groups (`part_of`) are derived by the VS Code extension and never
+  stored, so they are no field here. The extension completes a group once
+  every member is completed or cancelled and sets it back to `group` when a
+  member is reopened; a `<prefix>*` queue walk passes it. A group is neither
+  in the done group (`isDone` is false) nor open work.
+- Breaking: the new enum value fails an exhaustive `switch` over
+  `TomTodoStatus` until it gains a case, and a 2.x reader refuses a todo with
+  the new status or field (an unknown value / key), leaving the rest of its
+  file readable. Upgrade every package that reads todo files.
+
 ## 2.2.0
 
 - The agent-collaboration fields of the workspace todo schema, all optional:

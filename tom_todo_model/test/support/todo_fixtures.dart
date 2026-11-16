@@ -64,7 +64,7 @@ const String todoSchema = '''
         "title": {"type": ["string", "null"]},
         "description": {"type": "string"},
         "status": {"enum": ["not-started", "in-progress", "blocked",
-            "decision-needed", "completed", "cancelled"]},
+            "decision-needed", "completed", "cancelled", "group"]},
         "priority": {"enum": ["low", "medium", "high", "critical", null]},
         "notes": {"type": ["string", "null"]},
         "tags": {"type": ["array", "null"], "items": {"type": "string"}},
@@ -83,6 +83,7 @@ const String todoSchema = '''
         "dependencies": {"type": ["array", "null"]},
         "blocked_by": {"type": ["array", "null"]},
         "blocking": {"type": ["array", "null"]},
+        "comprised_of": {"type": ["array", "null"]},
         "blocked_until": {"type": ["array", "null"]},
         "decisions": {"type": ["array", "null"]}
       },

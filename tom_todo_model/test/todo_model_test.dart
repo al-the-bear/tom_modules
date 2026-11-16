@@ -42,6 +42,7 @@ TomTodo everyField() => TomTodo(
   dependencies: ['budget'],
   blockedBy: ['legal-review', 'other_quest/its-todo'],
   blocking: ['launch-party', 'other_quest/press'],
+  comprisedOf: ['budget', 'other_quest/venue'],
   blockedUntil: ['tom_basics >= 1.2.0'],
   userAction: true,
   repeat: TomTodoRepeat(
@@ -92,7 +93,7 @@ void main() {
   group('WONETESTA5-A the codec', () {
     test('WONETESTA5-01: the closed field set is the schema\'s 39 fields, '
         'emitted in the schema\'s order [1011]', () {
-      expect(TomTodo.fields, hasLength(39));
+      expect(TomTodo.fields, hasLength(40));
       expect(everyField().toMap().keys.toList(), [
         'id',
         'title',
@@ -108,6 +109,7 @@ void main() {
         'dependencies',
         'blocked_by',
         'blocking',
+        'comprised_of',
         'blocked_until',
         'user_action',
         'repeat',
@@ -148,6 +150,7 @@ void main() {
       expect(read.feedbackSource, 'retro-2026-10');
       expect(read.userAction, isTrue);
       expect(read.blocking, ['launch-party', 'other_quest/press']);
+      expect(read.comprisedOf, ['budget', 'other_quest/venue']);
       expect(read.lastAnswer, 'Done: the venue is booked.');
       expect(read.onDone!.action, [
         TomTodoOnDoneAction.unblock,
@@ -540,5 +543,35 @@ void main() {
         expect(read.completedDate, DateTime.utc(2026, 10, 21));
       },
     );
+  });
+
+  group('todo groups (3.0.0)', () {
+    test('TODOGROUP-1: status `group` reads and writes its wire name', () {
+      expect(TomTodoStatus.fromWire('group'), TomTodoStatus.group);
+      expect(TomTodoStatus.group.wire, 'group');
+      expect(TomTodoStatus.values.map((s) => s.wire), contains('group'));
+    });
+
+    test('TODOGROUP-2: a group todo with comprised_of round-trips; it is '
+        'neither done nor open work', () {
+      final g = TomTodo.fromMap({
+        'id': 'grp1_akpt-release',
+        'title': 'Release',
+        'status': 'group',
+        'comprised_of': ['grp2_akpt-build', 'other_quest/its-todo'],
+      });
+      expect(g.isGroup, isTrue);
+      expect(g.isDone, isFalse);
+      expect(g.comprisedOf, ['grp2_akpt-build', 'other_quest/its-todo']);
+      expect(g.toMap()['status'], 'group');
+      expect(g.toMap()['comprised_of'], ['grp2_akpt-build', 'other_quest/its-todo']);
+      expect(TomTodo.fromMap(g.toMap()), g);
+      expect(TomTodo.fromMap({'id': 'x1', 'title': 'x', 'status': 'not-started'}).toMap(),
+          isNot(contains('comprised_of')), reason: 'an empty list is not written');
+    });
+
+    test('TODOGROUP-3: part_of is derived, never a field of the model', () {
+      expect(TomTodo.fields, isNot(contains('part_of')));
+    });
   });
 }

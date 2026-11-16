@@ -84,6 +84,19 @@ void main() {
       );
     });
 
+    test('TODOGROUP-F1: a todo becomes a group: status and comprised_of '
+        'written into its own block', () {
+      final file = TomTodoFile.parse(questTodoFile);
+      final todo = file.entries[0].todo!.copy()
+        ..status = TomTodoStatus.group
+        ..comprisedOf = ['b2', 'other_quest/c3'];
+      final after = file.withTodo(0, todo);
+      onlyTodoChanged(questTodoFile, after, 0);
+      final read = TomTodoFile.parse(after).entries[0].todo!;
+      expect(read.status, TomTodoStatus.group);
+      expect(read.comprisedOf, ['b2', 'other_quest/c3']);
+    });
+
     test('WONETESTA11-E2: an edit in the middle of the file keeps the block '
         'scalars, comments and unknown keys of its own todo [1011]', () {
       final file = TomTodoFile.parse(questTodoFile);

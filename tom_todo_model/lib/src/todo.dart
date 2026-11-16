@@ -9,8 +9,14 @@ library;
 import 'todo_repeat.dart';
 
 /// Todo lifecycle state. Wire names match the workspace `todo.schema.json`
-/// enum exactly, in both directions: the seven values here are the seven the
+/// enum exactly, in both directions: the eight values here are the eight the
 /// schema lists, which `_bin/check_todo_model.py` in the workspace holds.
+///
+/// [group] is a todo group: not work itself, it lists its members in
+/// [TomTodo.comprisedOf]. The VS Code extension completes it once every member
+/// is done and sets it back to `group` when a member is reopened; a
+/// `<prefix>*` queue walk passes it. It is neither open work nor in the done
+/// group ([TomTodo.isDone] is false, [TomTodo.isGroup] true).
 ///
 /// [waitingForRepeat] is a repeated todo that was done and waits for its next
 /// repetition ([TomTodo.repeat], [TomTodo.nextRepeat]); like [decisionNeeded]
@@ -25,6 +31,7 @@ enum TomTodoStatus {
   blocked('blocked'),
   decisionNeeded('decision-needed'),
   waitingForRepeat('waiting-for-repeat'),
+  group('group'),
   completed('completed'),
   cancelled('cancelled');
 
@@ -105,6 +112,12 @@ class TomTodo {
   /// `validate_todo_corpus.py` reports a pair that does not match. A writer
   /// using this model that changes [blockedBy] leaves the other end to them.
   List<String> blocking;
+
+  /// On a group todo ([TomTodoStatus.group]): its members, as todo ids in the
+  /// same quest or `<quest>/<todo>` from another — as [blockedBy] names its
+  /// blockers. A member's groups (`part_of`) are derived by the VS Code
+  /// extension and never stored.
+  List<String> comprisedOf;
 
   /// Publish conditions that block this one, each `<package> >= <x.y.z>`
   /// — the form `_bin/check_todo_blocks.py` reads.
@@ -194,6 +207,7 @@ class TomTodo {
     List<String> dependencies = const [],
     List<String> blockedBy = const [],
     List<String> blocking = const [],
+    List<String> comprisedOf = const [],
     List<String> blockedUntil = const [],
     this.notes,
     DateTime? created,
@@ -226,6 +240,7 @@ class TomTodo {
        dependencies = List.of(dependencies),
        blockedBy = List.of(blockedBy),
        blocking = List.of(blocking),
+       comprisedOf = List.of(comprisedOf),
        blockedUntil = List.of(blockedUntil),
        _due = _canonicalDue(due),
        _created = _canonicalDue(created),
@@ -306,6 +321,9 @@ class TomTodo {
   bool get isDone =>
       status == TomTodoStatus.completed || status == TomTodoStatus.cancelled;
 
+  /// True for a todo group ([TomTodoStatus.group]): not work itself.
+  bool get isGroup => status == TomTodoStatus.group;
+
   /// True while at least one decision has no answer.
   bool get hasOpenDecision => decisions.any((d) => d.isOpen);
 
@@ -333,6 +351,7 @@ class TomTodo {
     dependencies: dependencies,
     blockedBy: blockedBy,
     blocking: blocking,
+    comprisedOf: comprisedOf,
     blockedUntil: blockedUntil,
     notes: notes,
     created: _created,
@@ -443,6 +462,7 @@ class TomTodo {
     if (dependencies.isNotEmpty) 'dependencies': List.of(dependencies),
     if (blockedBy.isNotEmpty) 'blocked_by': List.of(blockedBy),
     if (blocking.isNotEmpty) 'blocking': List.of(blocking),
+    if (comprisedOf.isNotEmpty) 'comprised_of': List.of(comprisedOf),
     if (blockedUntil.isNotEmpty) 'blocked_until': List.of(blockedUntil),
     if (userAction) 'user_action': true,
     if (repeat != null) 'repeat': repeat!.toMap(),
@@ -489,6 +509,7 @@ class TomTodo {
     'dependencies',
     'blocked_by',
     'blocking',
+    'comprised_of',
     'blocked_until',
     'user_action',
     'repeat',
@@ -565,6 +586,7 @@ class TomTodo {
       dependencies: _strings(map['dependencies']),
       blockedBy: _strings(map['blocked_by']),
       blocking: _strings(map['blocking']),
+      comprisedOf: _strings(map['comprised_of']),
       blockedUntil: _strings(map['blocked_until']),
       notes: map['notes'] as String?,
       created: _date(map, 'created'),
