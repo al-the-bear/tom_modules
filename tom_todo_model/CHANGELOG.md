@@ -1,3 +1,13 @@
+## 3.1.0
+
+- `TomTodo.dueReminded` (`due_reminded`, optional): when the one reminder for
+  `due` was sent, `yyyy-MM-ddTHH:MM` with `Z` or an offset, kept verbatim. The
+  VS Code extension writes it so the reminder goes out once across windows and
+  hosts. Setting `due` to another date clears it, so the new date gets its own
+  reminder.
+- A 3.0 reader refuses a todo carrying the new field (an unknown key), leaving
+  the rest of its file readable: move every reader's lock to 3.1.0.
+
 ## 3.0.0
 
 - Todo groups. `TomTodoStatus.group` (`group`): a todo that is a group of

@@ -166,6 +166,12 @@ class TomTodo {
   /// How many times the todo has been done and repeated.
   int? repeatCount;
 
+  /// When the one reminder for [due] was sent: `yyyy-MM-ddTHH:MM` with `Z` or
+  /// an offset, kept verbatim (the VS Code extension writes it, so the
+  /// reminder goes out once across windows and hosts). Null until it is sent;
+  /// a change of [due] clears it, so the new date gets its reminder.
+  String? dueReminded;
+
   /// What happens when the todo is completed: the todos to unblock, notify
   /// about or queue, and where the outcome is reported.
   TomTodoOnDone? onDone;
@@ -228,6 +234,7 @@ class TomTodo {
     this.repeat,
     this.nextRepeat,
     this.repeatCount,
+    this.dueReminded,
     this.onDone,
     this.filedBy,
     List<String>? resources,
@@ -258,6 +265,12 @@ class TomTodo {
         'Todo "next_repeat" must read yyyy-MM-ddTHH:MM with Z or an offset: "$nextRepeat"',
       );
     }
+    if (dueReminded != null &&
+        !TomTodoRepeat.nextRepeatRe.hasMatch(dueReminded!)) {
+      throw FormatException(
+        'Todo "due_reminded" must read yyyy-MM-ddTHH:MM with Z or an offset: "$dueReminded"',
+      );
+    }
     if (repeatCount != null && repeatCount! < 0) {
       throw FormatException(
         'Todo "repeat_count" must be 0 or more: $repeatCount',
@@ -272,7 +285,13 @@ class TomTodo {
   /// Due date, always UTC midnight.
   DateTime? get due => _due;
 
-  set due(DateTime? value) => _due = _canonicalDue(value);
+  /// Setting another date clears [dueReminded]: the new date gets its own
+  /// reminder.
+  set due(DateTime? value) {
+    final next = _canonicalDue(value);
+    if (next != _due) dueReminded = null;
+    _due = next;
+  }
 
   /// The workspace schema's dates, date-only like [due].
   DateTime? get created => _created;
@@ -372,6 +391,7 @@ class TomTodo {
     repeat: repeat?.copy(),
     nextRepeat: nextRepeat,
     repeatCount: repeatCount,
+    dueReminded: dueReminded,
     onDone: onDone?.copy(),
     filedBy: filedBy?.copy(),
     resources: resources,
@@ -468,6 +488,7 @@ class TomTodo {
     if (repeat != null) 'repeat': repeat!.toMap(),
     if (nextRepeat != null) 'next_repeat': nextRepeat,
     if (repeatCount != null) 'repeat_count': repeatCount,
+    if (dueReminded != null) 'due_reminded': dueReminded,
     if (notes != null) 'notes': notes,
     if (_created != null) 'created': encodeDate(_created!),
     if (_updated != null) 'updated': encodeDate(_updated!),
@@ -515,6 +536,7 @@ class TomTodo {
     'repeat',
     'next_repeat',
     'repeat_count',
+    'due_reminded',
     'notes',
     'created',
     'updated',
@@ -617,6 +639,7 @@ class TomTodo {
           ? null
           : TomTodoRepeat.fromMap(map['repeat'] as Map),
       nextRepeat: map['next_repeat']?.toString(),
+      dueReminded: map['due_reminded']?.toString(),
       repeatCount: map['repeat_count'] == null
           ? null
           : (map['repeat_count'] is int

@@ -7,7 +7,7 @@ files.
   `title`, `description`, `status` (`not-started`, `in-progress`, `blocked`,
   `decision-needed`, `waiting-for-repeat`, `group` (a todo group, not work itself), `completed`, `cancelled`), `priority`, `due`, `estimate`,
   `tags`, `scope`, `decisions`, `references`, `dependencies`, `blocked_by`,
-  `blocking` (its reverse: the todos this one blocks), `comprised_of` (a group's members; their `part_of` is derived, not stored), `blocked_until`, `user_action` (the todo is the user's to do), `repeat` (a repeated todo's rule, `TomTodoRepeat`), `next_repeat` and `repeat_count`, `notes`, `last_answer` (the final answer of the queue run that completed the todo), the dates (`created`, `updated`, `completed_date`,
+  `blocking` (its reverse: the todos this one blocks), `comprised_of` (a group's members; their `part_of` is derived, not stored), `blocked_until`, `user_action` (the todo is the user's to do), `repeat` (a repeated todo's rule, `TomTodoRepeat`), `next_repeat` and `repeat_count`, `due_reminded` (when the one reminder for `due` was sent; another `due` clears it), `notes`, `last_answer` (the final answer of the queue run that completed the todo), the dates (`created`, `updated`, `completed_date`,
   `archived`, `deleted`, always `YYYY-MM-DD` — a `DateTime` stands for the
   calendar day its own fields name, local or UTC) and the orchestration fields
   (`execution_role`, `qa_role`, `orchestration_role`, `bundle_id`,

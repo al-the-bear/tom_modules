@@ -53,6 +53,7 @@ TomTodo everyField() => TomTodo(
   ),
   nextRepeat: '2026-11-27T10:00+01:00',
   repeatCount: 2,
+  dueReminded: '2026-10-20T09:00+02:00',
   notes: 'Ask Ada first.',
   created: DateTime.utc(2026, 10, 1),
   updated: DateTime.utc(2026, 10, 11),
@@ -91,9 +92,9 @@ TomTodo everyField() => TomTodo(
 
 void main() {
   group('WONETESTA5-A the codec', () {
-    test('WONETESTA5-01: the closed field set is the schema\'s 39 fields, '
+    test('WONETESTA5-01: the closed field set is the schema\'s 41 fields, '
         'emitted in the schema\'s order [1011]', () {
-      expect(TomTodo.fields, hasLength(40));
+      expect(TomTodo.fields, hasLength(41));
       expect(everyField().toMap().keys.toList(), [
         'id',
         'title',
@@ -115,6 +116,7 @@ void main() {
         'repeat',
         'next_repeat',
         'repeat_count',
+        'due_reminded',
         'notes',
         'created',
         'updated',
@@ -572,6 +574,48 @@ void main() {
 
     test('TODOGROUP-3: part_of is derived, never a field of the model', () {
       expect(TomTodo.fields, isNot(contains('part_of')));
+    });
+  });
+
+  group('due_reminded (3.1.0)', () {
+    test('round-trips verbatim beside due, and is in the closed field set', () {
+      final todo = TomTodo.fromMap({
+        'id': 'later',
+        'title': 'Clean up',
+        'status': 'not-started',
+        'due': '2026-12-01',
+        'due_reminded': '2026-12-01T09:00+01:00',
+      });
+      expect(todo.dueReminded, '2026-12-01T09:00+01:00');
+      expect(todo.toMap()['due_reminded'], '2026-12-01T09:00+01:00');
+      expect(TomTodo.fromMap(todo.toMap()), todo);
+      expect(todo.copy().dueReminded, '2026-12-01T09:00+01:00');
+      expect(TomTodo.fields, contains('due_reminded'));
+    });
+
+    test('a malformed moment is a format error', () {
+      expect(
+        () => TomTodo.fromMap({
+          'id': 'later',
+          'title': 'Clean up',
+          'status': 'not-started',
+          'due_reminded': 'tomorrow',
+        }),
+        throwsFormatException,
+      );
+    });
+
+    test('a change of due clears it, the same date keeps it', () {
+      final todo = TomTodo(
+        id: 'later',
+        title: 'Clean up',
+        due: DateTime(2026, 12, 1),
+        dueReminded: '2026-12-01T09:00Z',
+      );
+      todo.due = DateTime(2026, 12, 1);
+      expect(todo.dueReminded, '2026-12-01T09:00Z');
+      todo.due = DateTime(2026, 12, 8);
+      expect(todo.dueReminded, isNull);
     });
   });
 }
