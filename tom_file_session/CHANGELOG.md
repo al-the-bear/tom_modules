@@ -1,3 +1,9 @@
+## 1.4.0
+
+- Takes `tom_todo_model` ^3.0.0 (todo groups: the status `group` and
+  `comprised_of`). This package only names todo files, but with ^2.x it kept
+  every package that depends on it on a model that refuses a group todo.
+
 ## 1.3.0
 
 - Takes `tom_todo_model` ^2.0.0 (repeated todos). This package only names

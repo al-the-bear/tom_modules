@@ -3,7 +3,7 @@ description: >-
   Todo widgets over tom_todo_model: the todo row, its badges and the details
   editor, and the editor of a *.todo.yaml file with validation, archive and
   delete, and the aggregate over a folder's todo files. License: BSD-3-Clause.
-version: 0.1.0
+version: 0.2.0
 repository: https://github.com/al-the-bear/tom_modules
 
 environment:
@@ -25,7 +25,7 @@ dependencies:
   tom_file_system:
     path: ../../basics/tom_file_system
   # The shared todo model and the *.todo.yaml codec.
-  tom_todo_model: ^2.2.0
+  tom_todo_model: ^3.0.0
   tom_ui_support:
     path: ../tom_ui_support
 

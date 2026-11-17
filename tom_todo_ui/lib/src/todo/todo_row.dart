@@ -227,7 +227,9 @@ class _TomTodoRowState extends State<TomTodoRow> {
                 // the other three statuses come from the row menu, so a
                 // blocked item's box is unchecked and stays that way when clicked
                 // into `completed`.
-                onChanged: readOnly ? null : (_) => widget.onToggleDone(),
+                // A group (`status: group`) is no work: it completes when its
+                // members do, never by its own box.
+                onChanged: readOnly || item.isGroup ? null : (_) => widget.onToggleDone(),
               ),
               Expanded(
                 child: readOnly

@@ -322,6 +322,8 @@ class TomTodoStatusIcon extends StatelessWidget {
       TomTodoStatus.waitingForRepeat => (Icons.event_repeat, scheme.secondary),
       TomTodoStatus.completed => (Icons.check_circle, scheme.primary),
       TomTodoStatus.cancelled => (Icons.cancel_outlined, scheme.outline),
+      // A group of todos (its members in `comprised_of`), not work itself.
+      TomTodoStatus.group => (Icons.account_tree_outlined, scheme.secondary),
     };
     return Tooltip(
       message: status.wire,

@@ -121,6 +121,43 @@ void main() {
       expect(find.text('waiting-for-repeat'), findsOneWidget);
       expect(find.byIcon(Icons.event_repeat), findsOneWidget);
     });
+
+    testWidgets('a todo group wears group, its own icon, and its box does not '
+        'complete it (it completes when its members do)', (tester) async {
+      final item = TomTodo(
+        id: 'g',
+        title: 'The release',
+        status: TomTodoStatus.group,
+        comprisedOf: ['a', 'b'],
+      );
+      expect(item.isGroup, isTrue);
+      expect(item.isDone, isFalse, reason: 'a group is not in the done group');
+      expect(TomTodoBadges.hasAny(item), isTrue);
+      var toggled = 0;
+      final controller = TextEditingController(text: item.title);
+      final focus = FocusNode();
+      addTearDown(controller.dispose);
+      addTearDown(focus.dispose);
+      await tester.pumpWidget(_host(Column(children: [
+        TomTodoRow(
+          item: item,
+          readOnly: false,
+          controller: controller,
+          focusNode: focus,
+          onToggleDone: () => toggled++,
+          onCommitTitle: (_) {},
+        ),
+        const TomTodoStatusIcon(status: TomTodoStatus.group),
+      ])));
+      expect(find.text('group'), findsOneWidget);
+      expect(find.byIcon(Icons.account_tree_outlined), findsOneWidget);
+      await tester.tap(find.byKey(const Key('todo-done-g')));
+      expect(toggled, 0, reason: 'the box is disabled for a group');
+      expect(
+        tester.widget<Checkbox>(find.byKey(const Key('todo-done-g'))).onChanged,
+        isNull,
+      );
+    });
   });
 
   group('the details editor', () {

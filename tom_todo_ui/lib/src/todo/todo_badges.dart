@@ -33,7 +33,9 @@ class TomTodoBadges extends StatelessWidget {
     TomTodoStatus.blocked ||
     TomTodoStatus.decisionNeeded ||
     TomTodoStatus.waitingForRepeat ||
-    TomTodoStatus.cancelled => true,
+    TomTodoStatus.cancelled ||
+    // A group of todos is no work itself: the checkbox cannot say that.
+    TomTodoStatus.group => true,
   };
 
   static Color _priorityColor(TomTodoPriority priority) =>
