@@ -1,0 +1,18 @@
+name: tom_office_host
+description: >-
+  The LibreOfficeKit helper process of the office editors (office/PDF
+  prototype). For now only the first spike (tool/spike/).
+version: 0.0.1
+publish_to: none
+
+environment:
+  sdk: ^3.10.0
+dependencies:
+  code_assets: ^2.2.0
+  ffi: ^2.2.0
+  hooks: ^2.2.0
+  logging: ^1.3.0
+  native_toolchain_c: ^0.19.6
+dev_dependencies:
+  ffigen: ^23.0.0
+  lints: ^6.1.0
