@@ -76,6 +76,10 @@ records the archives and their SHA-256). Taking in a new release:
    `.map` files; `components/` from the tarball's `legacy/web/pdf_viewer.mjs`,
    `pdf_viewer.css`, `images/` and its `LICENSE`. Update the version file and
    `kPdfJsVersion` (`lib/src/pdfjs/controller.dart`).
+   Then re-apply the recorded deviation: pdf.js's GPL Liberation Sans in
+   `web/standard_fonts/` are replaced by the OFL Liberation Sans 2.x
+   (`deviations` in `pdfjs.version.json`: the archive, its SHA-256 and each
+   font's); `PDFJS-LIC-1` fails while a GPL text is in the folder.
 3. `python3 tool/pdfjs_assets.py` writes the asset folders into
    `pubspec.yaml` (`--check` tells whether they are current).
 4. `hostPage` checks that `web/viewer.html` still has the two lines it adds

@@ -9,6 +9,7 @@ library;
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_file_session/io.dart';
@@ -419,6 +420,37 @@ void main() {
     expect(second.state, TomPdfJsState.opening);
     expect(rig.controller.state, TomPdfJsState.open);
     await tester.runAsync(second.close);
+  });
+
+  test('PDFJS-LIC-1: the vendored pdf.js holds no GPL text; its Liberation '
+      'fonts are the OFL ones the version file records', () {
+    final root = Directory('third_party/pdfjs/$kPdfJsVersion');
+    // Every file, binaries too, read as Latin-1 bytes.
+    for (final f in root.listSync(recursive: true).whereType<File>()) {
+      expect(
+        latin1.decode(f.readAsBytesSync()).contains('GNU General Public'),
+        isFalse,
+        reason: f.path,
+      );
+    }
+    final version =
+        jsonDecode(File('${root.path}/pdfjs.version.json').readAsStringSync())
+            as Map<String, Object?>;
+    final deviation = (version['deviations']! as List).single as Map;
+    final files = (deviation['files']! as Map).cast<String, String>();
+    expect(files.keys, hasLength(4));
+    for (final MapEntry(key: name, value: sha) in files.entries) {
+      final bytes = File(
+        '${root.path}/web/standard_fonts/$name',
+      ).readAsBytesSync();
+      expect(sha256.convert(bytes).toString(), sha, reason: name);
+    }
+    expect(
+      File(
+        '${root.path}/web/standard_fonts/LICENSE_LIBERATION',
+      ).readAsStringSync(),
+      contains('SIL OPEN FONT LICENSE Version 1.1'),
+    );
   });
 
   testWidgets('PDFJS-CLOSE-1: closing closes the page and the site', (

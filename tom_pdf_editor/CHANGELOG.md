@@ -36,6 +36,9 @@
   banner; forms filled by pdf.js; the previous document closed before the
   next opens; the `[PE:js]` trail. `TomPdfViewHost` is the host both views
   share; `TomPdfEditorHost` adds the PDFium parts.
+- The vendored pdf.js's Liberation Sans fonts are the OFL-1.1 2.1.5
+  release instead of pdf.js's GPL-2.0 copy (recorded in
+  `pdfjs.version.json`; checked by `PDFJS-LIC-1`).
 - Redo works after undoing one of several entries (the controller kept the
   newest entry by popping and pushing it, which emptied the redo stack).
 - `TomPdfiumLocator` (`io.dart`): the library from the binaries layer,

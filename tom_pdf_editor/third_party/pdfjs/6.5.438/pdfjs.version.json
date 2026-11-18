@@ -6,7 +6,7 @@
     "asset": "pdfjs-6.5.438-legacy-dist.zip",
     "url": "https://github.com/mozilla/pdf.js/releases/download/v6.5.438/pdfjs-6.5.438-legacy-dist.zip",
     "sha256": "55138aa33b5f1f6f68809895338b947f395f344eb6381d424b2420d6daa6a844",
-    "taken": "build/ and web/ (without the source maps)"
+    "taken": "build/ and web/ (without the source maps); web/standard_fonts' Liberation fonts replaced (see deviations)"
   },
   "components": {
     "asset": "pdfjs-dist-6.5.438.tgz",
@@ -16,5 +16,21 @@
     "taken": "package/legacy/web/pdf_viewer.mjs, pdf_viewer.css and images/ as components/, package/LICENSE"
   },
   "license": "Apache-2.0",
-  "date": "2026-11-18"
+  "date": "2026-11-18",
+  "deviations": [
+    {
+      "what": "web/standard_fonts/LiberationSans-{Regular,Bold,Italic,BoldItalic}.ttf and LICENSE_LIBERATION",
+      "why": "pdf.js ships Liberation Sans 1.07.4 under GPL-2.0 with a font exception; Forge allows no copyleft (tom_forge decision officeprotolic1, option c)",
+      "replacedBy": "Liberation Sans 2.1.5 (SIL OFL-1.1), unmodified, same file names; LICENSE_LIBERATION is the release's LICENSE",
+      "asset": "liberation-fonts-ttf-2.1.5.tar.gz",
+      "url": "https://github.com/liberationfonts/liberation-fonts/files/7261482/liberation-fonts-ttf-2.1.5.tar.gz",
+      "sha256": "7191c669bf38899f73a2094ed00f7b800553364f90e2637010a69c0e268f25d0",
+      "files": {
+        "LiberationSans-Regular.ttf": "76d04c18ea243f426b7de1f3ad208e927008f961dc5945e5aad352d0dfde8ee8",
+        "LiberationSans-Bold.ttf": "788abee4c806d660e8aee46689dd8540cd4bb98da03dcc9d171ce3efd99a9173",
+        "LiberationSans-Italic.ttf": "e5bae5c4cde31f22142753855f4f8fb86da6ff39955ed3c0a11248b0d16948b0",
+        "LiberationSans-BoldItalic.ttf": "698da70fc191cc5f33ad4d6d3fe830fe4624b898ea2e3169955928b7c491f1ee"
+      }
+    }
+  ]
 }

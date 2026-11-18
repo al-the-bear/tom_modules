@@ -261,6 +261,64 @@ void main() {
     });
   }
 
+  testWidgets('PDFJS-MAC-FONTS: the vendored Liberation Sans (OFL, in place '
+      'of pdf.js\'s GPL copy) loads and renders a non-embedded Helvetica', (
+    tester,
+  ) async {
+    final (c, view) = await open(
+      tester,
+      copy('pdf-text.pdf'),
+      TomPdfJsMode.components,
+    );
+    final requests = <TomContentRequest>[];
+    c.site!.onRequest = requests.add;
+    // A one-page PDF whose Helvetica is not embedded; pdf.js told not to use
+    // the system's fonts, so it takes its standard fonts from the site.
+    final result = await view.evaluateAsync(r'''
+      const src = "%PDF-1.4\n1 0 obj <</Type/Catalog/Pages 2 0 R>> endobj\n"
+        + "2 0 obj <</Type/Pages/Kids[3 0 R]/Count 1>> endobj\n"
+        + "3 0 obj <</Type/Page/Parent 2 0 R/MediaBox[0 0 300 60]"
+        + "/Resources<</Font<</F1 4 0 R>>>>/Contents 5 0 R>> endobj\n"
+        + "4 0 obj <</Type/Font/Subtype/Type1/BaseFont/Helvetica>> endobj\n"
+        + "5 0 obj <</Length 47>> stream\n"
+        + "BT /F1 24 Tf 10 20 Td (Liberation 2.1.5) Tj ET\n"
+        + "endstream endobj\ntrailer <</Root 1 0 R>>\n%%EOF\n";
+      const lib = globalThis.pdfjsLib;
+      const task = lib.getDocument({
+        data: new TextEncoder().encode(src),
+        useSystemFonts: false,
+        standardFontDataUrl: new URL("../../web/standard_fonts/", location.href).href,
+      });
+      const doc = await task.promise;
+      const page = await doc.getPage(1);
+      const viewport = page.getViewport({ scale: 2 });
+      const canvas = document.createElement("canvas");
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      const ctx = canvas.getContext("2d");
+      await page.render({ canvasContext: ctx, canvas, viewport }).promise;
+      const px = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+      let dark = 0;
+      for (let i = 0; i < px.length; i += 4) if (px[i + 3] > 128 && px[i] < 100) dark++;
+      const text = (await page.getTextContent()).items.map((t) => t.str).join("");
+      await task.destroy();
+      return { dark, text };
+    ''');
+    final r = (result! as Map).cast<String, Object?>();
+    expect(r['text'], 'Liberation 2.1.5');
+    expect((r['dark']! as num).toInt(), greaterThan(500), reason: 'drawn');
+    expect(
+      requests.where(
+        (q) =>
+            q.path.endsWith('standard_fonts/LiberationSans-Regular.ttf') &&
+            q.status == 200,
+      ),
+      isNotEmpty,
+      reason: 'pdf.js fetched the vendored Liberation Sans',
+    );
+    await c.close();
+  });
+
   testWidgets('PDFJS-MAC-SECOND: a document opens quickly right after the '
       '16.8 MB pdf-long', (tester) async {
     final long = copy('pdf-long.pdf');
