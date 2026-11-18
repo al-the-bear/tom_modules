@@ -289,7 +289,9 @@ class _EncryptedBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) => _Bar(
     icon: Icons.enhanced_encryption_outlined,
-    text: 'Encrypted: view only — annotations are not available.',
+    text:
+        'Encrypted: view only — annotations and form filling are not '
+        'available.',
     actions: [
       TextButton(
         key: const ValueKey('pdf-save-unencrypted'),

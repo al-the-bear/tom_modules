@@ -374,26 +374,23 @@ class TomPdfEditorController extends ChangeNotifier {
     _historyChanged();
   }
 
-  /// Undoes the newest edit.
+  /// Undoes the newest edit (a focused field's text is committed first, so
+  /// it is what is undone).
   Future<void> undo() async {
+    await releaseFormFocus();
     if (!canUndo) return;
     await history.undoAsync((e) => e.revert(this));
-    _topEdit = _peekTop();
+    _topEdit = history.nextUndo;
     _historyChanged();
   }
 
   /// Redoes the newest undone edit.
   Future<void> redo() async {
+    await releaseFormFocus();
     if (!canRedo) return;
     final e = await history.redoAsync((e) => e.apply(this));
     _topEdit = e;
     _historyChanged();
-  }
-
-  TomPdfEdit? _peekTop() {
-    final top = history.popNewest();
-    if (top != null) history.push(top);
-    return top;
   }
 
   void _markSaved() {
@@ -418,6 +415,8 @@ class TomPdfEditorController extends ChangeNotifier {
       _notice('warning', 'This document is read-only: use Save as copy.');
       return;
     }
+    // The focused field's text is committed (and recorded) before saving.
+    await releaseFormFocus();
     _set(TomPdfEditorState.saving);
     try {
       await host.files.removeTemporaryFiles(host.filePath);
@@ -873,7 +872,10 @@ class TomPdfEditorController extends ChangeNotifier {
     if (_tool == tool) return;
     pdfTrail('tool ${tool.name}');
     _tool = tool;
-    if (tool != PdfAnnotationTool.select) _selectedAnnotation = null;
+    if (tool != PdfAnnotationTool.select) {
+      _selectedAnnotation = null;
+      unawaited(releaseFormFocus());
+    }
     notifyListeners();
   }
 
@@ -1125,6 +1127,93 @@ class TomPdfEditorController extends ChangeNotifier {
     _annotationLoads.clear();
     _pageVersions.clear();
     _selectedAnnotation = null;
+    _formFocus = null;
+  }
+
+  // ------------------------------------------------------------------ forms
+
+  PdfFormField? _formFocus;
+
+  /// Whether form fields can be filled in: an AcroForm document that is not
+  /// read-only, not encrypted (DPPF-3) and allows filling.
+  bool get canFill {
+    final info = _info;
+    return info != null &&
+        !isReadOnly &&
+        !info.encrypted &&
+        info.canFillForms &&
+        info.formType == PdfFormType.acroForm;
+  }
+
+  /// The field that has the focus (its typing goes to it), or `null`.
+  PdfFormField? get formFocus => _formFocus;
+
+  /// A click at ([x], [y]) view points of [page] for the form: answers
+  /// whether a fillable field took it (else the click is the view's).
+  Future<bool> formClick(int page, double x, double y) async {
+    if (!canFill) return false;
+    final r = await _engine!.formClick(_info!.handle, page, x, y);
+    _applyForm(r);
+    return r.handled;
+  }
+
+  /// The form field at ([x], [y]) view points of [page], or `null`.
+  Future<PdfFormField?> formFieldAt(int page, double x, double y) async {
+    if (!canFill) return null;
+    return _engine!.formFieldAt(_info!.handle, page, x, y);
+  }
+
+  /// Typed text for the focused field.
+  Future<void> formText(String text) async {
+    if (_formFocus == null || !canFill) return;
+    _applyForm(await _engine!.formText(_info!.handle, text));
+  }
+
+  /// A key for the focused field.
+  Future<void> formKey(PdfFormKey key, {bool shift = false}) async {
+    if (_formFocus == null || !canFill) return;
+    _applyForm(await _engine!.formKey(_info!.handle, key, shift: shift));
+  }
+
+  /// The focused field's own undo (or [redo]) of its typing; answers whether
+  /// it had one.
+  Future<bool> formUndo({bool redo = false}) async {
+    if (_formFocus == null || !canFill) return false;
+    final r = await _engine!.formUndo(_info!.handle, redo: redo);
+    _applyForm(r);
+    return r.handled;
+  }
+
+  /// Takes the focus from the focused field, committing its text (one
+  /// history entry when it changed). Called when the view loses the focus,
+  /// an annotation tool is chosen, before undo, redo and saving.
+  Future<void> releaseFormFocus() async {
+    if (_formFocus == null) return;
+    final info = _info;
+    final engine = _engine;
+    if (info == null || engine == null) {
+      _formFocus = null;
+      return;
+    }
+    _applyForm(await engine.formKillFocus(info.handle));
+  }
+
+  /// The pages to render again, the focus, the committed changes as history
+  /// entries.
+  void _applyForm(PdfFormResult r) {
+    _formFocus = r.focused;
+    for (final page in r.dirtyPages) {
+      _pageVersions[page] = pageVersion(page) + 1;
+    }
+    for (final change in r.changes) {
+      pdfTrail('form: ${change.type.name} committed');
+      pushEdit(_FormEdit(change));
+    }
+    if (r.focused != null) {
+      _selectedAnnotation = null;
+      clearSelection();
+    }
+    notifyListeners();
   }
 
   /// Saves an unencrypted copy of an encrypted document (DPPF-3: the host
@@ -1321,6 +1410,48 @@ final class _AnnotationEdit implements TomPdfEdit {
     pdfTrail('undo: $label');
     for (final page in {for (final ch in changes) ch.page}) {
       await c._annotationsChanged(page);
+    }
+  }
+}
+
+/// One committed form field change as a history entry.
+final class _FormEdit implements TomPdfEdit {
+  _FormEdit(this.change);
+
+  final PdfFormChange change;
+
+  @override
+  String get label => switch (change.type) {
+    PdfFieldType.checkbox => 'Checkbox',
+    PdfFieldType.radio => 'Radio button',
+    _ => 'Text field',
+  };
+
+  Future<void> _set(TomPdfEditorController c, String value) async {
+    final r = await c._engine!.formSetValue(
+      c._info!.handle,
+      change.page,
+      change.name,
+      change.type,
+      value,
+    );
+    c._applyForm(r);
+  }
+
+  @override
+  Future<void> apply(TomPdfEditorController c) => _set(c, change.after);
+
+  @override
+  Future<void> revert(TomPdfEditorController c) async {
+    await _set(c, change.before);
+    if (change.type == PdfFieldType.radio && change.before.isEmpty) {
+      // PDFium turns a radio button on only by a click, so a group cannot
+      // go back to no button on.
+      c._notice(
+        'info',
+        'The radio group stays on its choice: a PDF form cannot go back to no '
+            'choice.',
+      );
     }
   }
 }

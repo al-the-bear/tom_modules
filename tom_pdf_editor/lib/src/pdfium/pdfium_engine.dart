@@ -287,6 +287,57 @@ final class PdfiumEngine implements TomPdfEngine {
       _call<Object?>('removeAnnot', [doc, page, match]);
 
   @override
+  Future<List<PdfFormField>> formFields(int doc, int page) async => [
+    for (final w in await _call<List<Object?>>('formFields', [doc, page]))
+      PdfFormField.fromWire(w! as List<Object?>),
+  ];
+
+  @override
+  Future<PdfFormField?> formFieldAt(
+    int doc,
+    int page,
+    double x,
+    double y,
+  ) async {
+    final w = await _call<List<Object?>?>('formFieldAt', [doc, page, x, y]);
+    return w == null ? null : PdfFormField.fromWire(w);
+  }
+
+  Future<PdfFormResult> _form(String op, List<Object?> args) async =>
+      PdfFormResult.fromWire(await _call<List<Object?>>(op, args));
+
+  @override
+  Future<PdfFormResult> formClick(int doc, int page, double x, double y) =>
+      _form('formClick', [doc, page, x, y]);
+
+  @override
+  Future<PdfFormResult> formText(int doc, String text) =>
+      _form('formText', [doc, text]);
+
+  @override
+  Future<PdfFormResult> formKey(
+    int doc,
+    PdfFormKey key, {
+    bool shift = false,
+  }) => _form('formKey', [doc, key.index, shift]);
+
+  @override
+  Future<PdfFormResult> formUndo(int doc, {bool redo = false}) =>
+      _form('formUndo', [doc, redo]);
+
+  @override
+  Future<PdfFormResult> formKillFocus(int doc) => _form('formKillFocus', [doc]);
+
+  @override
+  Future<PdfFormResult> formSetValue(
+    int doc,
+    int page,
+    String name,
+    PdfFieldType type,
+    String value,
+  ) => _form('formSetValue', [doc, page, name, type.index, value]);
+
+  @override
   Future<String?> saveCopy(
     int doc,
     String target, {

@@ -7,6 +7,8 @@
 @Timeout(Duration(minutes: 3))
 library;
 
+import 'dart:io';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_file_session/io.dart';
@@ -15,6 +17,7 @@ import 'package:tom_pdf_editor/pdfium.dart';
 import 'package:tom_pdf_editor/tom_pdf_editor.dart';
 
 import '../samples.dart';
+import 'forms_test.dart' show pdfKitFields;
 
 /// A desktop host: the real locator, engine and file access.
 class _Host implements TomPdfEditorHost {
@@ -132,5 +135,57 @@ void main() {
     expect(c.info!.encrypted, isTrue);
     expect(c.canAnnotate, isFalse);
     await c.close();
+  }, skip: skip);
+  test('PDF-REAL-5: pdf-form through the controller: a text field and a '
+      'checkbox filled (one history entry each), one undone and redone, '
+      'saved over the file, reopened; PDFKit reads the values', () async {
+    final dir = Directory.systemTemp.createTempSync('pdf-form-real-');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    final path = '${dir.path}/pdf-form.pdf';
+    File(samplePath('pdf-form.pdf')).copySync(path);
+    final c = TomPdfEditorController(_Host(path));
+    await c.open();
+    addTearDown(c.dispose);
+    expect(c.canFill, isTrue);
+    final engine = c.engine!;
+    final fields = await engine.formFields(c.info!.handle, 0);
+    final text = fields.firstWhere((f) => f.type == PdfFieldType.text);
+    final box = fields.firstWhere((f) => f.type == PdfFieldType.checkbox);
+    double cx(PdfFormField f) => (f.rect.left + f.rect.right) / 2;
+    double cy(PdfFormField f) => (f.rect.top + f.rect.bottom) / 2;
+
+    expect(await c.formClick(0, cx(text), cy(text)), isTrue);
+    await c.formKey(PdfFormKey.selectAll);
+    await c.formText('Filled on mbp');
+    expect(c.canUndo, isFalse, reason: 'not committed yet');
+    expect(await c.formClick(0, cx(box), cy(box)), isTrue);
+    // Two entries: the text (committed by the click elsewhere), the box.
+    expect(c.undoLabel, 'Checkbox');
+    expect(c.isDirty, isTrue);
+    await c.undo();
+    expect(c.undoLabel, 'Text field');
+    var now = await engine.formFields(c.info!.handle, 0);
+    expect(now.firstWhere((f) => f.name == box.name).checked, box.checked);
+    expect(now.firstWhere((f) => f.name == text.name).value, 'Filled on mbp');
+    await c.redo();
+    now = await engine.formFields(c.info!.handle, 0);
+    expect(now.firstWhere((f) => f.name == box.name).checked, !box.checked);
+
+    final original = File(path).readAsBytesSync();
+    await c.save();
+    expect(c.conflict, isNull);
+    expect(c.isDirty, isFalse);
+    final saved = File(path).readAsBytesSync();
+    expect(saved.sublist(0, original.length), original, reason: 'not a prefix');
+    // Reopened after the save: the values are in the file.
+    now = await c.engine!.formFields(c.info!.handle, 0);
+    expect(now.firstWhere((f) => f.name == text.name).value, 'Filled on mbp');
+    expect(now.firstWhere((f) => f.name == box.name).checked, !box.checked);
+    if (Platform.isMacOS) {
+      final kit = pdfKitFields(path);
+      expect(kit, isNotNull, reason: 'PDFKit refuses the saved file');
+      expect(kit, contains('${text.name}=Filled on mbp'));
+      expect(kit, contains('${box.name}:${box.checked ? 'off' : 'on'}'));
+    }
   }, skip: skip);
 }

@@ -69,6 +69,9 @@ final class _Doc {
   FPDF_FORMHANDLE form = nullptr;
   Pointer<FPDF_FORMFILLINFO> formInfo = nullptr;
 
+  /// The field that has the focus, with its value when it got it.
+  ({int page, String name, int type, String value})? focus;
+
   /// The page window: open pages, least recently used first.
   final pages = <int, _OpenPage>{};
 }
@@ -206,6 +209,30 @@ final class _Worker {
           job[4] as String,
           job[5] as List<Object?>,
         ),
+        'formFields' => _formFields(job[2] as int, job[3] as int),
+        'formFieldAt' => _formFieldAt(
+          job[2] as int,
+          job[3] as int,
+          job[4] as double,
+          job[5] as double,
+        ),
+        'formClick' => _formClick(
+          job[2] as int,
+          job[3] as int,
+          job[4] as double,
+          job[5] as double,
+        ),
+        'formText' => _formText(job[2] as int, job[3] as String),
+        'formKey' => _formKey(job[2] as int, job[3] as int, job[4] as bool),
+        'formUndo' => _formUndo(job[2] as int, job[3] as bool),
+        'formKillFocus' => _formKillFocus(job[2] as int),
+        'formSetValue' => _formSetValue(
+          job[2] as int,
+          job[3] as int,
+          job[4] as String,
+          job[5] as int,
+          job[6] as String,
+        ),
         'removeAnnot' => _removeAnnotation(
           job[2] as int,
           job[3] as int,
@@ -218,6 +245,399 @@ final class _Worker {
     } catch (e) {
       reply.send([id, 'err', '$e']);
     }
+  }
+
+  // ------------------------------------------------------------------- forms
+
+  /// Page addresses `FFI_Invalidate` named during the current call.
+  final _invalidated = <int>{};
+
+  static const _fieldTypes = {
+    FPDF_FORMFIELD_PUSHBUTTON: 1,
+    FPDF_FORMFIELD_CHECKBOX: 2,
+    FPDF_FORMFIELD_RADIOBUTTON: 3,
+    FPDF_FORMFIELD_COMBOBOX: 4,
+    FPDF_FORMFIELD_LISTBOX: 5,
+    FPDF_FORMFIELD_TEXTFIELD: 6,
+    FPDF_FORMFIELD_SIGNATURE: 7,
+  };
+
+  // PdfFieldType indices.
+  static const _textType = 6;
+  static const _checkbox = 2;
+  static const _radio = 3;
+
+  _Doc _formDoc(int handle) {
+    final d = _docOf(handle);
+    if (d.form == nullptr) throw StateError('the document has no form');
+    return d;
+  }
+
+  String _fieldName(_Doc d, FPDF_ANNOTATION a) => _wideString(
+    (buf, len) => b.FPDFAnnot_GetFormFieldName(d.form, a, buf.cast(), len),
+  );
+
+  /// The wire form of `PdfFormField` for the widget [a] of [page], the
+  /// [index]th widget of its field on the page.
+  List<Object?> _fieldWire(
+    _Doc d,
+    _OpenPage p,
+    int page,
+    FPDF_ANNOTATION a,
+    String name,
+    int index,
+  ) {
+    final rect = using((m) {
+      final r = m<FS_RECTF>();
+      if (b.FPDFAnnot_GetRect(a, r) == 0) return [0.0, 0.0, 0.0, 0.0];
+      return _rectToView(p, r.ref.left, r.ref.top, r.ref.right, r.ref.bottom);
+    });
+    return [
+      page,
+      name,
+      index,
+      _fieldTypes[b.FPDFAnnot_GetFormFieldType(d.form, a)] ?? 0,
+      ...rect,
+      _wideString(
+        (buf, len) => b.FPDFAnnot_GetFormFieldValue(d.form, a, buf.cast(), len),
+      ),
+      b.FPDFAnnot_IsChecked(d.form, a) != 0,
+      b.FPDFAnnot_GetFormFieldFlags(d.form, a) & FPDF_FORMFLAG_READONLY != 0,
+    ];
+  }
+
+  /// Calls [each] for every widget of [page] with its name and index among
+  /// the page's widgets of that field; [each] answering `true` stops (the
+  /// annotation is then left open for the caller).
+  void _eachWidget(
+    _Doc d,
+    _OpenPage p,
+    bool Function(FPDF_ANNOTATION a, String name, int index) each,
+  ) {
+    final seen = <String, int>{};
+    final count = b.FPDFPage_GetAnnotCount(p.page);
+    for (var i = 0; i < count; i++) {
+      final a = b.FPDFPage_GetAnnot(p.page, i);
+      if (a == nullptr) continue;
+      if (b.FPDFAnnot_GetSubtype(a) != FPDF_ANNOT_WIDGET) {
+        b.FPDFPage_CloseAnnot(a);
+        continue;
+      }
+      final name = _fieldName(d, a);
+      final index = seen[name] ?? 0;
+      seen[name] = index + 1;
+      if (each(a, name, index)) return;
+      b.FPDFPage_CloseAnnot(a);
+    }
+  }
+
+  /// Every widget of [page] in wire form.
+  List<Object?> _formFields(int doc, int page) {
+    final d = _formDoc(doc);
+    final p = _page(d, page);
+    final out = <Object?>[];
+    _eachWidget(d, p, (a, name, index) {
+      out.add(_fieldWire(d, p, page, a, name, index));
+      return false;
+    });
+    return out;
+  }
+
+  /// The widget [a]'s name and index.
+  (String, int) _identify(_Doc d, _OpenPage p, FPDF_ANNOTATION a) {
+    final name = _fieldName(d, a);
+    final at = b.FPDFPage_GetAnnotIndex(p.page, a);
+    var index = 0;
+    for (var i = 0; i < at; i++) {
+      final o = b.FPDFPage_GetAnnot(p.page, i);
+      if (o == nullptr) continue;
+      if (b.FPDFAnnot_GetSubtype(o) == FPDF_ANNOT_WIDGET &&
+          _fieldName(d, o) == name) {
+        index++;
+      }
+      b.FPDFPage_CloseAnnot(o);
+    }
+    return (name, index);
+  }
+
+  List<Object?>? _fieldAtPage(_Doc d, int page, double x, double y) {
+    final p = _page(d, page);
+    final (px, py) = _toPage(p, x, y);
+    return using((m) {
+      final point = m<FS_POINTF>();
+      point.ref
+        ..x = px
+        ..y = py;
+      final a = b.FPDFAnnot_GetFormFieldAtPoint(d.form, p.page, point);
+      if (a == nullptr) return null;
+      try {
+        final (name, index) = _identify(d, p, a);
+        return _fieldWire(d, p, page, a, name, index);
+      } finally {
+        b.FPDFPage_CloseAnnot(a);
+      }
+    });
+  }
+
+  Object? _formFieldAt(int doc, int page, double x, double y) =>
+      _fieldAtPage(_formDoc(doc), page, x, y);
+
+  /// `name#index` → `[type, value, checked]` of [page]'s widgets.
+  Map<String, List<Object?>> _snapshot(_Doc d, int page) {
+    final p = _page(d, page);
+    final out = <String, List<Object?>>{};
+    _eachWidget(d, p, (a, name, index) {
+      final w = _fieldWire(d, p, page, a, name, index);
+      out['$name#$index'] = [w[3], w[8], w[9]];
+      return false;
+    });
+    return out;
+  }
+
+  /// The focused widget in wire form, or `null`.
+  List<Object?>? _focused(_Doc d) => using((m) {
+    final page = m<Int>();
+    final annot = m<FPDF_ANNOTATION>();
+    if (b.FORM_GetFocusedAnnot(d.form, page, annot) == 0 ||
+        annot.value == nullptr) {
+      return null;
+    }
+    final a = annot.value;
+    try {
+      final p = _page(d, page.value);
+      final (name, index) = _identify(d, p, a);
+      return _fieldWire(d, p, page.value, a, name, index);
+    } finally {
+      b.FPDFPage_CloseAnnot(a);
+    }
+  });
+
+  /// The wire form of `PdfFormResult` after a form call: the checkbox and
+  /// radio changes on the pages of [before], a text field's committed text
+  /// when it lost the focus, the pages to render again. [record] `false`
+  /// (an undo or a redo) reports no changes.
+  List<Object?> _formResult(
+    _Doc d, {
+    required bool handled,
+    Map<int, Map<String, List<Object?>>> before = const {},
+    bool record = true,
+  }) {
+    final changes = <Object?>[];
+    if (record) {
+      for (final MapEntry(key: page, value: was) in before.entries) {
+        final now = _snapshot(d, page);
+        final radios = <String, (String, String)>{};
+        final boxes = <String>{};
+        for (final MapEntry(:key, :value) in now.entries) {
+          final old = was[key];
+          if (old == null) continue;
+          final cut = key.lastIndexOf('#');
+          final name = key.substring(0, cut);
+          final index = key.substring(cut + 1);
+          final type = value[0] as int;
+          if (type == _checkbox && old[2] != value[2] && boxes.add(name)) {
+            changes.add([
+              page,
+              name,
+              _checkbox,
+              old[2] == true ? 'on' : 'off',
+              value[2] == true ? 'on' : 'off',
+            ]);
+          } else if (type == _radio) {
+            final (b0, a0) = radios[name] ?? ('', '');
+            radios[name] = (
+              old[2] == true ? index : b0,
+              value[2] == true ? index : a0,
+            );
+          }
+        }
+        for (final MapEntry(key: name, value: (b0, a0)) in radios.entries) {
+          if (b0 != a0) changes.add([page, name, _radio, b0, a0]);
+        }
+      }
+    }
+    final focused = _focused(d);
+    final old = d.focus;
+    final moved =
+        old != null &&
+        (focused == null || focused[0] != old.page || focused[1] != old.name);
+    if (moved && record && old.type == _textType) {
+      final now = _snapshot(d, old.page)['${old.name}#0'];
+      if (now != null && now[1] != old.value) {
+        // The text was committed before anything the call changed.
+        changes.insert(0, [old.page, old.name, _textType, old.value, now[1]]);
+      }
+    }
+    if (focused == null) {
+      d.focus = null;
+    } else if (old == null || moved) {
+      final page = focused[0]! as int;
+      final name = focused[1]! as String;
+      final was = before[page]?['$name#0'];
+      d.focus = (
+        page: page,
+        name: name,
+        type: focused[3]! as int,
+        value: (was?[1] ?? focused[8])! as String,
+      );
+    }
+    final dirty = <int>[
+      for (final MapEntry(:key, :value) in d.pages.entries)
+        if (_invalidated.contains(value.page.address)) key,
+    ];
+    _invalidated.clear();
+    return [handled, dirty, focused, changes];
+  }
+
+  Object? _formClick(int doc, int page, double x, double y) {
+    final d = _formDoc(doc);
+    final field = _fieldAtPage(d, page, x, y);
+    final fillable =
+        field != null &&
+        field[10] != true &&
+        const {_textType, _checkbox, _radio}.contains(field[3]);
+    if (!fillable) {
+      b.FORM_ForceToKillFocus(d.form);
+      return _formResult(d, handled: false);
+    }
+    final focus = d.focus;
+    if (focus != null && (focus.page != page || focus.name != field[1])) {
+      // Another field had the focus: PDFium does not move it on a click
+      // into a button while a text field is being edited, so it is taken
+      // first (the text is committed and reported below).
+      b.FORM_ForceToKillFocus(d.form);
+    }
+    final before = {page: _snapshot(d, page)};
+    final p = _page(d, page);
+    final (px, py) = _toPage(p, x, y);
+    b.FORM_OnLButtonDown(d.form, p.page, 0, px, py);
+    b.FORM_OnLButtonUp(d.form, p.page, 0, px, py);
+    return _formResult(d, handled: true, before: before);
+  }
+
+  Object? _formText(int doc, String text) {
+    final d = _formDoc(doc);
+    final focus = d.focus;
+    if (focus == null) return _formResult(d, handled: false);
+    final p = _page(d, focus.page);
+    final before = {focus.page: _snapshot(d, focus.page)};
+    for (final unit in text.codeUnits) {
+      b.FORM_OnChar(d.form, p.page, unit, 0);
+    }
+    return _formResult(d, handled: true, before: before);
+  }
+
+  /// `FWL_VKEY_*` of the `PdfFormKey`s in order (select all is not a key).
+  static const _vkeys = [
+    0x08, // backspace
+    0x2E, // delete
+    0x25, // left
+    0x27, // right
+    0x26, // up
+    0x28, // down
+    0x24, // home
+    0x23, // end
+    0x0D, // return
+    0x09, // tab
+  ];
+
+  Object? _formKey(int doc, int key, bool shift) {
+    final d = _formDoc(doc);
+    final focus = d.focus;
+    if (focus == null) return _formResult(d, handled: false);
+    final p = _page(d, focus.page);
+    final before = {focus.page: _snapshot(d, focus.page)};
+    if (key >= _vkeys.length) {
+      b.FORM_SelectAllText(d.form, p.page);
+    } else {
+      final flags = shift ? 1 : 0;
+      b.FORM_OnKeyDown(d.form, p.page, _vkeys[key], flags);
+      // Return reaches a multi-line field as a character.
+      if (_vkeys[key] == 0x0D) b.FORM_OnChar(d.form, p.page, 0x0D, flags);
+      b.FORM_OnKeyUp(d.form, p.page, _vkeys[key], flags);
+    }
+    return _formResult(d, handled: true, before: before);
+  }
+
+  Object? _formUndo(int doc, bool redo) {
+    final d = _formDoc(doc);
+    final focus = d.focus;
+    if (focus == null) return _formResult(d, handled: false);
+    final p = _page(d, focus.page);
+    final can = redo
+        ? b.FORM_CanRedo(d.form, p.page)
+        : b.FORM_CanUndo(d.form, p.page);
+    if (can == 0) return _formResult(d, handled: false);
+    if (redo) {
+      b.FORM_Redo(d.form, p.page);
+    } else {
+      b.FORM_Undo(d.form, p.page);
+    }
+    return _formResult(d, handled: true);
+  }
+
+  Object? _formKillFocus(int doc) {
+    final d = _formDoc(doc);
+    b.FORM_ForceToKillFocus(d.form);
+    return _formResult(d, handled: true);
+  }
+
+  /// Sets a field's value (an undo or a redo): its text, a checkbox `on` /
+  /// `off`, the index of the radio group's button that is on.
+  Object? _formSetValue(
+    int doc,
+    int page,
+    String name,
+    int type,
+    String value,
+  ) {
+    final d = _formDoc(doc);
+    b.FORM_ForceToKillFocus(d.form);
+    _formResult(d, handled: true, record: false);
+    final p = _page(d, page);
+    final target = type == _radio ? int.tryParse(value) : 0;
+    if (target == null) {
+      // A radio group with no button on: PDFium cannot turn one off.
+      return _formResult(d, handled: false, record: false);
+    }
+    FPDF_ANNOTATION widget = nullptr;
+    _eachWidget(d, p, (a, n, index) {
+      if (n != name || index != target) return false;
+      widget = a;
+      return true;
+    });
+    if (widget == nullptr) throw StateError('no field $name#$target');
+    try {
+      if (type == _textType) {
+        b.FORM_SetFocusedAnnot(d.form, widget);
+        b.FORM_SelectAllText(d.form, p.page);
+        using((m) {
+          final units = value.codeUnits;
+          final wide = m<UnsignedShort>(units.length + 1);
+          for (var i = 0; i < units.length; i++) {
+            wide[i] = units[i];
+          }
+          wide[units.length] = 0;
+          b.FORM_ReplaceSelection(d.form, p.page, wide);
+        });
+      } else {
+        final on = b.FPDFAnnot_IsChecked(d.form, widget) != 0;
+        if (on != (type == _radio || value == 'on')) {
+          using((m) {
+            final r = m<FS_RECTF>();
+            b.FPDFAnnot_GetRect(widget, r);
+            final x = (r.ref.left + r.ref.right) / 2;
+            final y = (r.ref.top + r.ref.bottom) / 2;
+            b.FORM_OnLButtonDown(d.form, p.page, 0, x, y);
+            b.FORM_OnLButtonUp(d.form, p.page, 0, x, y);
+          });
+        }
+      }
+      b.FORM_ForceToKillFocus(d.form);
+    } finally {
+      b.FPDFPage_CloseAnnot(widget);
+    }
+    return _formResult(d, handled: true, record: false);
   }
 
   // --------------------------------------------------------------- documents
@@ -327,23 +747,23 @@ final class _Worker {
   }
 
   void _initForm(_Doc d) {
-    _invalidate ??= NativeCallable.isolateLocal(_onInvalidate);
+    // FFI_Invalidate is called synchronously inside the FORM_* calls; the
+    // pages it names are rendered again after the call.
+    _invalidate ??= NativeCallable.isolateLocal(
+      (
+        Pointer<FPDF_FORMFILLINFO> info,
+        FPDF_PAGE page,
+        double left,
+        double top,
+        double right,
+        double bottom,
+      ) => _invalidated.add(page.address),
+    );
     final info = calloc<FPDF_FORMFILLINFO>();
     info.ref.version = 1;
     info.ref.FFI_Invalidate = _invalidate!.nativeFunction;
     d.formInfo = info;
     d.form = b.FPDFDOC_InitFormFillEnvironment(d.doc, info);
-  }
-
-  static void _onInvalidate(
-    Pointer<FPDF_FORMFILLINFO> info,
-    FPDF_PAGE page,
-    double left,
-    double top,
-    double right,
-    double bottom,
-  ) {
-    // Display only in this todo: fields are drawn on every render.
   }
 
   Object? _closeDoc(int handle) {
@@ -382,7 +802,10 @@ final class _Worker {
     );
     d.pages[index] = p;
     while (d.pages.length > _pageWindow) {
-      final oldest = d.pages.keys.first;
+      // The focused field's page stays open: its edit is not committed yet.
+      final oldest = d.pages.keys.firstWhere(
+        (k) => k != d.focus?.page && k != index,
+      );
       _closePage(d, d.pages.remove(oldest)!);
     }
     return p;

@@ -27,6 +27,7 @@ class FakePdfDocument {
     this.formType = PdfFormType.none,
     this.unmapped = const {},
     Map<int, List<PdfAnnotation>>? annotations,
+    this.fields = const [],
   }) : texts = texts ?? List.filled(pages.length, ''),
        annotations = annotations ?? {};
 
@@ -59,6 +60,52 @@ class FakePdfDocument {
 
   /// The annotations of each page (the file's, then the editor's).
   final Map<int, List<PdfAnnotation>> annotations;
+
+  /// The form fields (widgets; set [formType] to `acroForm`).
+  final List<FakeFormField> fields;
+
+  // The focused field, its value when it got the focus, the text being
+  // typed into it (committed when it loses the focus) and its typing undo.
+  FakeFormField? _focus;
+  String _focusValue = '';
+  String _typed = '';
+  bool _allSelected = false;
+  final _typing = <String>[];
+}
+
+/// A widget of a fake form field; [value] and [checked] change as it is
+/// filled.
+class FakeFormField {
+  FakeFormField({
+    required this.page,
+    required this.name,
+    required this.type,
+    required this.rect,
+    this.index = 0,
+    this.value = '',
+    this.checked = false,
+    this.readOnly = false,
+  });
+
+  final int page;
+  final String name;
+  final int index;
+  final PdfFieldType type;
+  final PdfRect rect;
+  String value;
+  bool checked;
+  final bool readOnly;
+
+  PdfFormField get field => PdfFormField(
+    page: page,
+    name: name,
+    index: index,
+    type: type,
+    rect: rect,
+    value: value,
+    checked: checked,
+    readOnly: readOnly,
+  );
 }
 
 /// The fake grid's left edge, in points.
@@ -361,6 +408,217 @@ class FakePdfEngine implements TomPdfEngine {
     calls.add('removeAnnotation $page $match');
     final list = _doc(doc).annotations[page] ?? [];
     list.removeAt(_index(list, match));
+  }
+
+  // ------------------------------------------------------------------ forms
+
+  FakeFormField? _fieldAt(FakePdfDocument d, int page, double x, double y) {
+    for (final f in d.fields) {
+      if (f.page == page &&
+          x >= f.rect.left &&
+          x <= f.rect.right &&
+          y >= f.rect.top &&
+          y <= f.rect.bottom) {
+        return f;
+      }
+    }
+    return null;
+  }
+
+  /// Commits the focused field's typing and takes the focus away.
+  List<PdfFormChange> _blur(FakePdfDocument d) {
+    final f = d._focus;
+    d._focus = null;
+    if (f == null || f.type != PdfFieldType.text) return const [];
+    f.value = d._typed;
+    d._typing.clear();
+    if (f.value == d._focusValue) return const [];
+    return [PdfFormChange(f.page, f.name, f.type, d._focusValue, f.value)];
+  }
+
+  void _focusOn(FakePdfDocument d, FakeFormField f) {
+    d._focus = f;
+    d._focusValue = f.value;
+    d._typed = f.value;
+    d._allSelected = false;
+    d._typing.clear();
+  }
+
+  PdfFormResult _result(
+    FakePdfDocument d, {
+    bool handled = true,
+    Set<int> dirty = const {},
+    List<PdfFormChange> changes = const [],
+  }) {
+    final f = d._focus;
+    return PdfFormResult(
+      handled: handled,
+      dirtyPages: dirty,
+      focused: f == null
+          ? null
+          : PdfFormField(
+              page: f.page,
+              name: f.name,
+              index: f.index,
+              type: f.type,
+              rect: f.rect,
+              value: f.type == PdfFieldType.text ? d._typed : f.value,
+              checked: f.checked,
+              readOnly: f.readOnly,
+            ),
+      changes: changes,
+    );
+  }
+
+  @override
+  Future<List<PdfFormField>> formFields(int doc, int page) async => [
+    for (final f in _doc(doc).fields)
+      if (f.page == page) f.field,
+  ];
+
+  @override
+  Future<PdfFormField?> formFieldAt(
+    int doc,
+    int page,
+    double x,
+    double y,
+  ) async => _fieldAt(_doc(doc), page, x, y)?.field;
+
+  @override
+  Future<PdfFormResult> formClick(int doc, int page, double x, double y) async {
+    calls.add('formClick $page');
+    final d = _doc(doc);
+    final f = _fieldAt(d, page, x, y);
+    if (f == null || !f.field.fillable) {
+      final old = d._focus?.page;
+      final changes = _blur(d);
+      return _result(d, handled: false, dirty: {?old}, changes: changes);
+    }
+    final changes = <PdfFormChange>[];
+    final dirty = <int>{page};
+    if (!identical(d._focus, f)) {
+      final old = d._focus?.page;
+      if (old != null) dirty.add(old);
+      changes.addAll(_blur(d));
+      _focusOn(d, f);
+    }
+    if (f.type == PdfFieldType.checkbox) {
+      f.checked = !f.checked;
+      changes.add(
+        PdfFormChange(
+          page,
+          f.name,
+          f.type,
+          f.checked ? 'off' : 'on',
+          f.checked ? 'on' : 'off',
+        ),
+      );
+    } else if (f.type == PdfFieldType.radio && !f.checked) {
+      var before = '';
+      for (final o in d.fields) {
+        if (o.page == page && o.name == f.name && o.checked) {
+          before = '${o.index}';
+          o.checked = false;
+        }
+      }
+      f.checked = true;
+      changes.add(PdfFormChange(page, f.name, f.type, before, '${f.index}'));
+    }
+    return _result(d, dirty: dirty, changes: changes);
+  }
+
+  @override
+  Future<PdfFormResult> formText(int doc, String text) async {
+    final d = _doc(doc);
+    final f = d._focus;
+    if (f == null || f.type != PdfFieldType.text) {
+      return _result(d, handled: false);
+    }
+    d._typing.add(d._typed);
+    d._typed = d._allSelected ? text : d._typed + text;
+    d._allSelected = false;
+    return _result(d, dirty: {f.page});
+  }
+
+  @override
+  Future<PdfFormResult> formKey(
+    int doc,
+    PdfFormKey key, {
+    bool shift = false,
+  }) async {
+    final d = _doc(doc);
+    final f = d._focus;
+    if (f == null) return _result(d, handled: false);
+    switch (key) {
+      case PdfFormKey.backspace when f.type == PdfFieldType.text:
+        d._typing.add(d._typed);
+        d._typed = d._allSelected || d._typed.isEmpty
+            ? ''
+            : d._typed.substring(0, d._typed.length - 1);
+        d._allSelected = false;
+      case PdfFormKey.selectAll:
+        d._allSelected = true;
+      case PdfFormKey.tab:
+        final fillable = [
+          for (final o in d.fields)
+            if (o.field.fillable) o,
+        ];
+        final at = fillable.indexOf(f);
+        final next = fillable[(at + (shift ? -1 : 1)) % fillable.length];
+        final changes = _blur(d);
+        _focusOn(d, next);
+        return _result(d, dirty: {f.page, next.page}, changes: changes);
+      default:
+        break;
+    }
+    return _result(d, dirty: {f.page});
+  }
+
+  @override
+  Future<PdfFormResult> formUndo(int doc, {bool redo = false}) async {
+    final d = _doc(doc);
+    final f = d._focus;
+    if (redo || f == null || d._typing.isEmpty) {
+      return _result(d, handled: false);
+    }
+    d._typed = d._typing.removeLast();
+    return _result(d, dirty: {f.page});
+  }
+
+  @override
+  Future<PdfFormResult> formKillFocus(int doc) async {
+    calls.add('formKillFocus');
+    final d = _doc(doc);
+    final old = d._focus?.page;
+    final changes = _blur(d);
+    return _result(d, dirty: {?old}, changes: changes);
+  }
+
+  @override
+  Future<PdfFormResult> formSetValue(
+    int doc,
+    int page,
+    String name,
+    PdfFieldType type,
+    String value,
+  ) async {
+    calls.add('formSetValue $page $name $value');
+    final d = _doc(doc);
+    _blur(d);
+    for (final f in d.fields) {
+      if (f.page != page || f.name != name) continue;
+      switch (type) {
+        case PdfFieldType.text:
+          f.value = value;
+        case PdfFieldType.checkbox:
+          f.checked = value == 'on';
+        case PdfFieldType.radio:
+          if (value.isNotEmpty) f.checked = '${f.index}' == value;
+        default:
+          break;
+      }
+    }
+    return _result(d, dirty: {page});
   }
 
   @override

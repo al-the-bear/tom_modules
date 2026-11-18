@@ -56,7 +56,9 @@ flutter test -x pdfium          # without PDFium
   opens the saved files with PDFKit (Preview's engine), with and without the
   cross-reference fix. `PDF-ANNOT-1` creates, changes and removes
   annotations, saves incrementally (the original bytes a prefix of the
-  saved file), reopens and has PDFKit list them.
+  saved file), reopens and has PDFKit list them. `PDF-FORM-1` (engine) and
+  `PDF-REAL-5` (controller) fill `pdf-form`'s text fields and checkboxes,
+  undo, redo, save, reopen and have PDFKit read the values.
 - Chrome's viewer cannot be screenshotted headless (the PDF plugin does not
   draw there); to check a saved file in it, start Chrome with
   `--remote-debugging-port` and take `Page.captureScreenshot` over the

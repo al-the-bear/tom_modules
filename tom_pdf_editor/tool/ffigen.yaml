@@ -56,6 +56,27 @@ functions:
     - FPDF_FFLDraw
     - FORM_OnAfterLoadPage
     - FORM_OnBeforeClosePage
+    # Forms (filling)
+    - FORM_OnLButtonDown
+    - FORM_OnLButtonUp
+    - FORM_OnChar
+    - FORM_OnKeyDown
+    - FORM_OnKeyUp
+    - FORM_ForceToKillFocus
+    - FORM_GetFocusedAnnot
+    - FORM_SetFocusedAnnot
+    - FORM_SelectAllText
+    - FORM_ReplaceSelection
+    - FORM_CanUndo
+    - FORM_Undo
+    - FORM_CanRedo
+    - FORM_Redo
+    - FPDFAnnot_GetFormFieldAtPoint
+    - FPDFAnnot_GetFormFieldType
+    - FPDFAnnot_GetFormFieldName
+    - FPDFAnnot_GetFormFieldValue
+    - FPDFAnnot_GetFormFieldFlags
+    - FPDFAnnot_IsChecked
     # Text
     - FPDFText_LoadPage
     - FPDFText_ClosePage
@@ -114,7 +135,7 @@ structs:
 typedefs:
   include: ['FPDF_.*', 'FS_.*', 'FPDF_FILEWRITE', 'FPDF_FORMFILLINFO']
 macros:
-  include: ['FPDF_ERR_.*', 'FPDF_ANNOT', 'FPDF_ANNOT_TEXT', 'FPDF_ANNOT_HIGHLIGHT', 'FPDF_ANNOT_INK', 'FPDF_ANNOT_FLAG_PRINT', 'FPDF_REMOVE_SECURITY', 'FPDF_ANNOT_APPEARANCEMODE_.*', 'FPDF_LCD_TEXT', 'FPDF_INCREMENTAL', 'FPDF_NO_INCREMENTAL', 'FPDF_MATCHCASE', 'FPDF_MATCHWHOLEWORD', 'FPDFBitmap_.*', 'PDFACTION_.*', 'FORMTYPE_.*', 'FPDF_REVERSE_BYTE_ORDER']
+  include: ['FPDF_ERR_.*', 'FPDF_ANNOT', 'FPDF_ANNOT_TEXT', 'FPDF_ANNOT_HIGHLIGHT', 'FPDF_ANNOT_INK', 'FPDF_ANNOT_WIDGET', 'FPDF_FORMFIELD_.*', 'FPDF_FORMFLAG_READONLY', 'FPDF_ANNOT_FLAG_PRINT', 'FPDF_REMOVE_SECURITY', 'FPDF_ANNOT_APPEARANCEMODE_.*', 'FPDF_LCD_TEXT', 'FPDF_INCREMENTAL', 'FPDF_NO_INCREMENTAL', 'FPDF_MATCHCASE', 'FPDF_MATCHWHOLEWORD', 'FPDFBitmap_.*', 'PDFACTION_.*', 'FORMTYPE_.*', 'FPDF_REVERSE_BYTE_ORDER']
 unnamed-enums:
   include: ['FPDFBitmap_.*']
 preamble: |

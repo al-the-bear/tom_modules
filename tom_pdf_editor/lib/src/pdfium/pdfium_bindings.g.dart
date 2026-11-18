@@ -24,6 +24,66 @@ class PdfiumBindings {
     ffi.Pointer<T> Function<T extends ffi.NativeType>(String symbolName) lookup,
   ) : _lookup = lookup;
 
+  int FORM_CanRedo(FPDF_FORMHANDLE hHandle, FPDF_PAGE page) {
+    return _FORM_CanRedo(hHandle, page);
+  }
+
+  late final _FORM_CanRedoPtr =
+      _lookup<
+        ffi.NativeFunction<FPDF_BOOL Function(FPDF_FORMHANDLE, FPDF_PAGE)>
+      >('FORM_CanRedo');
+  late final _FORM_CanRedo =
+      _FORM_CanRedoPtr.asFunction<int Function(FPDF_FORMHANDLE, FPDF_PAGE)>();
+
+  int FORM_CanUndo(FPDF_FORMHANDLE hHandle, FPDF_PAGE page) {
+    return _FORM_CanUndo(hHandle, page);
+  }
+
+  late final _FORM_CanUndoPtr =
+      _lookup<
+        ffi.NativeFunction<FPDF_BOOL Function(FPDF_FORMHANDLE, FPDF_PAGE)>
+      >('FORM_CanUndo');
+  late final _FORM_CanUndo =
+      _FORM_CanUndoPtr.asFunction<int Function(FPDF_FORMHANDLE, FPDF_PAGE)>();
+
+  int FORM_ForceToKillFocus(FPDF_FORMHANDLE hHandle) {
+    return _FORM_ForceToKillFocus(hHandle);
+  }
+
+  late final _FORM_ForceToKillFocusPtr =
+      _lookup<ffi.NativeFunction<FPDF_BOOL Function(FPDF_FORMHANDLE)>>(
+        'FORM_ForceToKillFocus',
+      );
+  late final _FORM_ForceToKillFocus =
+      _FORM_ForceToKillFocusPtr.asFunction<int Function(FPDF_FORMHANDLE)>();
+
+  int FORM_GetFocusedAnnot(
+    FPDF_FORMHANDLE handle,
+    ffi.Pointer<ffi.Int> page_index,
+    ffi.Pointer<FPDF_ANNOTATION> annot,
+  ) {
+    return _FORM_GetFocusedAnnot(handle, page_index, annot);
+  }
+
+  late final _FORM_GetFocusedAnnotPtr =
+      _lookup<
+        ffi.NativeFunction<
+          FPDF_BOOL Function(
+            FPDF_FORMHANDLE,
+            ffi.Pointer<ffi.Int>,
+            ffi.Pointer<FPDF_ANNOTATION>,
+          )
+        >
+      >('FORM_GetFocusedAnnot');
+  late final _FORM_GetFocusedAnnot =
+      _FORM_GetFocusedAnnotPtr.asFunction<
+        int Function(
+          FPDF_FORMHANDLE,
+          ffi.Pointer<ffi.Int>,
+          ffi.Pointer<FPDF_ANNOTATION>,
+        )
+      >();
+
   void FORM_OnAfterLoadPage(FPDF_PAGE page, FPDF_FORMHANDLE hHandle) {
     return _FORM_OnAfterLoadPage(page, hHandle);
   }
@@ -49,6 +109,187 @@ class PdfiumBindings {
       _FORM_OnBeforeClosePagePtr.asFunction<
         void Function(FPDF_PAGE, FPDF_FORMHANDLE)
       >();
+
+  int FORM_OnChar(
+    FPDF_FORMHANDLE hHandle,
+    FPDF_PAGE page,
+    int nChar,
+    int modifier,
+  ) {
+    return _FORM_OnChar(hHandle, page, nChar, modifier);
+  }
+
+  late final _FORM_OnCharPtr =
+      _lookup<
+        ffi.NativeFunction<
+          FPDF_BOOL Function(FPDF_FORMHANDLE, FPDF_PAGE, ffi.Int, ffi.Int)
+        >
+      >('FORM_OnChar');
+  late final _FORM_OnChar =
+      _FORM_OnCharPtr.asFunction<
+        int Function(FPDF_FORMHANDLE, FPDF_PAGE, int, int)
+      >();
+
+  int FORM_OnKeyDown(
+    FPDF_FORMHANDLE hHandle,
+    FPDF_PAGE page,
+    int nKeyCode,
+    int modifier,
+  ) {
+    return _FORM_OnKeyDown(hHandle, page, nKeyCode, modifier);
+  }
+
+  late final _FORM_OnKeyDownPtr =
+      _lookup<
+        ffi.NativeFunction<
+          FPDF_BOOL Function(FPDF_FORMHANDLE, FPDF_PAGE, ffi.Int, ffi.Int)
+        >
+      >('FORM_OnKeyDown');
+  late final _FORM_OnKeyDown =
+      _FORM_OnKeyDownPtr.asFunction<
+        int Function(FPDF_FORMHANDLE, FPDF_PAGE, int, int)
+      >();
+
+  int FORM_OnKeyUp(
+    FPDF_FORMHANDLE hHandle,
+    FPDF_PAGE page,
+    int nKeyCode,
+    int modifier,
+  ) {
+    return _FORM_OnKeyUp(hHandle, page, nKeyCode, modifier);
+  }
+
+  late final _FORM_OnKeyUpPtr =
+      _lookup<
+        ffi.NativeFunction<
+          FPDF_BOOL Function(FPDF_FORMHANDLE, FPDF_PAGE, ffi.Int, ffi.Int)
+        >
+      >('FORM_OnKeyUp');
+  late final _FORM_OnKeyUp =
+      _FORM_OnKeyUpPtr.asFunction<
+        int Function(FPDF_FORMHANDLE, FPDF_PAGE, int, int)
+      >();
+
+  int FORM_OnLButtonDown(
+    FPDF_FORMHANDLE hHandle,
+    FPDF_PAGE page,
+    int modifier,
+    double page_x,
+    double page_y,
+  ) {
+    return _FORM_OnLButtonDown(hHandle, page, modifier, page_x, page_y);
+  }
+
+  late final _FORM_OnLButtonDownPtr =
+      _lookup<
+        ffi.NativeFunction<
+          FPDF_BOOL Function(
+            FPDF_FORMHANDLE,
+            FPDF_PAGE,
+            ffi.Int,
+            ffi.Double,
+            ffi.Double,
+          )
+        >
+      >('FORM_OnLButtonDown');
+  late final _FORM_OnLButtonDown =
+      _FORM_OnLButtonDownPtr.asFunction<
+        int Function(FPDF_FORMHANDLE, FPDF_PAGE, int, double, double)
+      >();
+
+  int FORM_OnLButtonUp(
+    FPDF_FORMHANDLE hHandle,
+    FPDF_PAGE page,
+    int modifier,
+    double page_x,
+    double page_y,
+  ) {
+    return _FORM_OnLButtonUp(hHandle, page, modifier, page_x, page_y);
+  }
+
+  late final _FORM_OnLButtonUpPtr =
+      _lookup<
+        ffi.NativeFunction<
+          FPDF_BOOL Function(
+            FPDF_FORMHANDLE,
+            FPDF_PAGE,
+            ffi.Int,
+            ffi.Double,
+            ffi.Double,
+          )
+        >
+      >('FORM_OnLButtonUp');
+  late final _FORM_OnLButtonUp =
+      _FORM_OnLButtonUpPtr.asFunction<
+        int Function(FPDF_FORMHANDLE, FPDF_PAGE, int, double, double)
+      >();
+
+  int FORM_Redo(FPDF_FORMHANDLE hHandle, FPDF_PAGE page) {
+    return _FORM_Redo(hHandle, page);
+  }
+
+  late final _FORM_RedoPtr =
+      _lookup<
+        ffi.NativeFunction<FPDF_BOOL Function(FPDF_FORMHANDLE, FPDF_PAGE)>
+      >('FORM_Redo');
+  late final _FORM_Redo =
+      _FORM_RedoPtr.asFunction<int Function(FPDF_FORMHANDLE, FPDF_PAGE)>();
+
+  void FORM_ReplaceSelection(
+    FPDF_FORMHANDLE hHandle,
+    FPDF_PAGE page,
+    FPDF_WIDESTRING wsText,
+  ) {
+    return _FORM_ReplaceSelection(hHandle, page, wsText);
+  }
+
+  late final _FORM_ReplaceSelectionPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(FPDF_FORMHANDLE, FPDF_PAGE, FPDF_WIDESTRING)
+        >
+      >('FORM_ReplaceSelection');
+  late final _FORM_ReplaceSelection =
+      _FORM_ReplaceSelectionPtr.asFunction<
+        void Function(FPDF_FORMHANDLE, FPDF_PAGE, FPDF_WIDESTRING)
+      >();
+
+  int FORM_SelectAllText(FPDF_FORMHANDLE hHandle, FPDF_PAGE page) {
+    return _FORM_SelectAllText(hHandle, page);
+  }
+
+  late final _FORM_SelectAllTextPtr =
+      _lookup<
+        ffi.NativeFunction<FPDF_BOOL Function(FPDF_FORMHANDLE, FPDF_PAGE)>
+      >('FORM_SelectAllText');
+  late final _FORM_SelectAllText =
+      _FORM_SelectAllTextPtr.asFunction<
+        int Function(FPDF_FORMHANDLE, FPDF_PAGE)
+      >();
+
+  int FORM_SetFocusedAnnot(FPDF_FORMHANDLE handle, FPDF_ANNOTATION annot) {
+    return _FORM_SetFocusedAnnot(handle, annot);
+  }
+
+  late final _FORM_SetFocusedAnnotPtr =
+      _lookup<
+        ffi.NativeFunction<FPDF_BOOL Function(FPDF_FORMHANDLE, FPDF_ANNOTATION)>
+      >('FORM_SetFocusedAnnot');
+  late final _FORM_SetFocusedAnnot =
+      _FORM_SetFocusedAnnotPtr.asFunction<
+        int Function(FPDF_FORMHANDLE, FPDF_ANNOTATION)
+      >();
+
+  int FORM_Undo(FPDF_FORMHANDLE hHandle, FPDF_PAGE page) {
+    return _FORM_Undo(hHandle, page);
+  }
+
+  late final _FORM_UndoPtr =
+      _lookup<
+        ffi.NativeFunction<FPDF_BOOL Function(FPDF_FORMHANDLE, FPDF_PAGE)>
+      >('FORM_Undo');
+  late final _FORM_Undo =
+      _FORM_UndoPtr.asFunction<int Function(FPDF_FORMHANDLE, FPDF_PAGE)>();
 
   FPDF_DEST FPDFAction_GetDest(FPDF_DOCUMENT document, FPDF_ACTION action) {
     return _FPDFAction_GetDest(document, action);
@@ -254,6 +495,125 @@ class PdfiumBindings {
   late final _FPDFAnnot_GetFlags =
       _FPDFAnnot_GetFlagsPtr.asFunction<int Function(FPDF_ANNOTATION)>();
 
+  FPDF_ANNOTATION FPDFAnnot_GetFormFieldAtPoint(
+    FPDF_FORMHANDLE hHandle,
+    FPDF_PAGE page,
+    ffi.Pointer<FS_POINTF> point,
+  ) {
+    return _FPDFAnnot_GetFormFieldAtPoint(hHandle, page, point);
+  }
+
+  late final _FPDFAnnot_GetFormFieldAtPointPtr =
+      _lookup<
+        ffi.NativeFunction<
+          FPDF_ANNOTATION Function(
+            FPDF_FORMHANDLE,
+            FPDF_PAGE,
+            ffi.Pointer<FS_POINTF>,
+          )
+        >
+      >('FPDFAnnot_GetFormFieldAtPoint');
+  late final _FPDFAnnot_GetFormFieldAtPoint =
+      _FPDFAnnot_GetFormFieldAtPointPtr.asFunction<
+        FPDF_ANNOTATION Function(
+          FPDF_FORMHANDLE,
+          FPDF_PAGE,
+          ffi.Pointer<FS_POINTF>,
+        )
+      >();
+
+  int FPDFAnnot_GetFormFieldFlags(
+    FPDF_FORMHANDLE handle,
+    FPDF_ANNOTATION annot,
+  ) {
+    return _FPDFAnnot_GetFormFieldFlags(handle, annot);
+  }
+
+  late final _FPDFAnnot_GetFormFieldFlagsPtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Int Function(FPDF_FORMHANDLE, FPDF_ANNOTATION)>
+      >('FPDFAnnot_GetFormFieldFlags');
+  late final _FPDFAnnot_GetFormFieldFlags =
+      _FPDFAnnot_GetFormFieldFlagsPtr.asFunction<
+        int Function(FPDF_FORMHANDLE, FPDF_ANNOTATION)
+      >();
+
+  int FPDFAnnot_GetFormFieldName(
+    FPDF_FORMHANDLE hHandle,
+    FPDF_ANNOTATION annot,
+    ffi.Pointer<FPDF_WCHAR> buffer,
+    int buflen,
+  ) {
+    return _FPDFAnnot_GetFormFieldName(hHandle, annot, buffer, buflen);
+  }
+
+  late final _FPDFAnnot_GetFormFieldNamePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.UnsignedLong Function(
+            FPDF_FORMHANDLE,
+            FPDF_ANNOTATION,
+            ffi.Pointer<FPDF_WCHAR>,
+            ffi.UnsignedLong,
+          )
+        >
+      >('FPDFAnnot_GetFormFieldName');
+  late final _FPDFAnnot_GetFormFieldName =
+      _FPDFAnnot_GetFormFieldNamePtr.asFunction<
+        int Function(
+          FPDF_FORMHANDLE,
+          FPDF_ANNOTATION,
+          ffi.Pointer<FPDF_WCHAR>,
+          int,
+        )
+      >();
+
+  int FPDFAnnot_GetFormFieldType(
+    FPDF_FORMHANDLE hHandle,
+    FPDF_ANNOTATION annot,
+  ) {
+    return _FPDFAnnot_GetFormFieldType(hHandle, annot);
+  }
+
+  late final _FPDFAnnot_GetFormFieldTypePtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Int Function(FPDF_FORMHANDLE, FPDF_ANNOTATION)>
+      >('FPDFAnnot_GetFormFieldType');
+  late final _FPDFAnnot_GetFormFieldType =
+      _FPDFAnnot_GetFormFieldTypePtr.asFunction<
+        int Function(FPDF_FORMHANDLE, FPDF_ANNOTATION)
+      >();
+
+  int FPDFAnnot_GetFormFieldValue(
+    FPDF_FORMHANDLE hHandle,
+    FPDF_ANNOTATION annot,
+    ffi.Pointer<FPDF_WCHAR> buffer,
+    int buflen,
+  ) {
+    return _FPDFAnnot_GetFormFieldValue(hHandle, annot, buffer, buflen);
+  }
+
+  late final _FPDFAnnot_GetFormFieldValuePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.UnsignedLong Function(
+            FPDF_FORMHANDLE,
+            FPDF_ANNOTATION,
+            ffi.Pointer<FPDF_WCHAR>,
+            ffi.UnsignedLong,
+          )
+        >
+      >('FPDFAnnot_GetFormFieldValue');
+  late final _FPDFAnnot_GetFormFieldValue =
+      _FPDFAnnot_GetFormFieldValuePtr.asFunction<
+        int Function(
+          FPDF_FORMHANDLE,
+          FPDF_ANNOTATION,
+          ffi.Pointer<FPDF_WCHAR>,
+          int,
+        )
+      >();
+
   int FPDFAnnot_GetInkListCount(FPDF_ANNOTATION annot) {
     return _FPDFAnnot_GetInkListCount(annot);
   }
@@ -345,6 +705,19 @@ class PdfiumBindings {
       >('FPDFAnnot_GetSubtype');
   late final _FPDFAnnot_GetSubtype =
       _FPDFAnnot_GetSubtypePtr.asFunction<int Function(FPDF_ANNOTATION)>();
+
+  int FPDFAnnot_IsChecked(FPDF_FORMHANDLE hHandle, FPDF_ANNOTATION annot) {
+    return _FPDFAnnot_IsChecked(hHandle, annot);
+  }
+
+  late final _FPDFAnnot_IsCheckedPtr =
+      _lookup<
+        ffi.NativeFunction<FPDF_BOOL Function(FPDF_FORMHANDLE, FPDF_ANNOTATION)>
+      >('FPDFAnnot_IsChecked');
+  late final _FPDFAnnot_IsChecked =
+      _FPDFAnnot_IsCheckedPtr.asFunction<
+        int Function(FPDF_FORMHANDLE, FPDF_ANNOTATION)
+      >();
 
   int FPDFAnnot_RemoveInkList(FPDF_ANNOTATION annot) {
     return _FPDFAnnot_RemoveInkList(annot);
@@ -1543,6 +1916,8 @@ const int FPDF_ANNOT_INK = 15;
 
 const int FPDF_ANNOT_TEXT = 1;
 
+const int FPDF_ANNOT_WIDGET = 20;
+
 typedef FPDF_ATTACHMENT = ffi.Pointer<fpdf_attachment_t__>;
 typedef FPDF_AVAIL = ffi.Pointer<fpdf_avail_t__>;
 typedef FPDF_BITMAP = ffi.Pointer<fpdf_bitmap_t__>;
@@ -1786,7 +2161,28 @@ enum FPDF_FONT_BACKEND_TYPE {
   };
 }
 
+const int FPDF_FORMFIELD_CHECKBOX = 2;
+
+const int FPDF_FORMFIELD_COMBOBOX = 4;
+
+const int FPDF_FORMFIELD_COUNT = 8;
+
+const int FPDF_FORMFIELD_LISTBOX = 5;
+
+const int FPDF_FORMFIELD_PUSHBUTTON = 1;
+
+const int FPDF_FORMFIELD_RADIOBUTTON = 3;
+
+const int FPDF_FORMFIELD_SIGNATURE = 7;
+
+const int FPDF_FORMFIELD_TEXTFIELD = 6;
+
+const int FPDF_FORMFIELD_UNKNOWN = 0;
+
 typedef FPDF_FORMFILLINFO = _FPDF_FORMFILLINFO;
+
+const int FPDF_FORMFLAG_READONLY = 1;
+
 typedef FPDF_FORMHANDLE = ffi.Pointer<fpdf_form_handle_t__>;
 typedef FPDF_GLYPHPATH = ffi.Pointer<fpdf_glyphpath_t__>;
 

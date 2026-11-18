@@ -847,6 +847,229 @@ void main() {
     });
   });
 
+  group('PDF-FORM form filling', () {
+    FakePdfDocument formDoc({String? password, int securityRevision = -1}) =>
+        FakePdfDocument(
+          pages: List.filled(2, _a4),
+          texts: const ['A form', 'Page two'],
+          formType: PdfFormType.acroForm,
+          password: password,
+          securityRevision: securityRevision,
+          fields: [
+            FakeFormField(
+              page: 0,
+              name: 'first',
+              type: PdfFieldType.text,
+              rect: const PdfRect(100, 100, 300, 120),
+              value: 'old',
+            ),
+            FakeFormField(
+              page: 0,
+              name: 'second',
+              type: PdfFieldType.text,
+              rect: const PdfRect(100, 140, 300, 160),
+            ),
+            FakeFormField(
+              page: 0,
+              name: 'agree',
+              type: PdfFieldType.checkbox,
+              rect: const PdfRect(100, 180, 112, 192),
+            ),
+            for (var i = 0; i < 2; i++)
+              FakeFormField(
+                page: 0,
+                name: 'pick',
+                index: i,
+                type: PdfFieldType.radio,
+                rect: PdfRect(100 + i * 40.0, 210, 112 + i * 40.0, 222),
+                checked: i == 0,
+              ),
+            FakeFormField(
+              page: 0,
+              name: 'choice',
+              type: PdfFieldType.comboBox,
+              rect: const PdfRect(100, 240, 300, 260),
+            ),
+          ],
+        );
+
+    Offset centre(_Rig rig, WidgetTester tester, PdfRect r) => rig.at(
+      tester,
+      0,
+      PdfRect(
+        (r.left + r.right) / 2,
+        (r.top + r.bottom) / 2,
+        (r.left + r.right) / 2,
+        (r.top + r.bottom) / 2,
+      ),
+    );
+
+    FakeFormField field(_Rig rig, String name, [int index = 0]) => rig
+        .engine
+        .documents[_path]!
+        .fields
+        .firstWhere((f) => f.name == name && f.index == index);
+
+    Future<void> type(WidgetTester tester, String text) async {
+      for (final ch in text.split('')) {
+        // The key is any letter key; the character is what counts.
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyQ, character: ch);
+      }
+    }
+
+    testWidgets('PDF-FORM-W1: typed text is committed when the field loses '
+        'the focus (Tab), as one history entry; undo and redo', (tester) async {
+      final rig = _Rig(formDoc());
+      await rig.pump(tester);
+      final c = rig.controller;
+      expect(c.canFill, isTrue);
+      await tester.tapAt(centre(rig, tester, field(rig, 'first').rect));
+      await rig.settle(tester);
+      expect(c.formFocus?.name, 'first');
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.meta);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.meta);
+      await type(tester, 'Tom 42x');
+      await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+      await rig.settle(tester);
+      expect(c.formFocus?.value, 'Tom 42');
+      // Nothing committed yet: not dirty, no entry.
+      expect(c.canUndo, isFalse);
+      expect(field(rig, 'first').value, 'old');
+      // The page renders again as the field changes.
+      expect(c.pageVersion(0), greaterThan(0));
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await rig.settle(tester);
+      expect(c.formFocus?.name, 'second');
+      expect(field(rig, 'first').value, 'Tom 42');
+      expect(c.canUndo, isTrue);
+      expect(c.undoLabel, 'Text field');
+      expect(c.isDirty, isTrue);
+      // Undo releases the focus and restores the old text.
+      await tester.tap(find.byKey(const ValueKey('pdf-undo')));
+      await rig.settle(tester);
+      expect(c.formFocus, isNull);
+      expect(field(rig, 'first').value, 'old');
+      expect(c.isDirty, isFalse);
+      expect(rig.engine.calls, contains('formSetValue 0 first old'));
+      await tester.tap(find.byKey(const ValueKey('pdf-redo')));
+      await rig.settle(tester);
+      expect(field(rig, 'first').value, 'Tom 42');
+      expect(c.isDirty, isTrue);
+    });
+
+    testWidgets('PDF-FORM-W2: a checkbox and a radio button change at the '
+        'click, each one entry; Cmd+Z in a field undoes its typing first', (
+      tester,
+    ) async {
+      final rig = _Rig(formDoc());
+      await rig.pump(tester);
+      final c = rig.controller;
+      await tester.tapAt(centre(rig, tester, field(rig, 'agree').rect));
+      await rig.settle(tester);
+      expect(field(rig, 'agree').checked, isTrue);
+      expect(c.undoLabel, 'Checkbox');
+      await tester.tapAt(centre(rig, tester, field(rig, 'pick', 1).rect));
+      await rig.settle(tester);
+      expect(field(rig, 'pick', 1).checked, isTrue);
+      expect(field(rig, 'pick').checked, isFalse);
+      expect(c.undoLabel, 'Radio button');
+      // Typing in a field, then Cmd+Z: the field's own undo.
+      await tester.tapAt(centre(rig, tester, field(rig, 'second').rect));
+      await rig.settle(tester);
+      await type(tester, 'ab');
+      await rig.settle(tester);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.meta);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyZ);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.meta);
+      await rig.settle(tester);
+      expect(c.formFocus?.value, 'a');
+      expect(c.undoLabel, 'Radio button', reason: 'no entry for typing');
+      // Escape commits the field: an entry; then two undos take back the
+      // text and the radio button, a third the checkbox.
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await rig.settle(tester);
+      expect(c.formFocus, isNull);
+      expect(field(rig, 'second').value, 'a');
+      expect(c.undoLabel, 'Text field');
+      for (var i = 0; i < 2; i++) {
+        await tester.runAsync(c.undo);
+        await rig.settle(tester);
+      }
+      expect(field(rig, 'second').value, '');
+      expect(field(rig, 'pick').checked, isTrue);
+      expect(field(rig, 'pick', 1).checked, isFalse);
+      await tester.runAsync(c.undo);
+      await rig.settle(tester);
+      expect(field(rig, 'agree').checked, isFalse);
+      expect(c.isDirty, isFalse);
+      // Redo walks forward through all three.
+      for (var i = 0; i < 3; i++) {
+        expect(c.canRedo, isTrue, reason: 'redo ${i + 1}');
+        await tester.runAsync(c.redo);
+        await rig.settle(tester);
+      }
+      expect(field(rig, 'agree').checked, isTrue);
+      expect(field(rig, 'pick', 1).checked, isTrue);
+      expect(field(rig, 'second').value, 'a');
+      expect(c.canRedo, isFalse);
+    });
+
+    testWidgets('PDF-FORM-W3: choosing a tool or saving releases the focus '
+        'and commits; a combo box takes no click', (tester) async {
+      final rig = _Rig(formDoc());
+      await rig.pump(tester);
+      final c = rig.controller;
+      await tester.tapAt(centre(rig, tester, field(rig, 'second').rect));
+      await rig.settle(tester);
+      await type(tester, 'one');
+      await rig.settle(tester);
+      await tester.tap(find.byKey(const ValueKey('pdf-tool-ink')));
+      await rig.settle(tester);
+      expect(c.formFocus, isNull);
+      expect(field(rig, 'second').value, 'one');
+      expect(c.undoLabel, 'Text field');
+      await tester.tap(find.byKey(const ValueKey('pdf-tool-select')));
+      await rig.settle(tester);
+      // Saving commits the focused field first.
+      await tester.tapAt(centre(rig, tester, field(rig, 'first').rect));
+      await rig.settle(tester);
+      await type(tester, '!');
+      await rig.settle(tester);
+      await tester.runAsync(c.save);
+      await rig.settle(tester);
+      expect(field(rig, 'first').value, 'old!');
+      expect(c.isDirty, isFalse);
+      // The combo box is drawn but not filled.
+      await tester.tapAt(centre(rig, tester, field(rig, 'choice').rect));
+      await rig.settle(tester);
+      expect(c.formFocus, isNull);
+    });
+
+    testWidgets('PDF-FORM-W4: an encrypted document is not filled (DPPF-3)', (
+      tester,
+    ) async {
+      final rig = _Rig(formDoc(password: 'sesame', securityRevision: 3));
+      await rig.pump(tester);
+      await tester.enterText(
+        find.byKey(const ValueKey('pdf-password-field')),
+        'sesame',
+      );
+      await tester.tap(find.text('Open'));
+      await rig.settle(tester);
+      final c = rig.controller;
+      expect(c.canFill, isFalse);
+      await tester.tapAt(centre(rig, tester, field(rig, 'agree').rect));
+      await rig.settle(tester);
+      expect(field(rig, 'agree').checked, isFalse);
+      expect(rig.engine.calls.where((x) => x.startsWith('formClick')), isEmpty);
+      expect(
+        find.textContaining('annotations and form filling are not'),
+        findsOneWidget,
+      );
+    });
+  });
+
   testWidgets('PDF-CLOSE-1: closing gives the engine share up', (tester) async {
     final rig = _Rig(_textDoc());
     await rig.pump(tester);

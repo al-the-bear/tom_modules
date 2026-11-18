@@ -394,6 +394,20 @@ class PdfPageViewState extends State<PdfPageView> {
       return;
     }
     final (page, at) = hit;
+    final taps = _taps;
+    if (_c.tool == PdfAnnotationTool.select && _c.canFill) {
+      // A fillable field takes the click (focus, caret, a checkbox).
+      unawaited(() async {
+        if (await _c.formClick(page, at.dx, at.dy)) return;
+        if (mounted) _tapOn(page, at, taps);
+      }());
+      return;
+    }
+    _tapOn(page, at, taps);
+  }
+
+  /// A click that no form field took.
+  void _tapOn(int page, Offset at, int taps) {
     switch (_c.tool) {
       case PdfAnnotationTool.note:
         unawaited(_newNote(page, at));
@@ -401,9 +415,9 @@ class PdfPageViewState extends State<PdfPageView> {
       case PdfAnnotationTool.ink:
         return;
       case PdfAnnotationTool.highlight:
-        if (_taps >= 2) {
+        if (taps >= 2) {
           unawaited(() async {
-            await _c.selectAround(page, at.dx, at.dy, line: _taps >= 3);
+            await _c.selectAround(page, at.dx, at.dy, line: taps >= 3);
             await _c.highlightSelection();
           }());
           return;
@@ -412,15 +426,15 @@ class PdfPageViewState extends State<PdfPageView> {
         final a = _c.annotationAt(page, at.dx, at.dy);
         if (a != null) {
           _c.selectAnnotation(page, a.id);
-          if (_taps >= 2 && a.kind == PdfAnnotationKind.note) {
+          if (taps >= 2 && a.kind == PdfAnnotationKind.note) {
             unawaited(_editNote(page, a));
           }
           return;
         }
         _c.selectAnnotation(page, null);
     }
-    if (_taps >= 2) {
-      unawaited(_c.selectAround(page, at.dx, at.dy, line: _taps >= 3));
+    if (taps >= 2) {
+      unawaited(_c.selectAround(page, at.dx, at.dy, line: taps >= 3));
       return;
     }
     unawaited(() async {
@@ -604,7 +618,15 @@ class PdfPageViewState extends State<PdfPageView> {
       final hit = _hit(e.localPosition);
       var cursor = SystemMouseCursors.basic;
       final tool = _c.tool;
-      if (hit != null &&
+      final field =
+          hit != null && tool == PdfAnnotationTool.select && _c.canFill
+          ? await _c.formFieldAt(hit.$1, hit.$2.dx, hit.$2.dy)
+          : null;
+      if (field != null && field.fillable) {
+        cursor = field.type == PdfFieldType.text
+            ? SystemMouseCursors.text
+            : SystemMouseCursors.click;
+      } else if (hit != null &&
           (tool == PdfAnnotationTool.ink || tool == PdfAnnotationTool.note)) {
         cursor = SystemMouseCursors.precise;
       } else if (hit != null &&
@@ -648,6 +670,10 @@ class PdfPageViewState extends State<PdfPageView> {
     }
     final meta = HardwareKeyboard.instance.isMetaPressed;
     final key = e.logicalKey;
+    if (_c.formFocus != null) {
+      final handled = _formKey(e, meta);
+      if (handled) return KeyEventResult.handled;
+    }
     if (meta && key == LogicalKeyboardKey.keyC) {
       unawaited(_copy());
       return KeyEventResult.handled;
@@ -722,6 +748,58 @@ class PdfPageViewState extends State<PdfPageView> {
     return KeyEventResult.ignored;
   }
 
+  static final _formKeys = {
+    LogicalKeyboardKey.backspace: PdfFormKey.backspace,
+    LogicalKeyboardKey.delete: PdfFormKey.delete,
+    LogicalKeyboardKey.arrowLeft: PdfFormKey.left,
+    LogicalKeyboardKey.arrowRight: PdfFormKey.right,
+    LogicalKeyboardKey.arrowUp: PdfFormKey.up,
+    LogicalKeyboardKey.arrowDown: PdfFormKey.down,
+    LogicalKeyboardKey.home: PdfFormKey.home,
+    LogicalKeyboardKey.end: PdfFormKey.end,
+    LogicalKeyboardKey.enter: PdfFormKey.enter,
+    LogicalKeyboardKey.numpadEnter: PdfFormKey.enter,
+    LogicalKeyboardKey.tab: PdfFormKey.tab,
+  };
+
+  /// A key while a form field has the focus: typed text, editing keys, Tab,
+  /// Cmd+A, Cmd+Z (the field's own undo first), Escape (release).
+  bool _formKey(KeyEvent e, bool meta) {
+    final key = e.logicalKey;
+    final shift = HardwareKeyboard.instance.isShiftPressed;
+    if (meta && key == LogicalKeyboardKey.keyZ) {
+      unawaited(() async {
+        if (await _c.formUndo(redo: shift)) return;
+        await (shift ? _c.redo() : _c.undo());
+      }());
+      return true;
+    }
+    if (meta && key == LogicalKeyboardKey.keyA) {
+      unawaited(_c.formKey(PdfFormKey.selectAll));
+      return true;
+    }
+    if (key == LogicalKeyboardKey.escape) {
+      unawaited(_c.releaseFormFocus());
+      return true;
+    }
+    final formKey = _formKeys[key];
+    if (formKey != null && !meta) {
+      unawaited(_c.formKey(formKey, shift: shift));
+      return true;
+    }
+    final text = e.character;
+    if (!meta &&
+        !HardwareKeyboard.instance.isControlPressed &&
+        text != null &&
+        text.isNotEmpty &&
+        text.codeUnitAt(0) >= 0x20 &&
+        text.codeUnitAt(0) != 0x7F) {
+      unawaited(_c.formText(text));
+      return true;
+    }
+    return false;
+  }
+
   Future<void> _copy() async {
     final text = await _c.selectedText();
     if (text != null && text.isNotEmpty) await widget.onCopy(text);
@@ -745,7 +823,11 @@ class PdfPageViewState extends State<PdfPageView> {
         return Focus(
           focusNode: _focus,
           onKeyEvent: _onKey,
-          onFocusChange: (f) => pdfTrail('view focus $f'),
+          onFocusChange: (f) {
+            pdfTrail('view focus $f');
+            // The field's text is committed when the editor loses the focus.
+            if (!f) unawaited(_c.releaseFormFocus());
+          },
           child: Listener(
             onPointerSignal: _onPointerSignal,
             onPointerPanZoomUpdate: (e) => _pinch = e.scale,

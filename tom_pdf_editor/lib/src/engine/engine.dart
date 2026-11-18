@@ -102,6 +102,9 @@ abstract final class PdfPermission {
 
   /// Bit 6: add or modify annotations, fill in form fields.
   static const annotate = 1 << 5;
+
+  /// Bit 9: fill in form fields (also without [annotate]).
+  static const fillForms = 1 << 8;
 }
 
 /// The form type (`FPDF_GetFormType`).
@@ -153,6 +156,10 @@ final class PdfDocumentInfo {
 
   /// Whether annotating is allowed.
   bool get canAnnotate => permissions & PdfPermission.annotate != 0;
+
+  /// Whether the permissions allow filling in form fields.
+  bool get canFillForms =>
+      permissions & (PdfPermission.annotate | PdfPermission.fillForms) != 0;
 }
 
 /// Why a document did not open.
@@ -355,7 +362,286 @@ abstract interface class TomPdfEngine {
   /// or `null` on success.
   Future<String?> saveIncremental(int doc, String target);
 
+  // ------------------------------------------------------------------ forms
+
+  /// The form fields (widgets) of [page].
+  Future<List<PdfFormField>> formFields(int doc, int page);
+
+  /// The form field at ([x], [y]) view points of [page], or `null`.
+  Future<PdfFormField?> formFieldAt(int doc, int page, double x, double y);
+
+  /// A click at ([x], [y]) view points of [page]: on a fillable field it
+  /// goes to the form (focus, caret, a checkbox toggled); anywhere else the
+  /// focused field loses its focus and the result is not [PdfFormResult.handled].
+  Future<PdfFormResult> formClick(int doc, int page, double x, double y);
+
+  /// Typed text for the focused field.
+  Future<PdfFormResult> formText(int doc, String text);
+
+  /// A key for the focused field.
+  Future<PdfFormResult> formKey(int doc, PdfFormKey key, {bool shift = false});
+
+  /// The focused field's own undo ([redo]: its redo) of the typing in it;
+  /// not [PdfFormResult.handled] when it has none.
+  Future<PdfFormResult> formUndo(int doc, {bool redo = false});
+
+  /// Takes the focus from the focused field, committing its text.
+  Future<PdfFormResult> formKillFocus(int doc);
+
+  /// Sets a field's value (undo and redo of a [PdfFormChange]): [value] as
+  /// [PdfFormChange] holds it.
+  Future<PdfFormResult> formSetValue(
+    int doc,
+    int page,
+    String name,
+    PdfFieldType type,
+    String value,
+  );
+
   /// Gives up this user's share of the engine; the engine ends
   /// (`FPDF_DestroyLibrary`) when the last user has given up its share.
   Future<void> release();
+}
+
+/// The kinds of form fields.
+enum PdfFieldType {
+  /// Not known.
+  unknown,
+
+  /// A push button (not filled).
+  pushButton,
+
+  /// A checkbox.
+  checkbox,
+
+  /// A radio button.
+  radio,
+
+  /// A combo box (drawn, not filled in the prototype).
+  comboBox,
+
+  /// A list box (drawn, not filled in the prototype).
+  listBox,
+
+  /// A text field.
+  text,
+
+  /// A signature field (not filled).
+  signature,
+}
+
+/// One widget of a form field.
+@immutable
+final class PdfFormField {
+  /// A field from its parts.
+  const PdfFormField({
+    required this.page,
+    required this.name,
+    required this.index,
+    required this.type,
+    required this.rect,
+    this.value = '',
+    this.checked = false,
+    this.readOnly = false,
+  });
+
+  /// From the wire form [toWire] gives.
+  factory PdfFormField.fromWire(List<Object?> w) => PdfFormField(
+    page: w[0]! as int,
+    name: w[1]! as String,
+    index: w[2]! as int,
+    type: PdfFieldType.values[w[3]! as int],
+    rect: PdfRect(
+      (w[4]! as num).toDouble(),
+      (w[5]! as num).toDouble(),
+      (w[6]! as num).toDouble(),
+      (w[7]! as num).toDouble(),
+    ),
+    value: w[8]! as String,
+    checked: w[9]! as bool,
+    readOnly: w[10]! as bool,
+  );
+
+  /// The page.
+  final int page;
+
+  /// The field's full name.
+  final String name;
+
+  /// Which of the page's widgets of this field it is (the buttons of a
+  /// radio group), from 0.
+  final int index;
+
+  /// The type.
+  final PdfFieldType type;
+
+  /// The widget's rectangle, in view points.
+  final PdfRect rect;
+
+  /// The field's value.
+  final String value;
+
+  /// Whether a checkbox or radio button is on.
+  final bool checked;
+
+  /// Whether the field is read-only.
+  final bool readOnly;
+
+  /// Whether the editor fills it in: text fields, checkboxes and radio
+  /// buttons that are not read-only.
+  bool get fillable =>
+      !readOnly &&
+      (type == PdfFieldType.text ||
+          type == PdfFieldType.checkbox ||
+          type == PdfFieldType.radio);
+
+  /// The wire form.
+  List<Object?> toWire() => [
+    page,
+    name,
+    index,
+    type.index,
+    rect.left,
+    rect.top,
+    rect.right,
+    rect.bottom,
+    value,
+    checked,
+    readOnly,
+  ];
+
+  @override
+  String toString() =>
+      'PdfFormField(${type.name} $name#$index p$page "$value"${checked ? ' on' : ''})';
+}
+
+/// A committed change of one field: a text field's text (committed when it
+/// loses the focus), a checkbox turned on or off (`on` / `off`), the button of
+/// a radio group that is on (its widget index, `''` for none).
+@immutable
+final class PdfFormChange {
+  /// A change from its parts.
+  const PdfFormChange(this.page, this.name, this.type, this.before, this.after);
+
+  /// From the wire form [toWire] gives.
+  factory PdfFormChange.fromWire(List<Object?> w) => PdfFormChange(
+    w[0]! as int,
+    w[1]! as String,
+    PdfFieldType.values[w[2]! as int],
+    w[3]! as String,
+    w[4]! as String,
+  );
+
+  /// The page.
+  final int page;
+
+  /// The field's full name.
+  final String name;
+
+  /// The type.
+  final PdfFieldType type;
+
+  /// The value before.
+  final String before;
+
+  /// The value after.
+  final String after;
+
+  /// The wire form.
+  List<Object?> toWire() => [page, name, type.index, before, after];
+
+  @override
+  bool operator ==(Object other) =>
+      other is PdfFormChange &&
+      other.page == page &&
+      other.name == name &&
+      other.type == type &&
+      other.before == before &&
+      other.after == after;
+
+  @override
+  int get hashCode => Object.hash(page, name, type, before, after);
+
+  @override
+  String toString() => 'PdfFormChange(p$page $name: "$before" → "$after")';
+}
+
+/// What a form call did.
+@immutable
+final class PdfFormResult {
+  /// A result from its parts.
+  const PdfFormResult({
+    this.handled = false,
+    this.dirtyPages = const {},
+    this.focused,
+    this.changes = const [],
+  });
+
+  /// From the wire form [toWire] gives.
+  factory PdfFormResult.fromWire(List<Object?> w) => PdfFormResult(
+    handled: w[0]! as bool,
+    dirtyPages: {for (final p in w[1]! as List) p as int},
+    focused: w[2] == null
+        ? null
+        : PdfFormField.fromWire(w[2]! as List<Object?>),
+    changes: [
+      for (final c in w[3]! as List) PdfFormChange.fromWire(c as List<Object?>),
+    ],
+  );
+
+  /// Whether the form took the input.
+  final bool handled;
+
+  /// The pages whose appearance changed (to render again).
+  final Set<int> dirtyPages;
+
+  /// The field that has the focus afterwards.
+  final PdfFormField? focused;
+
+  /// The changes committed by the call (each one history entry).
+  final List<PdfFormChange> changes;
+
+  /// The wire form.
+  List<Object?> toWire() => [
+    handled,
+    dirtyPages.toList(),
+    focused?.toWire(),
+    [for (final c in changes) c.toWire()],
+  ];
+}
+
+/// The keys a focused field takes besides typed text.
+enum PdfFormKey {
+  /// Backspace.
+  backspace,
+
+  /// Forward delete.
+  delete,
+
+  /// Left arrow.
+  left,
+
+  /// Right arrow.
+  right,
+
+  /// Up arrow.
+  up,
+
+  /// Down arrow.
+  down,
+
+  /// Home.
+  home,
+
+  /// End.
+  end,
+
+  /// Return (a new line in a multi-line field).
+  enter,
+
+  /// Tab: the next field (Shift: the previous).
+  tab,
+
+  /// Select all.
+  selectAll,
 }
