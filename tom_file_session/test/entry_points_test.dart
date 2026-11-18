@@ -103,6 +103,15 @@ void main() {
       );
     });
 
+    test('FORGE-FILES-WEB-5: dart:io is behind io.dart, never in the main '
+        'library', () {
+      expect(_reached('lib/io.dart'), contains('dart:io'));
+      expect(
+        File('lib/tom_file_session.dart').readAsStringSync(),
+        isNot(contains('io.dart')),
+      );
+    });
+
     test('FORGE-FILES-WEB-3: a program over the package compiles under '
         'dart2js', () async {
       final (result, size) = await _compileJs('files', '''

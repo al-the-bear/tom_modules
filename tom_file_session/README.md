@@ -1,11 +1,23 @@
 # tom_file_session
 
-Published on pub.dev as [`tom_file_session` 1.1.0](https://pub.dev/packages/tom_file_session).
+Published on pub.dev as [`tom_file_session` 1.3.0](https://pub.dev/packages/tom_file_session).
 
 What an editor and a file browser build on the file-system contract of
 `tom_file_system`: the editing session of one file, the filter that decides
-what a file tree shows, and the `.env` codec. Pure Dart: no `dart:io`, no
-Flutter, so a browser build links it.
+what a file tree shows, and the `.env` codec. For hosts with `dart:io`, it
+adds the save rules for binary files and a local content server that hands
+files to a webview.
+
+## Entry points
+
+| Library | Holds | Runs on |
+| --- | --- | --- |
+| `package:tom_file_session/tom_file_session.dart` | `ForgeFileSession`, `ForgeFilter` with `ForgeBuiltInPresets`, `ForgeEnvFile` | everywhere: no `dart:io`, no Flutter, so a browser build links it |
+| `package:tom_file_session/io.dart` | `TomBinaryFileAccess`, `TomLocalContentServer` | the VM (desktop, server): it uses `dart:io` |
+
+## Components
+
+### The editing session — `ForgeFileSession`
 
 ```dart
 import 'package:tom_file_system/io.dart';
@@ -19,8 +31,6 @@ if (await session.save() == ForgeFileSaveOutcome.conflict) {
   // Changed on disk since it was read: session.external holds theirs.
 }
 ```
-
-## The editing session — `ForgeFileSession`
 
 One file, read once and edited in memory, shared by every view of it:
 
@@ -48,7 +58,7 @@ Listeners added with `addListener` hear every change of the session's text,
 state or history, without being told which; `dispose` drops them. A Flutter
 host wraps the session in a `Listenable` of its own.
 
-## The tree filter — `ForgeFilter`
+### The tree filter — `ForgeFilter`
 
 An ordered list of rules — include or exclude a glob, an extension set, hidden
 entries, gitignored entries, the archived and deleted siblings of todo files —
@@ -61,13 +71,81 @@ filter is stored as settings.
 folder*. The hiding rules close each list, because with the last match
 deciding a later `include` would otherwise show what they hide.
 
-## The `.env` codec — `ForgeEnvFile`
+### The `.env` codec — `ForgeEnvFile`
 
 A `.env` file as entries, commented-out entries, section comments and inline
 comments. An edit — a value, a rename, a toggle, a delete, an add — changes
 one line, keeping its quotes, `export` and comment; every other line stays as
 it was. `masked()` renders the file with every value hidden, for a view that
 must not show them.
+
+### Binary saves — `TomBinaryFileAccess` (`io.dart`)
+
+The session's save rules for files an editor never holds as text — office
+documents, PDFs — written by a helper process or received as bytes:
+
+- **Revision.** `revisionOf(path)` gives the size, modification time and
+  SHA-256 (streamed, so a large file is not read at once), or `null` when
+  there is no file. Whether a file changed for a save is decided by its bytes
+  (`sameContent`): a touched file is still the one read.
+- **Temporary target.** `temporaryTarget(path)` creates `.<name>.tom-save-<n>`
+  in the same folder, so the final rename is atomic and stays on one volume.
+- **Replace.** `replace(original, temp, expectedRevision)` renames the
+  temporary file over an unchanged original, keeping its permissions, and
+  returns the new revision. A changed or deleted original (or one that
+  appeared where none was expected, `expectedRevision` `null`) is a
+  `conflict`: nothing is written and the temporary file is kept for the
+  conflict choice. `save(path, bytes, expectedRevision)` does both steps for
+  bytes in memory.
+- **Clean-up.** `removeTemporaryFiles(path)` deletes the temporary files left
+  beside a file, and nothing else.
+
+```dart
+const files = TomBinaryFileAccess();
+final read = await files.revisionOf(path);
+// ... the helper writes the document to files.temporaryTarget(path) ...
+final result = await files.replace(path, temporary, read);
+if (!result.replaced) {
+  // Changed on disk: offer keep mine / take theirs / save as copy.
+}
+```
+
+### The local content server — `TomLocalContentServer` (`io.dart`)
+
+An `HttpServer` on `127.0.0.1`, on a free port, in the application's own
+process, that serves a webview what it cannot load from `file://`: module
+workers, WebAssembly, range requests, cross-origin isolation.
+
+- **Sites and tokens.** Each user opens a `TomContentSite`
+  (`TomLocalContentServer.shared.openSite()`) with a random 128-bit token that
+  begins every path: `http://127.0.0.1:<port>/<token>/<prefix>/<path>`. An
+  unknown token, or a `Host` other than `127.0.0.1` / `localhost`, is refused.
+  The server starts with the first site and stops when the last one closes.
+- **Mounts** (`TomContentMount`), each under a path prefix, the longest
+  matching prefix answering:
+  - `folder` — a folder's files; a path out of the folder (`..`, a link
+    pointing out) is refused. With `precompressed`, a missing `<name>` is
+    served from `<name>.br` with `Content-Encoding: br`, the type of `<name>`
+    and never as a partial answer;
+  - `file` — one file, at the prefix or under any name after it;
+  - `assets` — bytes from a loader, such as a Flutter asset bundle;
+  - `receiver` — takes the bytes a page POSTs (the saved document).
+- **Range requests.** `folder`, `file` and `assets` answer a single
+  `Range: bytes=…` with `206`, an unsatisfiable one with `416`.
+- **Headers.** The MIME type by extension (`.mjs`, `.wasm`, `.pdf`, `.data`,
+  the office types, …; `mimeTypeOf`), `Cache-Control: no-store`, and per
+  mount (`isolated`) the cross-origin isolation headers: COOP `same-origin`,
+  COEP `require-corp`, CORP `same-origin`.
+
+```dart
+final site = await TomLocalContentServer.shared.openSite();
+site.mount('zeta', TomContentMount.folder(cache, isolated: true, precompressed: true));
+site.mount('doc', TomContentMount.file(documentPath, isolated: true));
+site.mount('save', TomContentMount.receiver((c) => onSaved(c.bytes)));
+await webview.loadUrl(site.uriOf('host/zeta.html'));
+// ... when the tab closes:
+await site.close();
+```
 
 ## License
 

@@ -1,3 +1,19 @@
+## 1.5.0
+
+- Adds `package:tom_file_session/io.dart`, for hosts with `dart:io`; the main
+  library stays free of it.
+  - `TomBinaryFileAccess`: binary saves by the session's rules — the revision
+    (size, modification time, SHA-256), a temporary target in the same
+    folder, a replace over an unchanged original that keeps its permissions
+    (otherwise a conflict that keeps the temporary file), and the clean-up of
+    leftover temporary files.
+  - `TomLocalContentServer` with `TomContentSite` and `TomContentMount`: a
+    local HTTP server on `127.0.0.1` for webviews — a token per site, folder,
+    file, asset and receiver mounts, range requests, pre-compressed `.br`
+    files, cross-origin isolation headers per mount; it stops when the last
+    site closes.
+- Depends on `crypto` ^3.0.0.
+
 ## 1.4.0
 
 - Takes `tom_todo_model` ^3.0.0 (todo groups: the status `group` and
