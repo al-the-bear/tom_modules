@@ -12,7 +12,7 @@ files to a webview.
 
 | Library | Holds | Runs on |
 | --- | --- | --- |
-| `package:tom_file_session/tom_file_session.dart` | `ForgeFileSession`, `ForgeFilter` with `ForgeBuiltInPresets`, `ForgeEnvFile` | everywhere: no `dart:io`, no Flutter, so a browser build links it |
+| `package:tom_file_session/tom_file_session.dart` | `ForgeFileSession`, `ForgeFilter` with `ForgeBuiltInPresets`, `ForgeEnvFile`, the `TomBinaryFiles` interface and its value types | everywhere: no `dart:io`, no Flutter, so a browser build links it |
 | `package:tom_file_session/io.dart` | `TomBinaryFileAccess`, `TomLocalContentServer` | the VM (desktop, server): it uses `dart:io` |
 
 ## Components
@@ -96,7 +96,12 @@ documents, PDFs — written by a helper process or received as bytes:
   appeared where none was expected, `expectedRevision` `null`) is a
   `conflict`: nothing is written and the temporary file is kept for the
   conflict choice. `save(path, bytes, expectedRevision)` does both steps for
-  bytes in memory.
+  bytes in memory. `force: true` replaces whatever is there (*keep mine*);
+  `keepAsCopy` renames the temporary file to `<name> (copy).<ext>` beside the
+  original; `isWritable` says whether the file can be written.
+- **Interface.** `TomBinaryFiles` in the main library describes these rules
+  without `dart:io`, so a widget library takes them from its host;
+  `TomBinaryFileAccess` is its `dart:io` implementation.
 - **Clean-up.** `removeTemporaryFiles(path)` deletes the temporary files left
   beside a file, and nothing else.
 

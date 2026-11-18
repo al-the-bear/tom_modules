@@ -9,5 +9,6 @@
 /// available.
 library;
 
+export 'src/binary_files.dart';
 export 'src/io/binary_file_access.dart';
 export 'src/io/local_content_server.dart';

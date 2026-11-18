@@ -154,6 +154,41 @@ void main() {
     );
   });
 
+  test('BINARY-FORCE-1: force replaces a changed original', () async {
+    final read = await access.revisionOf(doc);
+    File(doc).writeAsBytesSync([7]);
+    final temp = await access.temporaryTarget(doc);
+    File(temp).writeAsBytesSync([9]);
+    final result = await access.replace(doc, temp, read, force: true);
+    expect(result.replaced, isTrue);
+    expect(File(doc).readAsBytesSync(), [9]);
+  });
+
+  test('BINARY-COPY-1: keepAsCopy renames the temporary file to '
+      '<name> (copy).<ext>, then (copy 2)', () async {
+    final t1 = await access.temporaryTarget(doc);
+    File(t1).writeAsBytesSync([1]);
+    expect(await access.keepAsCopy(t1, doc), '${dir.path}/report (copy).docx');
+    final t2 = await access.temporaryTarget(doc);
+    expect(
+      await access.keepAsCopy(t2, doc),
+      '${dir.path}/report (copy 2).docx',
+    );
+    expect(File(t1).existsSync(), isFalse);
+  });
+
+  test('BINARY-WRITABLE-1: isWritable follows the permissions', () async {
+    expect(await access.isWritable(doc), isTrue);
+    expect(await access.isWritable('${dir.path}/missing.docx'), isFalse);
+    if (Platform.isWindows) return;
+    Process.runSync('chmod', ['444', doc]);
+    expect(await access.isWritable(doc), isFalse);
+  });
+
+  test('BINARY-IFACE-1: TomBinaryFileAccess is a TomBinaryFiles', () {
+    expect(access, isA<TomBinaryFiles>());
+  });
+
   test('BINARY-CLEAN-1: removeTemporaryFiles deletes only the file\'s '
       'temporary files', () async {
     final a = await access.temporaryTarget(doc);

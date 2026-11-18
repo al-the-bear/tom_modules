@@ -1,88 +1,8 @@
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
-import 'package:meta/meta.dart';
 
-/// What a file was when it was read: its size, modification time and the
-/// SHA-256 of its bytes.
-///
-/// Two revisions are equal when all three agree. Whether a file changed for a
-/// save is decided by [sameContent]: a file touched without a change to its
-/// bytes is still the file that was read.
-@immutable
-final class TomFileRevision {
-  /// A revision from its parts.
-  const TomFileRevision({
-    required this.size,
-    required this.modified,
-    required this.sha256,
-  });
-
-  /// The size in bytes.
-  final int size;
-
-  /// The modification time.
-  final DateTime modified;
-
-  /// The SHA-256 of the bytes, lower-case hexadecimal.
-  final String sha256;
-
-  /// Whether [other] has the same bytes: the same size and SHA-256.
-  bool sameContent(TomFileRevision other) =>
-      size == other.size && sha256 == other.sha256;
-
-  @override
-  bool operator ==(Object other) =>
-      other is TomFileRevision &&
-      other.size == size &&
-      other.modified == modified &&
-      other.sha256 == sha256;
-
-  @override
-  int get hashCode => Object.hash(size, modified, sha256);
-
-  @override
-  String toString() =>
-      'TomFileRevision($size bytes, ${modified.toIso8601String()}, '
-      '${sha256.substring(0, 12)}…)';
-}
-
-/// How [TomBinaryFileAccess.replace] ended.
-enum TomBinaryReplaceOutcome {
-  /// The temporary file now is the original; [TomBinaryReplaceResult.revision]
-  /// is its new revision.
-  replaced,
-
-  /// The original is not the one read: changed, deleted, or created where
-  /// none was expected. Nothing was written; the temporary file is kept for
-  /// the conflict choice, and [TomBinaryReplaceResult.revision] is what is on
-  /// disk now (`null` when there is no file).
-  conflict,
-}
-
-/// The result of [TomBinaryFileAccess.replace].
-@immutable
-final class TomBinaryReplaceResult {
-  /// A result from its parts.
-  const TomBinaryReplaceResult(this.outcome, this.revision, this.temporary);
-
-  /// How it ended.
-  final TomBinaryReplaceOutcome outcome;
-
-  /// After [TomBinaryReplaceOutcome.replaced] the file's new revision; after
-  /// [TomBinaryReplaceOutcome.conflict] the revision on disk, or `null` when
-  /// the file does not exist.
-  final TomFileRevision? revision;
-
-  /// The temporary file: gone after a replace, kept after a conflict.
-  final String temporary;
-
-  /// Whether the original was replaced.
-  bool get replaced => outcome == TomBinaryReplaceOutcome.replaced;
-
-  @override
-  String toString() => 'TomBinaryReplaceResult(${outcome.name}, $revision)';
-}
+import '../binary_files.dart';
 
 /// The save rules of `ForgeFileSession`, for files an editor never holds as
 /// text: office documents and PDFs, written by a helper process or received
@@ -97,7 +17,7 @@ final class TomBinaryReplaceResult {
 ///
 /// The check and the rename are two steps: a write by another program in
 /// between is not seen. The window is the time of one `stat` and one hash.
-class TomBinaryFileAccess {
+class TomBinaryFileAccess implements TomBinaryFiles {
   /// The file access. Stateless; one instance serves every file.
   const TomBinaryFileAccess();
 
@@ -108,6 +28,7 @@ class TomBinaryFileAccess {
   ///
   /// The SHA-256 is computed by streaming the file, so a large file is not
   /// read into memory at once.
+  @override
   Future<TomFileRevision?> revisionOf(String path) async {
     final file = File(path);
     final stat = await file.stat();
@@ -125,6 +46,7 @@ class TomBinaryFileAccess {
   ///
   /// The file is created (exclusively) so that two saves never share one.
   /// Throws a [FileSystemException] when the folder cannot be written.
+  @override
   Future<String> temporaryTarget(String path) async {
     final file = File(path);
     final folder = file.parent.path;
@@ -152,15 +74,19 @@ class TomBinaryFileAccess {
   /// (a new file): a file that appeared since is a conflict too.
   ///
   /// On a conflict nothing is written and [temporary] is kept.
+  @override
   Future<TomBinaryReplaceResult> replace(
     String original,
     String temporary,
-    TomFileRevision? expectedRevision,
-  ) async {
+    TomFileRevision? expectedRevision, {
+    bool force = false,
+  }) async {
     final current = await revisionOf(original);
-    final unchanged = expectedRevision == null
-        ? current == null
-        : current != null && current.sameContent(expectedRevision);
+    final unchanged =
+        force ||
+        (expectedRevision == null
+            ? current == null
+            : current != null && current.sameContent(expectedRevision));
     if (!unchanged) {
       return TomBinaryReplaceResult(
         TomBinaryReplaceOutcome.conflict,
@@ -181,6 +107,7 @@ class TomBinaryFileAccess {
 
   /// Writes [bytes] to [path] by the same rules: a temporary target, flushed,
   /// then [replace]. A failed write removes the temporary file and rethrows.
+  @override
   Future<TomBinaryReplaceResult> save(
     String path,
     List<int> bytes,
@@ -198,6 +125,7 @@ class TomBinaryFileAccess {
 
   /// Deletes the temporary files left beside [path] (`.<name>.tom-save-<n>`)
   /// and returns their paths. Other files are never touched.
+  @override
   Future<List<String>> removeTemporaryFiles(String path) async {
     final file = File(path);
     final prefix = '.${file.uri.pathSegments.last}$temporaryInfix';
@@ -212,6 +140,43 @@ class TomBinaryFileAccess {
       removed.add(entry.path);
     }
     return removed;
+  }
+
+  @override
+  Future<String> keepAsCopy(String temporary, String original) async {
+    final file = File(original);
+    final name = file.uri.pathSegments.last;
+    final dot = name.lastIndexOf('.');
+    final stem = dot > 0 ? name.substring(0, dot) : name;
+    final ext = dot > 0 ? name.substring(dot) : '';
+    final folder = file.parent.path;
+    for (var n = 1; ; n++) {
+      final suffix = n == 1 ? ' (copy)' : ' (copy $n)';
+      final candidate = '$folder${Platform.pathSeparator}$stem$suffix$ext';
+      if (await FileSystemEntity.type(candidate) ==
+          FileSystemEntityType.notFound) {
+        await File(temporary).rename(candidate);
+        return candidate;
+      }
+    }
+  }
+
+  @override
+  Future<bool> isWritable(String path) async {
+    final file = File(path);
+    if (!await file.exists()) return false;
+    if (Platform.isWindows) {
+      try {
+        final raf = await file.open(mode: FileMode.append);
+        await raf.close();
+        return true;
+      } on FileSystemException {
+        return false;
+      }
+    }
+    // access(2) through test(1): permissions, ACLs and read-only volumes.
+    final result = await Process.run('test', ['-w', path]);
+    return result.exitCode == 0;
   }
 
   /// Gives [to] the permission bits of [from]. `dart:io` has no `chmod`, so

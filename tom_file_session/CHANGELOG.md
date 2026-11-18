@@ -1,3 +1,14 @@
+## 1.6.0
+
+- The main library gains `TomBinaryFiles`, the binary save rules as an
+  interface, with the value types `TomFileRevision`,
+  `TomBinaryReplaceOutcome` and `TomBinaryReplaceResult` (moved from
+  `io.dart`, which still exports them), so a widget library without
+  `dart:io` can take file access from its host.
+- `TomBinaryFileAccess` implements it and adds `replace(..., force: true)`
+  (*keep mine*), `keepAsCopy` (the temporary file renamed to
+  `<name> (copy).<ext>`) and `isWritable`.
+
 ## 1.5.0
 
 - Adds `package:tom_file_session/io.dart`, for hosts with `dart:io`; the main
