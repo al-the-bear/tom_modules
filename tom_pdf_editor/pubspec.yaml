@@ -1,0 +1,45 @@
+name: tom_pdf_editor
+description: >-
+  The PDF editor: a Flutter widget that shows a PDF rendered natively by
+  PDFium over FFI on an engine isolate, its controller and host interface;
+  the PDFium locator (io.dart); a fake engine for tests (testing.dart).
+  License: BSD-3-Clause; PDFium BSD-3-Clause (THIRD_PARTY.md).
+version: 0.1.0
+publish_to: none
+repository: https://github.com/al-the-bear/tom_modules
+
+environment:
+  sdk: ^3.10.8
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # Calling PDFium (dart:ffi helpers: calloc, UTF-16 strings).
+  ffi: ^2.2.0
+  # The annotation history (todo officeproto15); the dirty marker. By path,
+  # as tom_file_session takes it (a path and a hosted source cannot mix).
+  tom_undo:
+    path: ../../basics/tom_undo
+  # Shared utilities.
+  tom_basics: ^3.3.0
+  # Path arithmetic.
+  path: ^1.9.0
+  # SHA-256.
+  crypto: ^3.0.0
+  # Annotation ids (NM).
+  uuid: ^4.5.0
+  # The binary save rules (TomBinaryFiles) the host gives the editor.
+  tom_file_session:
+    path: ../tom_file_session
+  # Notices and readable colours.
+  tom_ui_support:
+    path: ../tom_ui_support
+
+dev_dependencies:
+  ffigen: ^23.0.0
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

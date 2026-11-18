@@ -1,0 +1,6 @@
+tags:
+  # Needs libpdfium in the binaries layer and the tom_forge sample set;
+  # the tests skip themselves where either is missing. Leave them out with
+  # `-x pdfium`.
+  pdfium:
+    timeout: 3m
