@@ -31,6 +31,30 @@ final class TomReceivedContent {
   final String? contentType;
 }
 
+/// A request a [TomContentSite] answered, as [TomContentSite.onRequest]
+/// sees it.
+@immutable
+final class TomContentRequest {
+  /// A request from its parts.
+  const TomContentRequest(this.method, this.path, this.status, this.bytes);
+
+  /// `GET`, `HEAD`, `POST`, ...
+  final String method;
+
+  /// The path below the site's token (the token is never part of it).
+  final String path;
+
+  /// The status answered.
+  final int status;
+
+  /// The bytes answered (`Content-Length`), or for a POST the bytes
+  /// received; 0 when unknown.
+  final int bytes;
+
+  @override
+  String toString() => '$method $path $status ($bytes bytes)';
+}
+
 /// What a [TomContentSite] serves under one path prefix.
 ///
 /// Every mount answers with `Cache-Control: no-store` and
@@ -212,6 +236,9 @@ class TomLocalContentServer {
 
   HttpServer? _server;
   Future<HttpServer>? _starting;
+
+  /// The bytes a receiver took, per request (for [TomContentSite.onRequest]).
+  final _received = Expando<int>();
   final _sites = <String, TomContentSite>{};
   final _random = Random.secure();
 
@@ -300,6 +327,32 @@ class TomLocalContentServer {
       return;
     }
     final rest = segments.skip(1).toList();
+    final observer = site.onRequest;
+    if (observer != null) {
+      try {
+        await _answerSite(request, response, site, rest);
+      } finally {
+        observer(
+          TomContentRequest(
+            request.method,
+            rest.join('/'),
+            response.statusCode,
+            _received[request] ??
+                (response.contentLength < 0 ? 0 : response.contentLength),
+          ),
+        );
+      }
+      return;
+    }
+    await _answerSite(request, response, site, rest);
+  }
+
+  Future<void> _answerSite(
+    HttpRequest request,
+    HttpResponse response,
+    TomContentSite site,
+    List<String> rest,
+  ) async {
     if (rest.any(
       (s) => s == '..' || s == '.' || s.contains('/') || s.contains('\\'),
     )) {
@@ -371,6 +424,7 @@ class TomLocalContentServer {
         return;
       }
     }
+    _received[request] = builder.length;
     try {
       await mount.receive(
         TomReceivedContent(
@@ -540,6 +594,10 @@ final class TomContentSite {
 
   /// The server's port.
   final int port;
+
+  /// Told of every request the site answered (for a debug trail): the path
+  /// below the token, never the token itself.
+  void Function(TomContentRequest request)? onRequest;
 
   final _mounts = <String, TomContentMount>{};
   bool _closed = false;

@@ -439,6 +439,25 @@ void main() {
     });
   });
 
+  test(
+    'SERVER-OBSERVE-1: onRequest sees every answer without the token',
+    () async {
+      final seen = <TomContentRequest>[];
+      site.onRequest = seen.add;
+      site.mount('doc', TomContentMount.file('${dir.path}/doc.pdf'));
+      site.mount('save', TomContentMount.receiver((_) {}));
+      await _send(site.uriOf('doc'), headers: {'Range': 'bytes=0-99'});
+      await _send(site.uriOf('save'), method: 'POST', body: [1, 2, 3]);
+      await _send(site.uriOf('missing'));
+      expect(seen.map((r) => '$r'), [
+        'GET doc 206 (100 bytes)',
+        'POST save 200 (3 bytes)',
+        'GET missing 404 (0 bytes)',
+      ]);
+      expect(seen.any((r) => r.path.contains(site.token)), isFalse);
+    },
+  );
+
   test('SERVER-SHARED-1: the shared server is one per process', () {
     expect(
       identical(TomLocalContentServer.shared, TomLocalContentServer.shared),

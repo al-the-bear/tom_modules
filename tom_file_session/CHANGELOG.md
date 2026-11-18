@@ -1,3 +1,9 @@
+## 1.7.0
+
+- `TomContentSite.onRequest` tells a host of every request the site
+  answered as a `TomContentRequest` (method, the path below the token,
+  status, bytes), for a debug trail; the token is never part of it.
+
 ## 1.6.0
 
 - The main library gains `TomBinaryFiles`, the binary save rules as an
