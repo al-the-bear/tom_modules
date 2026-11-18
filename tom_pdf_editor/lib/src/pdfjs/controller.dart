@@ -78,8 +78,19 @@ class TomPdfJsController extends ChangeNotifier {
     this.hostReadOnly = false,
     TomLocalContentServer? server,
     AssetBundle? bundle,
+    this.testBaseUri,
   }) : _server = server ?? TomLocalContentServer.shared,
        _bundle = bundle ?? rootBundle;
+
+  /// Offline for widget tests under a fake clock, where no server can bind:
+  /// no content site is opened, the page and document URIs are made below
+  /// this base, and saving is not available. Tests that save start the
+  /// controller in the real zone instead (`tester.runAsync(start)`).
+  final Uri? testBaseUri;
+
+  bool _offlineStarted = false;
+
+  Uri _uriOf(String path) => _site?.uriOf(path) ?? testBaseUri!.resolve(path);
 
   /// The host.
   final TomPdfViewHost host;
@@ -165,24 +176,23 @@ class TomPdfJsController extends ChangeNotifier {
 
   /// The page the webview loads for [mode].
   Uri get pageUri {
-    final site = _site!;
     final page = switch (mode) {
       TomPdfJsMode.integrated => 'pdfjs/web/forge-integrated.html',
       TomPdfJsMode.full => 'pdfjs/web/forge-full.html',
       TomPdfJsMode.components => 'pdfjs/web/forge/components.html',
     };
-    return site
-        .uriOf(page)
-        .replace(queryParameters: {'readonly': _readOnly ? '1' : '0'});
+    return _uriOf(
+      page,
+    ).replace(queryParameters: {'readonly': _readOnly ? '1' : '0'});
   }
 
   /// Where the page fetches the document (a new path per open, so nothing
   /// cached is reused).
   Uri get documentUri =>
-      _site!.uriOf('doc/$_generation/${host.filePath.split('/').last}');
+      _uriOf('doc/$_generation/${host.filePath.split('/').last}');
 
   /// Where the page posts the saved bytes.
-  Uri get saveUri => _site!.uriOf('save');
+  Uri get saveUri => _uriOf('save');
 
   bool _disposed = false;
 
@@ -213,7 +223,7 @@ class TomPdfJsController extends ChangeNotifier {
   /// bundle, the document read from disk with `Range` support, the save
   /// receiver. Then [attach] a channel to load [pageUri].
   Future<void> start() async {
-    if (_site != null) return;
+    if (_site != null || _offlineStarted) return;
     _set(TomPdfJsState.starting);
     try {
       _revision = await host.files.revisionOf(host.filePath);
@@ -222,6 +232,11 @@ class TomPdfJsController extends ChangeNotifier {
         return;
       }
       _readOnly = hostReadOnly || !await host.files.isWritable(host.filePath);
+      if (testBaseUri != null) {
+        _offlineStarted = true;
+        pdfJsTrail('offline (test) start, ${mode.name}');
+        return;
+      }
       final site = await _server.openSite();
       site.onRequest = (r) => pdfJsTrail('server: ${_kind(r)}');
       site.mount('pdfjs', TomContentMount.assets(_asset));
@@ -324,8 +339,8 @@ class TomPdfJsController extends ChangeNotifier {
     await _messages?.cancel();
     _channel = channel;
     _messages = channel.messages.listen(_onMessage);
-    if (_site == null) await start();
-    if (_site == null) return;
+    if (_site == null && !_offlineStarted) await start();
+    if (_site == null && !_offlineStarted) return;
     pdfJsTrail('load the ${mode.name} page');
     await channel.load(pageUri);
   }

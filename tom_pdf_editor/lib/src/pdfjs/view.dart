@@ -22,7 +22,7 @@ class TomPdfJsView extends StatefulWidget {
   const TomPdfJsView({
     super.key,
     required this.controller,
-    @visibleForTesting this.channelForTesting,
+    this.channelForTesting,
   });
 
   /// The controller.

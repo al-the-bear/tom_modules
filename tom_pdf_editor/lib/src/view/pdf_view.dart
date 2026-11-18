@@ -674,6 +674,10 @@ class PdfPageViewState extends State<PdfPageView> {
       final handled = _formKey(e, meta);
       if (handled) return KeyEventResult.handled;
     }
+    if (meta && key == LogicalKeyboardKey.keyF) {
+      _c.showFind();
+      return KeyEventResult.handled;
+    }
     if (meta && key == LogicalKeyboardKey.keyC) {
       unawaited(_copy());
       return KeyEventResult.handled;

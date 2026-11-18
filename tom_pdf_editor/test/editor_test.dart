@@ -1070,6 +1070,16 @@ void main() {
     });
   });
 
+  testWidgets('PDF-VIEW-5: in a narrow pane (a split copy) the bars scroll '
+      'instead of overflowing', (tester) async {
+    final rig = _Rig(_textDoc());
+    await rig.pump(tester);
+    await tester.binding.setSurfaceSize(const Size(360, 600));
+    await rig.settle(tester);
+    expect(tester.takeException(), isNull);
+    expect(find.byKey(const ValueKey('pdf-undo')), findsOneWidget);
+  });
+
   testWidgets('PDF-CLOSE-1: closing gives the engine share up', (tester) async {
     final rig = _Rig(_textDoc());
     await rig.pump(tester);

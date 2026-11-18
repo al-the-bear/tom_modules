@@ -453,6 +453,47 @@ void main() {
     );
   });
 
+  testWidgets('PDFJS-OFFLINE-1: with testBaseUri no site is opened; the '
+      'page and document URIs are made below the base and the bridge works', (
+    tester,
+  ) async {
+    final files = MemoryBinaryFiles()
+      ..write(_path, utf8.encode('%PDF-original'));
+    final host = FakePdfEditorHost(
+      filePath: _path,
+      files: files,
+      engine: FakePdfEngine(const {}),
+    );
+    final c = TomPdfJsController(
+      host,
+      testBaseUri: Uri.parse('http://test.invalid/t/'),
+    );
+    final channel = FakePdfJsChannel();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: TomPdfJsView(controller: c, channelForTesting: channel),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(c.site, isNull);
+    expect(
+      channel.loads.single.toString(),
+      'http://test.invalid/t/pdfjs/web/forge/components.html?readonly=0',
+    );
+    channel.send({'type': 'ready', 'mode': 'components'});
+    await tester.pump();
+    expect(
+      channel.calls.single.$2.single,
+      'http://test.invalid/t/doc/0/sample.pdf',
+    );
+    channel.send({'type': 'loaded', 'pageCount': 2, 'ms': 1});
+    await tester.pump();
+    expect(c.state, TomPdfJsState.open);
+    await tester.runAsync(c.close);
+  });
+
   testWidgets('PDFJS-CLOSE-1: closing closes the page and the site', (
     tester,
   ) async {

@@ -364,7 +364,7 @@ class _AnnotationBar extends StatelessWidget {
       color: Theme.of(context).colorScheme.surfaceContainer,
       child: SizedBox(
         height: 36,
-        child: Row(
+        child: _ToolbarRow(
           children: [
             const SizedBox(width: 8),
             tool(
@@ -542,7 +542,7 @@ class _ZoomBar extends StatelessWidget {
     color: Theme.of(context).colorScheme.surfaceContainerHighest,
     child: SizedBox(
       height: 36,
-      child: Row(
+      child: _ToolbarRow(
         children: [
           const SizedBox(width: 8),
           Text('$pageCount ${pageCount == 1 ? 'page' : 'pages'}'),
@@ -1018,6 +1018,26 @@ class _FailurePanel extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    ),
+  );
+}
+
+/// A toolbar's row: as wide as the editor, its [Spacer]s taking the room
+/// left; scrolled sideways when the editor is narrower than its buttons (a
+/// split pane).
+class _ToolbarRow extends StatelessWidget {
+  const _ToolbarRow({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) => SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minWidth: constraints.maxWidth),
+        child: IntrinsicWidth(child: Row(children: children)),
       ),
     ),
   );
