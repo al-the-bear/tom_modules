@@ -14,7 +14,7 @@ library;
 import 'package:tom_basics/utilities.dart';
 import 'package:path/path.dart' as p;
 import 'package:tom_file_system/tom_file_system.dart';
-import 'package:tom_file_session/tom_file_session.dart';
+import 'package:tom_file_session/tom_file_session.dart' hide TomFileRevision;
 import 'package:tom_todo_model/tom_todo_model.dart';
 
 
