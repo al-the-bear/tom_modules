@@ -1,0 +1,6 @@
+tags:
+  # Needs a LibreOffice installation (and the tom_forge sample set); the
+  # tests skip themselves where either is missing. Leave them out with
+  # `-x libreoffice`.
+  libreoffice:
+    timeout: 5m

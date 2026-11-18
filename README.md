@@ -12,6 +12,7 @@ applications use the same model, so it lives here once.
 | [`tom_formula`](tom_formula/) | A spreadsheet formula engine: the grammar and printer, the function library, dependency-tracked recalculation, lowering to Dart, and the backend port, with a conformance corpus in `testing.dart`. |
 | [`tom_file_session`](tom_file_session/) | The editing session of one file over `tom_file_system` (encoding, byte preservation, explicit save, external changes, undo), the file-tree filter with its presets, and the `.env` codec; for `dart:io` hosts, binary saves and the local content server for webviews (`io.dart`). |
 | [`tom_office_protocol`](tom_office_protocol/) | Protocol 1 between the office editor and its LibreOfficeKit helper: the message types, the frame codec of the stdio transport, the protocol number. Not published. |
+| [`tom_office_host`](tom_office_host/) | The LibreOfficeKit helper process of the office editors: one document per process, protocol 1 on stdin and stdout. Not published. |
 
 The Tom UI modules — Flutter widgets and host capabilities that several Tom
 applications share, each package one purpose:

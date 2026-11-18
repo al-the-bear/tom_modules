@@ -14,7 +14,8 @@ LibreOffice's core source.
 
 ## Licence
 
-Mozilla Public License 2.0 (each file carries the notice):
+Mozilla Public License 2.0 (each file carries the notice; the licence's
+full text is [LICENSE](LICENSE) beside them):
 
 > This Source Code Form is subject to the terms of the Mozilla Public
 > License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -27,7 +28,8 @@ package. LibreOffice is loaded at runtime from its installation.
 
 - `LibreOfficeKitEnums.h` has C++-only inline helpers under
   `LOK_USE_UNSTABLE_API`; C code that includes it fails to compile, so the
-  spike's trampoline uses the two callback numbers it needs directly.
+  trampoline (`src/lok_trampoline.c`) uses the two callback numbers it needs
+  directly.
 - These headers declare neither `LOK_CALLBACK_JSDIALOG` (46) nor
   `sendDialogEvent`.
 - The VCL key codes (`KEY_RETURN` = 1280, …) for `postKeyEvent` are not in
