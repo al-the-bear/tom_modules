@@ -16,6 +16,7 @@ import 'dart:collection';
 import 'dart:ffi';
 import 'dart:io';
 import 'dart:isolate';
+import 'dart:typed_data';
 
 import 'package:ffi/ffi.dart';
 
@@ -64,8 +65,12 @@ final class _OpenPage {
 
 /// One open document.
 final class _Doc {
-  _Doc(this.doc);
+  _Doc(this.doc, [Pointer<Uint8>? memory]) : memory = memory ?? nullptr;
   final FPDF_DOCUMENT doc;
+
+  /// The bytes of a document opened from memory: PDFium reads them while
+  /// the document is open, so they are freed after it closes.
+  final Pointer<Uint8> memory;
   FPDF_FORMHANDLE form = nullptr;
   Pointer<FPDF_FORMFILLINFO> formInfo = nullptr;
 
@@ -163,6 +168,11 @@ final class _Worker {
     try {
       final result = switch (job[1]) {
         'open' => _open(job[2] as String, job[3] as String?),
+        'openBytes' => _openBytes(
+          (job[2]! as TransferableTypedData).materialize().asUint8List(),
+          job[3] as String?,
+        ),
+        'saveBytes' => _saveBytes(job[2] as int, flags: job[3] as int?),
         'close' => _closeDoc(job[2] as int),
         'render' => _render(job[2] as List<Object?>),
         'charCount' => _charCount(job[2] as int, job[3] as int),
@@ -651,12 +661,33 @@ final class _Worker {
         password == null ? nullptr : password.toNativeUtf8(allocator: a).cast(),
       );
     });
+    return _opened(doc, nullptr);
+  }
+
+  /// Opens a document from its [bytes] (a file without a path on this
+  /// machine): `FPDF_LoadMemDocument64` over a native copy kept while the
+  /// document is open.
+  List<Object?> _openBytes(Uint8List bytes, String? password) {
+    final memory = calloc<Uint8>(bytes.isEmpty ? 1 : bytes.length);
+    memory.asTypedList(bytes.length).setAll(0, bytes);
+    final doc = using((a) {
+      return b.FPDF_LoadMemDocument64(
+        memory.cast(),
+        bytes.length,
+        password == null ? nullptr : password.toNativeUtf8(allocator: a).cast(),
+      );
+    });
+    if (doc == nullptr) calloc.free(memory);
+    return _opened(doc, memory);
+  }
+
+  List<Object?> _opened(FPDF_DOCUMENT doc, Pointer<Uint8> memory) {
     if (doc == nullptr) {
       final code = b.FPDF_GetLastError();
       return ['failed', code, _errorText(code)];
     }
     final handle = _nextDoc++;
-    final d = _Doc(doc);
+    final d = _Doc(doc, memory);
     docs[handle] = d;
     final count = b.FPDF_GetPageCount(doc);
     final sizes = <double>[];
@@ -776,6 +807,7 @@ final class _Worker {
     if (d.form != nullptr) b.FPDFDOC_ExitFormFillEnvironment(d.form);
     if (d.formInfo != nullptr) calloc.free(d.formInfo);
     b.FPDF_CloseDocument(d.doc);
+    if (d.memory != nullptr) calloc.free(d.memory);
     return null;
   }
 
@@ -1115,6 +1147,7 @@ final class _Worker {
   // ------------------------------------------------------------------ saving
 
   RandomAccessFile? _sink;
+  BytesBuilder? _bytesSink;
 
   /// Saves to [target]: incrementally by default, then the cross-reference
   /// fix; with other [flags] (`FPDF_REMOVE_SECURITY`) a full copy. Answers
@@ -1438,11 +1471,56 @@ final class _Worker {
   }
 
   int _writeBlock(Pointer<FPDF_FILEWRITE> self, Pointer<Void> data, int size) {
+    final bytes = _bytesSink;
+    if (bytes != null) {
+      bytes.add(Uint8List.fromList(data.cast<Uint8>().asTypedList(size)));
+      return 1;
+    }
     final sink = _sink;
     if (sink == null) return 0;
     sink.writeFromSync(data.cast<Uint8>().asTypedList(size));
     return 1;
   }
+
+  /// Saves into memory: incrementally by default, then the cross-reference
+  /// fix; with other [flags] (`FPDF_REMOVE_SECURITY`) a full copy. Answers
+  /// the bytes as `TransferableTypedData`.
+  Object? _saveBytes(int doc, {int? flags}) {
+    final d = _docOf(doc);
+    final callable =
+        NativeCallable<
+          Int Function(Pointer<FPDF_FILEWRITE>, Pointer<Void>, UnsignedLong)
+        >.isolateLocal(_writeBlock, exceptionalReturn: 0);
+    final writer = calloc<FPDF_FILEWRITE>();
+    final out = _bytesSink = BytesBuilder(copy: false);
+    try {
+      writer.ref.version = 1;
+      writer.ref.WriteBlock = callable.nativeFunction;
+      final ok = b.FPDF_SaveAsCopy(d.doc, writer, flags ?? FPDF_INCREMENTAL);
+      if (ok == 0) throw StateError('FPDF_SaveAsCopy failed');
+    } finally {
+      _bytesSink = null;
+      calloc.free(writer);
+      callable.close();
+    }
+    var bytes = out.takeBytes();
+    if (flags == null) bytes = fixXrefInBytes(bytes) ?? bytes;
+    return TransferableTypedData.fromList([bytes]);
+  }
+}
+
+/// Applies the cross-reference fix to a saved document's [bytes]: answers
+/// the fixed bytes, or `null` when they need no fix.
+Uint8List? fixXrefInBytes(Uint8List bytes) {
+  final length = bytes.length;
+  final tailStart = length > 1024 ? length - 1024 : 0;
+  final offset = startxrefOffset(Uint8List.sublistView(bytes, tailStart));
+  if (offset == null || offset < 0 || offset >= length) return null;
+  final fixed = fixXrefObject(Uint8List.sublistView(bytes, offset));
+  if (fixed == null) return null;
+  return Uint8List(offset + fixed.length)
+    ..setAll(0, Uint8List.sublistView(bytes, 0, offset))
+    ..setAll(offset, fixed);
 }
 
 /// Applies the cross-reference fix to the file at [path]: reads its tail,

@@ -45,7 +45,16 @@ class PdfPageView extends StatefulWidget {
     required this.onCopy,
     this.decoder = decodeBgra,
     this.cache,
+    this.onPosition,
+    this.onFind,
   });
+
+  /// Told where the view stands as it scrolls: the page at its top and how
+  /// far into it (0–1).
+  final void Function(int page, double offset)? onPosition;
+
+  /// Cmd+F: the host's find bar instead of the editor's own.
+  final VoidCallback? onFind;
 
   /// The controller of an open document.
   final TomPdfEditorController controller;
@@ -133,6 +142,7 @@ class PdfPageViewState extends State<PdfPageView> {
     _c.addListener(_onController);
     _c.scrollRequest.addListener(_onScrollRequest);
     vertical.addListener(_schedule);
+    vertical.addListener(_reportPosition);
     horizontal.addListener(_schedule);
     if (kPdfEditorDebug) {
       _stats = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -191,6 +201,39 @@ class PdfPageViewState extends State<PdfPageView> {
       _layoutCache = null;
     }
     if (mounted) setState(() {});
+    _schedule();
+  }
+
+  /// The page at the top of the view and how far into it.
+  (int, double)? get position {
+    if (_info == null || !vertical.hasClients) return null;
+    final l = layout;
+    final top = vertical.offset;
+    final page = l.pageAt(top + 1).clamp(0, _info!.pageCount - 1);
+    final rect = l.pageRect(page, _viewport.width);
+    final offset = rect.height <= 0
+        ? 0.0
+        : ((top - rect.top) / rect.height).clamp(0.0, 1.0);
+    return (page, offset);
+  }
+
+  void _reportPosition() {
+    final p = position;
+    if (p != null) widget.onPosition?.call(p.$1, p.$2);
+  }
+
+  /// Scrolls to [page] (clamped to the document), [offset] into it.
+  void scrollToPosition(int page, double offset) {
+    final info = _info;
+    if (info == null || !vertical.hasClients || info.pageCount == 0) return;
+    final p = page.clamp(0, info.pageCount - 1);
+    final rect = layout.pageRect(p, _viewport.width);
+    vertical.jumpTo(
+      (rect.top + rect.height * offset.clamp(0.0, 1.0)).clamp(
+        0,
+        vertical.position.maxScrollExtent,
+      ),
+    );
     _schedule();
   }
 
@@ -675,7 +718,12 @@ class PdfPageViewState extends State<PdfPageView> {
       if (handled) return KeyEventResult.handled;
     }
     if (meta && key == LogicalKeyboardKey.keyF) {
-      _c.showFind();
+      final onFind = widget.onFind;
+      if (onFind != null) {
+        onFind();
+      } else {
+        _c.showFind();
+      }
       return KeyEventResult.handled;
     }
     if (meta && key == LogicalKeyboardKey.keyC) {

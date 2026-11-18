@@ -8,5 +8,6 @@ library;
 
 export 'src/binary_files.dart';
 export 'src/env_file.dart';
+export 'src/file_system_binary_files.dart';
 export 'src/file_session.dart';
 export 'src/filter.dart';

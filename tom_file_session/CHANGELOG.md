@@ -1,3 +1,13 @@
+## 1.8.0
+
+- `TomFileSystemBinaryFiles`: the binary save rules (`TomBinaryFiles`) over
+  a `TomFileSystem`, for files without a local path — revisions from the
+  file system, the temporary target `.<name>.tom-save-<n>` beside the file,
+  a replace written with the expected revision (a changed file is a
+  conflict), *keep as copy* as `<stem> (copy).<ext>`.
+- `TomBinaryFileBytes`: a `TomBinaryFiles` that also reads a file's bytes
+  (`readBytes`); a host takes it as the sign to open a document from bytes.
+
 ## 1.7.0
 
 - `TomContentSite.onRequest` tells a host of every request the site

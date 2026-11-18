@@ -91,6 +91,62 @@ final class PdfPageSelection {
   final List<PdfRect> rects;
 }
 
+/// Where a view of the document stands: the page (0-based) at the top of
+/// the view, how far into it (0 = its top, 1 = its bottom) and the zoom in
+/// percent. A host keeps it (Forge: `.forge/state/editors/`) and gives it
+/// back on the next open ([TomPdfEditorController.restoreView]).
+@immutable
+final class PdfViewPosition {
+  const PdfViewPosition({
+    required this.page,
+    this.offset = 0,
+    required this.zoom,
+  });
+
+  /// From [toJson]'s map; `null` when it is not one.
+  static PdfViewPosition? fromJson(Map<String, Object?> json) {
+    final page = json['page'];
+    final zoom = json['zoom'];
+    if (page is! num || zoom is! num) return null;
+    final offset = json['offset'];
+    return PdfViewPosition(
+      page: page.toInt(),
+      offset: offset is num ? offset.toDouble().clamp(0, 1) : 0,
+      zoom: zoom.toDouble(),
+    );
+  }
+
+  /// The page at the top of the view.
+  final int page;
+
+  /// How far into [page] the view's top is, 0–1.
+  final double offset;
+
+  /// The zoom, percent.
+  final double zoom;
+
+  /// A JSON map.
+  Map<String, Object?> toJson() => {
+    'page': page,
+    'offset': offset,
+    'zoom': zoom,
+  };
+
+  @override
+  bool operator ==(Object other) =>
+      other is PdfViewPosition &&
+      other.page == page &&
+      other.offset == offset &&
+      other.zoom == zoom;
+
+  @override
+  int get hashCode => Object.hash(page, offset, zoom);
+
+  @override
+  String toString() =>
+      'PdfViewPosition(p$page+${offset.toStringAsFixed(2)} ${zoom.round()} %)';
+}
+
 /// What a host drives: open, save, undo, redo, find, the dirty state. It has
 /// the shape of `TomOfficeEditorController`.
 class TomPdfEditorController extends ChangeNotifier {
@@ -126,6 +182,30 @@ class TomPdfEditorController extends ChangeNotifier {
 
   /// The state.
   TomPdfEditorState get state => _state;
+
+  PdfViewPosition? _viewPosition;
+  PdfViewPosition? _pendingView;
+
+  /// Where the (main) view stands, as it last reported (`null` before it
+  /// laid out).
+  PdfViewPosition? get viewPosition => _viewPosition;
+
+  /// The view tells where it stands (no listeners are told).
+  void rememberView(PdfViewPosition position) => _viewPosition = position;
+
+  /// Asks the view to go to [position] (a page beyond the document is the
+  /// last page) once it has laid out.
+  void restoreView(PdfViewPosition position) {
+    _pendingView = position;
+    notifyListeners();
+  }
+
+  /// The position [restoreView] asked for, taken by the view that applies it.
+  PdfViewPosition? takePendingView() {
+    final p = _pendingView;
+    _pendingView = null;
+    return p;
+  }
 
   /// The engine, once started.
   TomPdfEngine? get engine => _engine;
@@ -242,7 +322,21 @@ class TomPdfEditorController extends ChangeNotifier {
       return;
     }
     final watch = Stopwatch()..start();
-    final result = await engine.open(host.filePath, password: password);
+    final files = host.files;
+    final PdfOpenResult result;
+    if (files is TomBinaryFileBytes) {
+      // No path on this machine (a remote or virtual file system): PDFium
+      // reads the bytes.
+      final bytes = await files.readBytes(host.filePath);
+      if (bytes == null) {
+        _failure = 'the file does not exist';
+        _set(TomPdfEditorState.failed);
+        return;
+      }
+      result = await engine.openBytes(bytes, password: password);
+    } else {
+      result = await engine.open(host.filePath, password: password);
+    }
     pdfTrail(
       'open ${result.info != null ? 'ok' : result.error!.name} in '
       '${watch.elapsedMilliseconds} ms${password == null ? '' : ' (password <redacted>)'}',
@@ -422,7 +516,7 @@ class TomPdfEditorController extends ChangeNotifier {
       await host.files.removeTemporaryFiles(host.filePath);
       final temp = await host.files.temporaryTarget(host.filePath);
       pdfTrail('save → temporary target');
-      final error = await _engine!.saveIncremental(_info!.handle, temp);
+      final error = await _saveInto(temp);
       if (error != null) {
         _notice('error', 'Could not save: $error');
         _set(TomPdfEditorState.open);
@@ -453,6 +547,35 @@ class TomPdfEditorController extends ChangeNotifier {
     }
   }
 
+  /// Saves the document into [temp] (a temporary target of the host's file
+  /// access): PDFium writes the file itself when it has a path on this
+  /// machine; else the saved bytes are written through the file access.
+  /// [removeSecurity] makes a full copy without the encryption. Answers the
+  /// error, or `null`.
+  Future<String?> _saveInto(String temp, {bool removeSecurity = false}) async {
+    final engine = _engine!;
+    final doc = _info!.handle;
+    final files = host.files;
+    if (files is! TomBinaryFileBytes) {
+      return removeSecurity
+          ? engine.saveCopy(doc, temp, removeSecurity: true)
+          : engine.saveIncremental(doc, temp);
+    }
+    try {
+      final bytes = removeSecurity
+          ? await engine.saveCopyBytes(doc, removeSecurity: true)
+          : await engine.saveIncrementalBytes(doc);
+      final written = await files.save(
+        temp,
+        bytes,
+        await files.revisionOf(temp),
+      );
+      return written.replaced ? null : 'the temporary file changed';
+    } catch (e) {
+      return '$e';
+    }
+  }
+
   /// The conflict choice *Keep mine*: replace the file on disk anyway.
   Future<void> keepMine() async {
     final c = _conflict;
@@ -460,7 +583,7 @@ class TomPdfEditorController extends ChangeNotifier {
     var temp = c.temporary;
     if (temp == null) {
       temp = await host.files.temporaryTarget(host.filePath);
-      final error = await _engine!.saveIncremental(_info!.handle, temp);
+      final error = await _saveInto(temp);
       if (error != null) {
         _notice('error', 'Could not save: $error');
         return;
@@ -488,7 +611,7 @@ class TomPdfEditorController extends ChangeNotifier {
     var temp = _conflict?.temporary;
     if (temp == null) {
       temp = await host.files.temporaryTarget(host.filePath);
-      final error = await _engine!.saveIncremental(_info!.handle, temp);
+      final error = await _saveInto(temp);
       if (error != null) {
         _notice('error', 'Could not save a copy: $error');
         return null;
@@ -1223,11 +1346,7 @@ class TomPdfEditorController extends ChangeNotifier {
     if (info == null) return null;
     final temp = await host.files.temporaryTarget(host.filePath);
     pdfTrail('save unencrypted copy');
-    final error = await _engine!.saveCopy(
-      info.handle,
-      temp,
-      removeSecurity: true,
-    );
+    final error = await _saveInto(temp, removeSecurity: true);
     if (error != null) {
       _notice('error', 'Could not save a copy: $error');
       return null;

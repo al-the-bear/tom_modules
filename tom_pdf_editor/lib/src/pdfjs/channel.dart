@@ -41,7 +41,7 @@ abstract final class TomPdfJsTool {
 /// Dart never waits on the page: [call] starts a bridge function and
 /// returns, and everything the page says comes back as [messages]
 /// (`{type, ...}`: `ready`, `loaded`, `textLayer`, `modified`, `history`,
-/// `findCount`, `tool`, `saved`, `error`, `openLink`, `passwordRequested`,
+/// `findCount`, `tool`, `view`, `saved`, `error`, `openLink`, `passwordRequested`,
 /// `shortcut`, `trail`).
 abstract interface class TomPdfJsChannel {
   /// Loads [page] into the webview.

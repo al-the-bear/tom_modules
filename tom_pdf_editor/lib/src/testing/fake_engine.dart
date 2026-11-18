@@ -3,6 +3,7 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:tom_file_session/tom_file_session.dart';
@@ -198,6 +199,42 @@ class FakePdfEngine implements TomPdfEngine {
         outline: d.outline,
         formType: d.formType,
       ),
+    );
+  }
+
+  /// The key a document opened from [bytes] is looked up under in
+  /// [documents]: `bytes:` and the bytes as Latin-1.
+  static String bytesKey(List<int> bytes) => 'bytes:${latin1.decode(bytes)}';
+
+  var _savedBytes = 0;
+
+  @override
+  Future<PdfOpenResult> openBytes(Uint8List bytes, {String? password}) {
+    calls.add('openBytes ${bytes.length}');
+    return open(bytesKey(bytes), password: password);
+  }
+
+  /// Answers `%PDF-saved-<n>`, registered for the same document, so a
+  /// reopen from the saved bytes finds it.
+  @override
+  Future<Uint8List> saveIncrementalBytes(int doc) async {
+    calls.add('saveBytes');
+    final bytes = Uint8List.fromList(
+      utf8.encode('%PDF-saved-${++_savedBytes}'),
+    );
+    documents[bytesKey(bytes)] = _doc(doc);
+    return bytes;
+  }
+
+  @override
+  Future<Uint8List> saveCopyBytes(
+    int doc, {
+    bool removeSecurity = false,
+  }) async {
+    calls.add('saveCopyBytes ${removeSecurity ? 'unencrypted' : 'as is'}');
+    _doc(doc);
+    return Uint8List.fromList(
+      utf8.encode(removeSecurity ? '%PDF-unencrypted' : '%PDF-copy'),
     );
   }
 

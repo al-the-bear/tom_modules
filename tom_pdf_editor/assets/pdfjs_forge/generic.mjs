@@ -38,6 +38,12 @@ installBridge({
       mode,
     });
   },
+  view() {
+    return { page: app.page, scale: app.pdfViewer.currentScaleValue };
+  },
+  scrollTo(page) {
+    app.page = page;
+  },
   zoom(how) {
     if (how === "in") app.zoomIn();
     else if (how === "out") app.zoomOut();

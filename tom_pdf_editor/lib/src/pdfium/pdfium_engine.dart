@@ -3,9 +3,11 @@
 
 import 'dart:async';
 import 'dart:isolate';
+import 'dart:typed_data';
 
 import '../engine/engine.dart';
 import '../pdf_editor_trail.dart';
+import 'pdfium_bindings.g.dart' show FPDF_REMOVE_SECURITY;
 import 'pdfium_worker.dart';
 
 /// [TomPdfEngine] over PDFium: one long-lived worker isolate that makes every
@@ -136,8 +138,35 @@ final class PdfiumEngine implements TomPdfEngine {
   ];
 
   @override
-  Future<PdfOpenResult> open(String path, {String? password}) async {
-    final r = await _call<List<Object?>>('open', [path, password]);
+  Future<PdfOpenResult> open(String path, {String? password}) async =>
+      _opened(await _call<List<Object?>>('open', [path, password]));
+
+  @override
+  Future<PdfOpenResult> openBytes(Uint8List bytes, {String? password}) async =>
+      _opened(
+        await _call<List<Object?>>('openBytes', [
+          TransferableTypedData.fromList([bytes]),
+          password,
+        ]),
+      );
+
+  @override
+  Future<Uint8List> saveIncrementalBytes(int doc) async =>
+      (await _call<TransferableTypedData>('saveBytes', [
+        doc,
+        null,
+      ])).materialize().asUint8List();
+
+  @override
+  Future<Uint8List> saveCopyBytes(
+    int doc, {
+    bool removeSecurity = false,
+  }) async => (await _call<TransferableTypedData>('saveBytes', [
+    doc,
+    removeSecurity ? FPDF_REMOVE_SECURITY : 0,
+  ])).materialize().asUint8List();
+
+  PdfOpenResult _opened(List<Object?> r) {
     if (r[0] == 'failed') {
       final error = switch (r[1] as int) {
         2 => PdfOpenError.file,

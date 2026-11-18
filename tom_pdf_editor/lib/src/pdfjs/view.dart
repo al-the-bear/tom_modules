@@ -23,7 +23,13 @@ class TomPdfJsView extends StatefulWidget {
     super.key,
     required this.controller,
     this.channelForTesting,
+    this.onFind,
   });
+
+  /// Cmd+F (in the page or in Flutter) and the toolbar's find button: the
+  /// host's find bar (the Forge shell's) instead of the view's own, which
+  /// then stays hidden.
+  final VoidCallback? onFind;
 
   /// The controller.
   final TomPdfJsController controller;
@@ -67,7 +73,7 @@ class TomPdfJsViewState extends State<TomPdfJsView> {
       if (mounted) _c.host.notice(context, n.$2, kind: n.$1);
     });
     _shortcuts = _c.shortcuts.listen((key) {
-      if (key == 'find') showFind();
+      if (key == 'find') _requestFind();
     });
   }
 
@@ -126,6 +132,16 @@ class TomPdfJsViewState extends State<TomPdfJsView> {
     return result?.value;
   }
 
+  /// The host's find bar when it gives one, else the view's own.
+  void _requestFind() {
+    final onFind = widget.onFind;
+    if (onFind != null) {
+      onFind();
+    } else {
+      showFind();
+    }
+  }
+
   /// Shows the find bar (the shell's Cmd+F, or Cmd+F inside the webview).
   void showFind() {
     setState(() => _findVisible = true);
@@ -147,7 +163,8 @@ class TomPdfJsViewState extends State<TomPdfJsView> {
     if (_c.state == TomPdfJsState.failed) return _failed(context);
     return CallbackShortcuts(
       bindings: {
-        const SingleActivator(LogicalKeyboardKey.keyF, meta: true): showFind,
+        const SingleActivator(LogicalKeyboardKey.keyF, meta: true):
+            _requestFind,
       },
       child: Column(
         children: [
@@ -328,7 +345,7 @@ class TomPdfJsViewState extends State<TomPdfJsView> {
               tooltip: 'Find',
               iconSize: 18,
               icon: const Icon(Icons.search),
-              onPressed: showFind,
+              onPressed: _requestFind,
             ),
             const SizedBox(width: 8),
           ],

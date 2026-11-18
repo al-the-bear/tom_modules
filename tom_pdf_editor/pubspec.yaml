@@ -41,6 +41,9 @@ dependencies:
     path: ../../xternal/tom_flutter_inappwebview/flutter_inappwebview
 
 dev_dependencies:
+  # A file system without local paths, for the bytes route's tests.
+  tom_file_system:
+    path: ../../basics/tom_file_system
   ffigen: ^23.0.0
   flutter_test:
     sdk: flutter

@@ -7,6 +7,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:tom_file_session/io.dart';
+import 'package:tom_file_session/tom_file_session.dart' show TomBinaryFileBytes;
 
 import '../host.dart';
 import '../pdf_editor_trail.dart';
@@ -21,6 +22,41 @@ const kPdfJsAssets = 'packages/tom_pdf_editor/third_party/pdfjs/$kPdfJsVersion';
 /// Where Forge's host files (bridge, options, stylesheet, components page)
 /// are in the asset bundle.
 const kPdfJsForgeAssets = 'packages/tom_pdf_editor/assets/pdfjs_forge';
+
+/// Where a pdf.js view stands: the page at its top (0-based) and pdf.js's
+/// scale (a number such as `1.25`, or a preset such as `page-width`). A host
+/// keeps it and gives it back ([TomPdfJsController.restoreView]).
+@immutable
+final class PdfJsViewPosition {
+  const PdfJsViewPosition({required this.page, required this.scale});
+
+  /// From [toJson]'s map; `null` when it is not one.
+  static PdfJsViewPosition? fromJson(Map<String, Object?> json) {
+    final page = json['page'];
+    final scale = json['scale'];
+    if (page is! num || scale is! String || scale.isEmpty) return null;
+    return PdfJsViewPosition(page: page.toInt(), scale: scale);
+  }
+
+  /// The page, 0-based.
+  final int page;
+
+  /// pdf.js's scale value.
+  final String scale;
+
+  /// A JSON map.
+  Map<String, Object?> toJson() => {'page': page, 'scale': scale};
+
+  @override
+  bool operator ==(Object other) =>
+      other is PdfJsViewPosition && other.page == page && other.scale == scale;
+
+  @override
+  int get hashCode => Object.hash(page, scale);
+
+  @override
+  String toString() => 'PdfJsViewPosition(p$page $scale)';
+}
 
 /// Where a [TomPdfJsController] is.
 enum TomPdfJsState {
@@ -125,6 +161,29 @@ class TomPdfJsController extends ChangeNotifier {
   final _notices = StreamController<(String, String)>.broadcast();
   final _shortcuts = StreamController<String>.broadcast();
   final _openWatch = Stopwatch();
+
+  PdfJsViewPosition? _viewPosition;
+  PdfJsViewPosition? _pendingView;
+
+  /// Where the view stands, as the page last reported it.
+  PdfJsViewPosition? get viewPosition => _viewPosition;
+
+  /// Asks the page to go to [position] once the document has loaded (now,
+  /// when it has).
+  void restoreView(PdfJsViewPosition position) {
+    if (_state == TomPdfJsState.open) {
+      unawaited(_applyView(position));
+    } else {
+      _pendingView = position;
+    }
+  }
+
+  Future<void> _applyView(PdfJsViewPosition position) async {
+    pdfJsTrail('restore view $position');
+    _viewPosition = position;
+    await _call('zoom', [position.scale]);
+    await _call('scrollTo', [position.page + 1]);
+  }
 
   /// The state.
   TomPdfJsState get state => _state;
@@ -240,7 +299,15 @@ class TomPdfJsController extends ChangeNotifier {
       final site = await _server.openSite();
       site.onRequest = (r) => pdfJsTrail('server: ${_kind(r)}');
       site.mount('pdfjs', TomContentMount.assets(_asset));
-      site.mount('doc', TomContentMount.file(host.filePath));
+      final files = host.files;
+      site.mount(
+        'doc',
+        files is TomBinaryFileBytes
+            // No path on this machine: the bytes, read anew for every
+            // request (pdf.js asks in ranges; a reopen reads the saved file).
+            ? TomContentMount.assets((_) => files.readBytes(host.filePath))
+            : TomContentMount.file(host.filePath),
+      );
       site.mount(
         'save',
         TomContentMount.receiver((content) async {
@@ -382,6 +449,9 @@ class TomPdfJsController extends ChangeNotifier {
           _dirty = false;
           _set(TomPdfJsState.open);
           notifyListeners();
+          final pending = _pendingView;
+          _pendingView = null;
+          if (pending != null) unawaited(_applyView(pending));
         case 'textLayer':
           _hasTextLayer = m['value'] == true;
           if (_hasTextLayer == false) {
@@ -404,6 +474,12 @@ class TomPdfJsController extends ChangeNotifier {
           _canRedo = m['canRedo'] == true;
           host.historyChanged();
           notifyListeners();
+        case 'view':
+          final page = (m['page'] as num?)?.toInt();
+          final scale = m['scale'];
+          if (page != null && page > 0 && scale is String) {
+            _viewPosition = PdfJsViewPosition(page: page - 1, scale: scale);
+          }
         case 'tool':
           // pdf.js changed its tool itself (Escape, a highlight from the
           // selection): the toolbar follows.

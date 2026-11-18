@@ -45,3 +45,14 @@
   checked against the bindings' release.
 - `testing.dart`: `FakePdfEngine`, `MemoryBinaryFiles`, `FakePdfEditorHost`.
 - Debug trail `[PE]` with `kPdfEditorDebug`.
+- Documents from bytes: a host whose files are a `TomBinaryFileBytes`
+  (e.g. `TomFileSystemBinaryFiles`) has PDFium open the document from memory
+  (`FPDF_LoadMemDocument64`, `TomPdfEngine.openBytes`) and save into bytes
+  (`saveIncrementalBytes`, `saveCopyBytes`) written to the temporary target;
+  pdf.js gets them through its content site.
+- The view position: `PdfViewPosition` (page, offset, zoom) and
+  `PdfJsViewPosition` (page, scale) — `viewPosition`, `restoreView` on both
+  controllers, applied once the document has loaded; the pdf.js bridge sends
+  `view` and takes `scrollTo(page)`.
+- `onFind` on `TomPdfEditor` and `TomPdfJsView`: Cmd+F and the find button
+  go to the host (its own find bar) instead of the editor's.

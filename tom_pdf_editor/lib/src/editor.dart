@@ -27,7 +27,12 @@ class TomPdfEditor extends StatefulWidget {
     this.onCopy,
     this.decoder = decodeBgra,
     this.showPageList = true,
+    this.onFind,
   });
+
+  /// Cmd+F and the zoom bar's find button: the host's find bar (the Forge
+  /// shell's) instead of the editor's own, which then stays hidden.
+  final VoidCallback? onFind;
 
   /// The controller.
   final TomPdfEditorController controller;
@@ -111,6 +116,32 @@ class _TomPdfEditorState extends State<TomPdfEditor> {
       _zoom = zoom.clamp(10, 800);
       _zoomSet = true;
     });
+    final p = _viewKey.currentState?.position;
+    _c.rememberView(
+      PdfViewPosition(
+        page: p?.$1 ?? _c.viewPosition?.page ?? 0,
+        offset: p?.$2 ?? _c.viewPosition?.offset ?? 0,
+        zoom: _zoom,
+      ),
+    );
+  }
+
+  void _onPosition(int page, double offset) =>
+      _c.rememberView(PdfViewPosition(page: page, offset: offset, zoom: _zoom));
+
+  /// A position the host asked for ([TomPdfEditorController.restoreView]):
+  /// the zoom now, the scroll once the pages are laid out at it.
+  void _applyPendingView() {
+    final pending = _c.takePendingView();
+    if (pending == null) return;
+    pdfTrail('restore view $pending');
+    _zoom = pending.zoom.clamp(10, 800).toDouble();
+    _zoomSet = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _viewKey.currentState?.scrollToPosition(pending.page, pending.offset);
+      _c.rememberView(pending);
+    });
   }
 
   Future<void> _copy(String text) async {
@@ -132,6 +163,7 @@ class _TomPdfEditorState extends State<TomPdfEditor> {
 
   Widget _open(BuildContext context) {
     final info = _c.info!;
+    _applyPendingView();
     return LayoutBuilder(
       builder: (context, constraints) {
         final listWidth = widget.showPageList ? 168.0 : 0.0;
@@ -173,7 +205,7 @@ class _TomPdfEditorState extends State<TomPdfEditor> {
                   ),
                 );
               },
-              onFind: _c.showFind,
+              onFind: widget.onFind ?? _c.showFind,
               pageCount: info.pageCount,
             ),
             _AnnotationBar(controller: _c),
@@ -197,6 +229,8 @@ class _TomPdfEditorState extends State<TomPdfEditor> {
                             onCopy: _copy,
                             decoder: widget.decoder,
                             cache: _cache,
+                            onPosition: _onPosition,
+                            onFind: widget.onFind,
                           ),
                         ),
                         if (_c.findVisible)

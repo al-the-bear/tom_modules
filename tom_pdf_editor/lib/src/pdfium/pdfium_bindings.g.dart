@@ -1721,6 +1721,29 @@ class PdfiumBindings {
         FPDF_DOCUMENT Function(FPDF_STRING, FPDF_BYTESTRING)
       >();
 
+  FPDF_DOCUMENT FPDF_LoadMemDocument64(
+    ffi.Pointer<ffi.Void> data_buf,
+    int size,
+    FPDF_BYTESTRING password,
+  ) {
+    return _FPDF_LoadMemDocument64(data_buf, size, password);
+  }
+
+  late final _FPDF_LoadMemDocument64Ptr =
+      _lookup<
+        ffi.NativeFunction<
+          FPDF_DOCUMENT Function(
+            ffi.Pointer<ffi.Void>,
+            ffi.Size,
+            FPDF_BYTESTRING,
+          )
+        >
+      >('FPDF_LoadMemDocument64');
+  late final _FPDF_LoadMemDocument64 =
+      _FPDF_LoadMemDocument64Ptr.asFunction<
+        FPDF_DOCUMENT Function(ffi.Pointer<ffi.Void>, int, FPDF_BYTESTRING)
+      >();
+
   FPDF_PAGE FPDF_LoadPage(FPDF_DOCUMENT document, int page_index) {
     return _FPDF_LoadPage(document, page_index);
   }

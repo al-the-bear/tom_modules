@@ -77,6 +77,18 @@ export function installBridge(adapter) {
       total: matchesCount?.total ?? 0,
     });
   });
+  // Where the view stands, for the host to keep and give back.
+  let viewTimer = null;
+  const sendView = () => {
+    clearTimeout(viewTimer);
+    viewTimer = setTimeout(() => {
+      const view = adapter.view?.();
+      if (view) send({ type: "view", page: view.page, scale: String(view.scale) });
+    }, 150);
+  };
+  bus.on("pagechanging", sendView);
+  bus.on("scalechanging", sendView);
+
   bus.on("annotationeditormodechanged", ({ mode }) => {
     send({ type: "tool", mode });
   });
@@ -253,9 +265,14 @@ export function installBridge(adapter) {
       adapter.setTool(mode);
     },
 
-    /** Zoom: "in", "out", "page-width", "page-fit" (components mode). */
+    /** Zoom: "in", "out", "page-width", "page-fit", or a scale ("1.5"). */
     zoom(how) {
       adapter.zoom?.(how);
+    },
+
+    /** Scrolls to [page] (1-based). */
+    scrollTo(page) {
+      adapter.scrollTo?.(page);
     },
   };
 

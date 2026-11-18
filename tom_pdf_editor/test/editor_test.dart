@@ -92,6 +92,9 @@ class _Rig {
   late final TomPdfEditorController controller;
   final copied = <String>[];
 
+  /// The host's find, when the editor is given one.
+  VoidCallback? onFind;
+
   Future<void> pump(WidgetTester tester) async {
     await tester.binding.setSurfaceSize(const Size(1000, 800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -100,6 +103,7 @@ class _Rig {
         home: Scaffold(
           body: TomPdfEditor(
             controller: controller,
+            onFind: onFind,
             onCopy: (text) async => copied.add(text),
             decoder: (bgra, w, h) {
               final done = Completer<ui.Image>();
@@ -1068,6 +1072,46 @@ void main() {
         findsOneWidget,
       );
     });
+  });
+
+  testWidgets('PDF-VIEW-6: a position the host gives back is applied at '
+      'the first layout; the view reports where it stands', (tester) async {
+    final rig = _Rig(_textDoc(pages: 12));
+    rig.controller.restoreView(
+      const PdfViewPosition(page: 6, offset: 0.5, zoom: 150),
+    );
+    await rig.pump(tester);
+    expect(find.text('150 %'), findsOneWidget);
+    final v = rig.view(tester);
+    expect(v.position!.$1, 6);
+    expect(v.position!.$2, closeTo(0.5, 0.01));
+    v.vertical.jumpTo(v.layout.pageTop(2));
+    await rig.settle(tester);
+    final p = rig.controller.viewPosition!;
+    expect(p.page, 2);
+    expect(p.zoom, 150);
+    // Round trip through JSON, as Forge keeps it.
+    expect(PdfViewPosition.fromJson(p.toJson()), p);
+    expect(PdfViewPosition.fromJson(const {'page': 'x'}), isNull);
+  });
+
+  testWidgets('PDF-VIEW-7: with a host find, Cmd+F and the find button call '
+      'it; the editor\'s own find bar stays hidden', (tester) async {
+    final rig = _Rig(_textDoc());
+    var asked = 0;
+    rig.onFind = () => asked++;
+    await rig.pump(tester);
+    await tester.tap(find.byTooltip('Find'));
+    await rig.settle(tester);
+    expect(asked, 1);
+    await tester.tapAt(rig.at(tester, 0, fakeCharRect(_page0, 0)));
+    await rig.settle(tester);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.meta);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.meta);
+    await rig.settle(tester);
+    expect(asked, 2);
+    expect(rig.controller.findVisible, isFalse);
   });
 
   testWidgets('PDF-VIEW-5: in a narrow pane (a split copy) the bars scroll '

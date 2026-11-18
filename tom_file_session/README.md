@@ -12,7 +12,7 @@ files to a webview.
 
 | Library | Holds | Runs on |
 | --- | --- | --- |
-| `package:tom_file_session/tom_file_session.dart` | `ForgeFileSession`, `ForgeFilter` with `ForgeBuiltInPresets`, `ForgeEnvFile`, the `TomBinaryFiles` interface and its value types | everywhere: no `dart:io`, no Flutter, so a browser build links it |
+| `package:tom_file_session/tom_file_session.dart` | `ForgeFileSession`, `ForgeFilter` with `ForgeBuiltInPresets`, `ForgeEnvFile`, the `TomBinaryFiles` interface and its value types, `TomFileSystemBinaryFiles` | everywhere: no `dart:io`, no Flutter, so a browser build links it |
 | `package:tom_file_session/io.dart` | `TomBinaryFileAccess`, `TomLocalContentServer` | the VM (desktop, server): it uses `dart:io` |
 
 ## Components
@@ -102,6 +102,13 @@ documents, PDFs — written by a helper process or received as bytes:
 - **Interface.** `TomBinaryFiles` in the main library describes these rules
   without `dart:io`, so a widget library takes them from its host;
   `TomBinaryFileAccess` is its `dart:io` implementation.
+- **Files without a local path.** `TomFileSystemBinaryFiles` (main library)
+  implements the same rules over a `TomFileSystem` (paths relative to its
+  root): the temporary target `.<name>.tom-save-<n>` is a file of the file
+  system, `replace` writes with the expected revision (a file changed since is
+  a conflict), *keep as copy* writes `<stem> (copy).<ext>`. It is a
+  `TomBinaryFileBytes`, which adds `readBytes(path)`: a host that gets one
+  opens its documents from bytes instead of a path.
 - **Clean-up.** `removeTemporaryFiles(path)` deletes the temporary files left
   beside a file, and nothing else.
 

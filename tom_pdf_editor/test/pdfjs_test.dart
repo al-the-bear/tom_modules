@@ -494,6 +494,55 @@ void main() {
     await tester.runAsync(c.close);
   });
 
+  testWidgets('PDFJS-VIEW-1: the page reports where it stands; a position '
+      'given back is applied once the document has loaded; the host\'s find '
+      'takes Cmd+F', (tester) async {
+    final rig = _Rig();
+    var asked = 0;
+    await tester.binding.setSurfaceSize(const Size(1000, 700));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.runAsync(rig.controller.start);
+    rig.controller.restoreView(const PdfJsViewPosition(page: 4, scale: '1.5'));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: TomPdfJsView(
+            controller: rig.controller,
+            channelForTesting: rig.channel,
+            onFind: () => asked++,
+          ),
+        ),
+      ),
+    );
+    await rig.settle(tester);
+    addTearDown(() async {
+      await tester.runAsync(rig.controller.close);
+    });
+    await rig.open(tester);
+    final calls = rig.channel.calls;
+    expect(calls[calls.length - 2].$1, 'zoom');
+    expect(calls[calls.length - 2].$2, ['1.5']);
+    expect(calls.last.$1, 'scrollTo');
+    expect(calls.last.$2, [5]);
+    rig.channel.send({'type': 'view', 'page': 7, 'scale': 'page-width'});
+    await rig.settle(tester);
+    expect(
+      rig.controller.viewPosition,
+      const PdfJsViewPosition(page: 6, scale: 'page-width'),
+    );
+    expect(
+      PdfJsViewPosition.fromJson(rig.controller.viewPosition!.toJson()),
+      rig.controller.viewPosition,
+    );
+    rig.channel.send({'type': 'shortcut', 'key': 'find'});
+    await rig.settle(tester);
+    expect(asked, 1);
+    expect(find.byKey(const ValueKey('pdfjs-find-field')), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('pdfjs-find')));
+    await rig.settle(tester);
+    expect(asked, 2);
+  });
+
   testWidgets('PDFJS-CLOSE-1: closing closes the page and the site', (
     tester,
   ) async {

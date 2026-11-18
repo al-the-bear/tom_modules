@@ -106,6 +106,15 @@ installBridge({
   setTool(mode) {
     pdfViewer.annotationEditorMode = { mode };
   },
+  view() {
+    return {
+      page: pdfViewer.currentPageNumber,
+      scale: pdfViewer.currentScaleValue,
+    };
+  },
+  scrollTo(page) {
+    pdfViewer.currentPageNumber = page;
+  },
   zoom(how) {
     if (how === "in" || how === "out") {
       const now = pdfViewer.currentScale;

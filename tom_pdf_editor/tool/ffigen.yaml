@@ -25,6 +25,7 @@ functions:
     - FPDF_GetLastError
     # Document
     - FPDF_LoadDocument
+    - FPDF_LoadMemDocument64
     - FPDF_CloseDocument
     - FPDF_GetPageCount
     - FPDF_GetPageSizeByIndexF

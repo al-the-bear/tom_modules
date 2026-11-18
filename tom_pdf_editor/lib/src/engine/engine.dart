@@ -362,6 +362,19 @@ abstract interface class TomPdfEngine {
   /// or `null` on success.
   Future<String?> saveIncremental(int doc, String target);
 
+  /// Opens a document from its [bytes]: a file that has no path on this
+  /// machine (a remote or virtual file system). Saves of such a document go
+  /// through [saveIncrementalBytes].
+  Future<PdfOpenResult> openBytes(Uint8List bytes, {String? password});
+
+  /// Saves the document incrementally into memory, with the
+  /// cross-reference fix; the original bytes stay a prefix. Throws when
+  /// PDFium refuses.
+  Future<Uint8List> saveIncrementalBytes(int doc);
+
+  /// A full copy into memory; [removeSecurity] leaves the encryption out.
+  Future<Uint8List> saveCopyBytes(int doc, {bool removeSecurity = false});
+
   // ------------------------------------------------------------------ forms
 
   /// The form fields (widgets) of [page].
