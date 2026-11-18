@@ -37,6 +37,33 @@ void _trail(String prefix, String event) {
   debugPrint('[$prefix $ts] $event');
 }
 
+/// One trail line for a Flutter error: its message, the library that reported
+/// it and the first line its information collector gives — for a layout
+/// overflow, the widget that overflowed (`The relevant error-causing widget
+/// was: Row ...`), so a report names it.
+String pdfErrorSummary(FlutterErrorDetails details) {
+  final message = details.exceptionAsString().split('\n').first.trim();
+  final parts = <String>[message];
+  if (details.library != null) parts.add('library: ${details.library}');
+  try {
+    for (final node in details.informationCollector?.call() ?? const []) {
+      final line = node
+          .toString()
+          .split('\n')
+          .map((l) => l.trim())
+          .where((l) => l.isNotEmpty)
+          .join(' ');
+      if (line.isNotEmpty) {
+        parts.add(line);
+        break;
+      }
+    }
+  } catch (e) {
+    parts.add('(information collector failed: $e)');
+  }
+  return parts.join(' | ');
+}
+
 /// Reports [error] through [FlutterError.reportError] whether the trail is on
 /// or off, and logs it to the trail.
 void pdfReport(Object error, StackTrace stack, String context) {

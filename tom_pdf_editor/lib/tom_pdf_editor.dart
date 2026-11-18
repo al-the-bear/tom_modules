@@ -14,7 +14,7 @@ export 'src/engine/engine.dart';
 export 'src/engine/library.dart';
 export 'src/engine/xref_fix.dart';
 export 'src/host.dart';
-export 'src/pdf_editor_trail.dart' show kPdfEditorDebug;
+export 'src/pdf_editor_trail.dart' show kPdfEditorDebug, pdfErrorSummary;
 export 'src/view/layout.dart';
 export 'src/view/pdf_view.dart'
     show PdfPageView, PdfPageViewState, PdfImageDecoder, decodeBgra;

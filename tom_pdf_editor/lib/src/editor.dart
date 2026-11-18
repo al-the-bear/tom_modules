@@ -11,6 +11,7 @@ import 'package:flutter/services.dart';
 import 'controller.dart';
 import 'engine/engine.dart';
 import 'pdf_editor_trail.dart';
+import 'view/bars.dart';
 import 'view/layout.dart';
 import 'view/note_dialog.dart';
 import 'view/pdf_view.dart';
@@ -71,7 +72,7 @@ class _TomPdfEditorState extends State<TomPdfEditor> {
     if (kPdfEditorDebug) {
       _previousOnError = FlutterError.onError;
       FlutterError.onError = (details) {
-        pdfTrail('FlutterError: ${details.exceptionAsString()}');
+        pdfTrail('FlutterError: ${pdfErrorSummary(details)}');
         _previousOnError?.call(details);
       };
       _heartbeat = Timer.periodic(
@@ -174,15 +175,31 @@ class _TomPdfEditorState extends State<TomPdfEditor> {
             constraints.maxWidth - listWidth,
           ).clamp(10, 100).toDouble();
         }
+        final notices = [
+          if (_c.isReadOnly) _ReadOnlyBar(controller: _c),
+          if (info.encrypted) _EncryptedBar(controller: _c),
+          if (_c.conflict != null) _ConflictBanner(controller: _c),
+          if (_c.isDeleted && _c.conflict == null)
+            const PdfNoticeBar(
+              icon: Icons.delete_outline,
+              text: 'This file was deleted on disk. Saving recreates it.',
+            ),
+        ];
         return Column(
           children: [
-            if (_c.isReadOnly) _ReadOnlyBar(controller: _c),
-            if (info.encrypted) _EncryptedBar(controller: _c),
-            if (_c.conflict != null) _ConflictBanner(controller: _c),
-            if (_c.isDeleted && _c.conflict == null)
-              _Bar(
-                icon: Icons.delete_outline,
-                text: 'This file was deleted on disk. Saving recreates it.',
+            // The notices take at most two fifths of the editor's height and
+            // scroll beyond it, so a narrow pane keeps room for the pages.
+            if (notices.isNotEmpty)
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: constraints.maxHeight * 0.4,
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: notices,
+                  ),
+                ),
               ),
             _ZoomBar(
               zoom: _zoom,
@@ -261,45 +278,13 @@ class _TomPdfEditorState extends State<TomPdfEditor> {
 
 // --------------------------------------------------------------------- bars
 
-class _Bar extends StatelessWidget {
-  const _Bar({required this.icon, required this.text, this.actions = const []});
-
-  final IconData icon;
-  final String text;
-  final List<Widget> actions;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Material(
-      color: scheme.secondaryContainer,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        child: Row(
-          children: [
-            Icon(icon, size: 18, color: scheme.onSecondaryContainer),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                text,
-                style: TextStyle(color: scheme.onSecondaryContainer),
-              ),
-            ),
-            ...actions,
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _ReadOnlyBar extends StatelessWidget {
   const _ReadOnlyBar({required this.controller});
 
   final TomPdfEditorController controller;
 
   @override
-  Widget build(BuildContext context) => _Bar(
+  Widget build(BuildContext context) => PdfNoticeBar(
     icon: Icons.lock_outline,
     text: switch (controller.readOnlyReason!) {
       TomPdfReadOnlyReason.notWritable =>
@@ -321,7 +306,7 @@ class _EncryptedBar extends StatelessWidget {
   final TomPdfEditorController controller;
 
   @override
-  Widget build(BuildContext context) => _Bar(
+  Widget build(BuildContext context) => PdfNoticeBar(
     icon: Icons.enhanced_encryption_outlined,
     text:
         'Encrypted: view only — annotations and form filling are not '
@@ -398,7 +383,7 @@ class _AnnotationBar extends StatelessWidget {
       color: Theme.of(context).colorScheme.surfaceContainer,
       child: SizedBox(
         height: 36,
-        child: _ToolbarRow(
+        child: PdfToolbarRow(
           children: [
             const SizedBox(width: 8),
             tool(
@@ -508,7 +493,7 @@ class _ConflictBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final deleted = controller.conflict!.deleted;
-    return _Bar(
+    return PdfNoticeBar(
       icon: Icons.warning_amber,
       text: deleted
           ? 'The file was deleted on disk since it was opened.'
@@ -576,7 +561,7 @@ class _ZoomBar extends StatelessWidget {
     color: Theme.of(context).colorScheme.surfaceContainerHighest,
     child: SizedBox(
       height: 36,
-      child: _ToolbarRow(
+      child: PdfToolbarRow(
         children: [
           const SizedBox(width: 8),
           Text('$pageCount ${pageCount == 1 ? 'page' : 'pages'}'),
@@ -967,52 +952,62 @@ class _PasswordPanelState extends State<_PasswordPanel> {
   @override
   Widget build(BuildContext context) {
     final c = widget.controller;
+    // At most 360 px wide, and scrolled when the pane is lower than it.
     return Center(
-      child: SizedBox(
-        width: 360,
-        child: Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${c.host.name} is protected by a password.',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                if (c.passwordWrong)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      'The password was wrong (attempt ${c.passwordAttempt} of 3).',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(8),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 360),
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${c.host.name} is protected by a password.',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  if (c.passwordWrong)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        'The password was wrong (attempt ${c.passwordAttempt} of 3).',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
                       ),
                     ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    key: const ValueKey('pdf-password-field'),
+                    controller: _text,
+                    obscureText: true,
+                    autofocus: true,
+                    decoration: const InputDecoration(labelText: 'Password'),
+                    onSubmitted: (_) => _submit(),
                   ),
-                const SizedBox(height: 12),
-                TextField(
-                  key: const ValueKey('pdf-password-field'),
-                  controller: _text,
-                  obscureText: true,
-                  autofocus: true,
-                  decoration: const InputDecoration(labelText: 'Password'),
-                  onSubmitted: (_) => _submit(),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => unawaited(c.answerPassword(null)),
-                      child: const Text('Cancel'),
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Wrap(
+                      alignment: WrapAlignment.end,
+                      spacing: 8,
+                      children: [
+                        TextButton(
+                          onPressed: () => unawaited(c.answerPassword(null)),
+                          child: const Text('Cancel'),
+                        ),
+                        FilledButton(
+                          onPressed: _submit,
+                          child: const Text('Open'),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    FilledButton(onPressed: _submit, child: const Text('Open')),
-                  ],
-                ),
-              ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -1028,7 +1023,7 @@ class _FailurePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-    child: Padding(
+    child: SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1052,26 +1047,6 @@ class _FailurePanel extends StatelessWidget {
             ),
           ],
         ],
-      ),
-    ),
-  );
-}
-
-/// A toolbar's row: as wide as the editor, its [Spacer]s taking the room
-/// left; scrolled sideways when the editor is narrower than its buttons (a
-/// split pane).
-class _ToolbarRow extends StatelessWidget {
-  const _ToolbarRow({required this.children});
-
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) => SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(minWidth: constraints.maxWidth),
-        child: IntrinsicWidth(child: Row(children: children)),
       ),
     ),
   );

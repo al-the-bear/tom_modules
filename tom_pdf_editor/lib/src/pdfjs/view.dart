@@ -12,6 +12,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import '../pdf_editor_trail.dart';
 import 'channel.dart';
 import 'controller.dart';
+import '../view/bars.dart';
 
 /// The pdf.js view: pdf.js in the workspace's webview fork (macOS:
 /// WKWebView), served by the controller's content site, in the mode the
@@ -166,52 +167,69 @@ class TomPdfJsViewState extends State<TomPdfJsView> {
         const SingleActivator(LogicalKeyboardKey.keyF, meta: true):
             _requestFind,
       },
-      child: Column(
-        children: [
-          if (_c.isReadOnly)
-            _Bar(
-              icon: Icons.lock_outline,
-              text: 'Read-only.',
-              actions: [
-                TextButton(
-                  onPressed: () => unawaited(_c.saveAsCopy()),
-                  child: const Text('Save as copy'),
-                ),
-              ],
+      child: LayoutBuilder(
+        builder: (context, constraints) => _body(context, constraints),
+      ),
+    );
+  }
+
+  Widget _body(BuildContext context, BoxConstraints constraints) {
+    final notices = [
+      if (_c.isReadOnly)
+        PdfNoticeBar(
+          icon: Icons.lock_outline,
+          text: 'Read-only.',
+          actions: [
+            TextButton(
+              onPressed: () => unawaited(_c.saveAsCopy()),
+              child: const Text('Save as copy'),
             ),
-          if (_c.conflict != null) _conflictBar(context),
-          if (_c.isDeleted && _c.conflict == null)
-            const _Bar(
-              icon: Icons.delete_outline,
-              text: 'This file was deleted on disk. Saving recreates it.',
-            ),
-          if (_c.mode == TomPdfJsMode.components) _toolbar(context),
-          Expanded(
-            child: Stack(
-              children: [
-                Positioned.fill(child: _webview()),
-                if (_c.state == TomPdfJsState.starting ||
-                    _c.state == TomPdfJsState.opening)
-                  const Positioned(
-                    left: 0,
-                    right: 0,
-                    top: 0,
-                    child: LinearProgressIndicator(),
-                  ),
-                if (_c.state == TomPdfJsState.saving)
-                  const Positioned(
-                    left: 0,
-                    right: 0,
-                    top: 0,
-                    child: LinearProgressIndicator(),
-                  ),
-                if (_findVisible)
-                  Positioned(top: 8, right: 16, child: _findBar(context)),
-              ],
+          ],
+        ),
+      if (_c.conflict != null) _conflictBar(context),
+      if (_c.isDeleted && _c.conflict == null)
+        const PdfNoticeBar(
+          icon: Icons.delete_outline,
+          text: 'This file was deleted on disk. Saving recreates it.',
+        ),
+    ];
+    return Column(
+      children: [
+        // The notices take at most two fifths of the height and scroll
+        // beyond it, so a narrow pane keeps room for the document.
+        if (notices.isNotEmpty)
+          ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: constraints.maxHeight * 0.4),
+            child: SingleChildScrollView(
+              child: Column(mainAxisSize: MainAxisSize.min, children: notices),
             ),
           ),
-        ],
-      ),
+        if (_c.mode == TomPdfJsMode.components) _toolbar(context),
+        Expanded(
+          child: Stack(
+            children: [
+              Positioned.fill(child: _webview()),
+              if (_c.state == TomPdfJsState.starting ||
+                  _c.state == TomPdfJsState.opening)
+                const Positioned(
+                  left: 0,
+                  right: 0,
+                  top: 0,
+                  child: LinearProgressIndicator(),
+                ),
+              if (_c.state == TomPdfJsState.saving)
+                const Positioned(
+                  left: 0,
+                  right: 0,
+                  top: 0,
+                  child: LinearProgressIndicator(),
+                ),
+              if (_findVisible)
+                Positioned(top: 8, right: 16, child: _findBar(context)),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -284,7 +302,8 @@ class TomPdfJsViewState extends State<TomPdfJsView> {
       color: scheme.surfaceContainerHighest,
       child: SizedBox(
         height: 36,
-        child: Row(
+        // Scrolled sideways when the pane is narrower than the tools.
+        child: PdfToolbarRow(
           children: [
             const SizedBox(width: 8),
             Text(
@@ -437,7 +456,7 @@ class TomPdfJsViewState extends State<TomPdfJsView> {
 
   Widget _conflictBar(BuildContext context) {
     final deleted = _c.conflict!.deleted;
-    return _Bar(
+    return PdfNoticeBar(
       icon: Icons.warning_amber,
       text: deleted
           ? 'The file was deleted on disk since it was opened.'
@@ -499,38 +518,6 @@ class TomPdfJsViewState extends State<TomPdfJsView> {
       ],
     ),
   );
-}
-
-class _Bar extends StatelessWidget {
-  const _Bar({required this.icon, required this.text, this.actions = const []});
-
-  final IconData icon;
-  final String text;
-  final List<Widget> actions;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Material(
-      color: scheme.secondaryContainer,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        child: Row(
-          children: [
-            Icon(icon, size: 18, color: scheme.onSecondaryContainer),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                text,
-                style: TextStyle(color: scheme.onSecondaryContainer),
-              ),
-            ),
-            ...actions,
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 /// The real channel: the webview's controller.

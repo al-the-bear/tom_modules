@@ -56,3 +56,11 @@
   `view` and takes `scrollTo(page)`.
 - `onFind` on `TomPdfEditor` and `TomPdfJsView`: Cmd+F and the find button
   go to the host (its own find bar) instead of the editor's.
+
+- Both views fit any width down to Forge's narrowest editor (240 px):
+  the notices (`PdfNoticeBar`, shared) put their actions on a line of their
+  own and take at most two fifths of the height, scrolling beyond it; the
+  pdf.js toolbar scrolls sideways like the PDFium editor's; the password and
+  could-not-open panels scroll.
+- The `[PE]` trail's FlutterError line names the widget the error came
+  from (`pdfErrorSummary`: message, library, first information line).

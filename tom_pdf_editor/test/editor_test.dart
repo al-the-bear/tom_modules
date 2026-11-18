@@ -95,8 +95,11 @@ class _Rig {
   /// The host's find, when the editor is given one.
   VoidCallback? onFind;
 
-  Future<void> pump(WidgetTester tester) async {
-    await tester.binding.setSurfaceSize(const Size(1000, 800));
+  Future<void> pump(
+    WidgetTester tester, {
+    Size size = const Size(1000, 800),
+  }) async {
+    await tester.binding.setSurfaceSize(size);
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(
       MaterialApp(
@@ -1130,6 +1133,113 @@ void main() {
     await tester.runAsync(rig.controller.close);
     expect(rig.engine.releases, 1);
     expect(rig.engine.calls, contains('close 1'));
+  });
+
+  group('PDF-NARROW the editor at its narrowest', () {
+    // ForgePdfEditor.sizeHints.minSize: the narrowest the shell lays an
+    // editor out at. Overflow errors are not suppressed: one fails the test.
+    const narrow = Size(240, 200);
+    const narrowTall = Size(240, 480);
+
+    testWidgets('PDF-NARROW-1: opening, the password panel and could not '
+        'open fit 240 x 200', (tester) async {
+      final opening = _Rig(_textDoc());
+      await tester.binding.setSurfaceSize(narrow);
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: TomPdfEditor(controller: opening.controller)),
+        ),
+      );
+      expect(tester.takeException(), isNull, reason: 'opening');
+
+      final locked = _Rig(_textDoc(password: 'sesame', securityRevision: 3));
+      await locked.pump(tester, size: narrow);
+      expect(locked.controller.state, TomPdfEditorState.password);
+      expect(tester.takeException(), isNull, reason: 'password');
+
+      final missing = _Rig(
+        _textDoc(),
+        library: const TomPdfiumLibrary.problem(
+          TomPdfiumProblem.versionMismatch,
+          '/nowhere/libpdfium.dylib',
+          tag: 'chromium/7000',
+        ),
+      );
+      await missing.pump(tester, size: narrow);
+      expect(missing.controller.state, TomPdfEditorState.failed);
+      expect(tester.takeException(), isNull, reason: 'failed');
+    });
+
+    testWidgets('PDF-NARROW-2: the open document with its zoom, annotation '
+        'and find bars fits 240 x 200', (tester) async {
+      final rig = _Rig(_textDoc());
+      await rig.pump(tester, size: narrow);
+      expect(rig.controller.state, TomPdfEditorState.open);
+      rig.controller.showFind();
+      await rig.settle(tester);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('PDF-NARROW-3: the read-only, encrypted, deleted and conflict '
+        'bars fit 240 px wide', (tester) async {
+      final readOnly = _Rig(_textDoc(), readOnlyFile: true);
+      await readOnly.pump(tester, size: narrowTall);
+      expect(readOnly.controller.isReadOnly, isTrue);
+      expect(tester.takeException(), isNull, reason: 'read-only');
+
+      final encrypted = _Rig(_textDoc(password: 'sesame', securityRevision: 3));
+      await encrypted.pump(tester, size: narrowTall);
+      await tester.enterText(
+        find.byKey(const ValueKey('pdf-password-field')),
+        'sesame',
+      );
+      await tester.tap(find.text('Open'));
+      await encrypted.settle(tester);
+      expect(encrypted.controller.state, TomPdfEditorState.open);
+      expect(tester.takeException(), isNull, reason: 'encrypted');
+
+      final deleted = _Rig(_textDoc());
+      await deleted.pump(tester, size: narrowTall);
+      deleted.files.delete(_path);
+      await tester.runAsync(deleted.controller.checkExternal);
+      await deleted.settle(tester);
+      expect(deleted.controller.isDeleted, isTrue);
+      expect(tester.takeException(), isNull, reason: 'deleted');
+
+      final conflict = _Rig(_textDoc());
+      await conflict.pump(tester, size: narrowTall);
+      conflict.controller.pushEdit(_NoopEdit());
+      conflict.files.write(_path, utf8.encode('%PDF-theirs'));
+      await tester.runAsync(conflict.controller.save);
+      await conflict.settle(tester);
+      expect(conflict.controller.conflict, isNotNull);
+      expect(tester.takeException(), isNull, reason: 'conflict');
+    });
+    testWidgets('PDF-NARROW-4: the trail line of a Flutter error names the '
+        'widget it came from', (tester) async {
+      final seen = <FlutterErrorDetails>[];
+      final previous = FlutterError.onError;
+      FlutterError.onError = seen.add;
+      await tester.pumpWidget(
+        const Directionality(
+          textDirection: TextDirection.ltr,
+          child: Center(
+            child: SizedBox(
+              width: 50,
+              child: Row(children: [SizedBox(width: 80, height: 10)]),
+            ),
+          ),
+        ),
+      );
+      FlutterError.onError = previous;
+      expect(seen, isNotEmpty);
+      final line = pdfErrorSummary(seen.first);
+      expect(line, startsWith('A RenderFlex overflowed by 30 pixels'));
+      expect(line, contains('library: rendering library'));
+      expect(line, contains('Row'), reason: line);
+      expect(line, isNot(contains('\n')));
+    });
   });
 }
 
