@@ -1,0 +1,18 @@
+name: tom_office_protocol
+description: >-
+  Protocol 1 between the office editor and its LibreOfficeKit helper process:
+  the message types, the frame codec of the stdio transport and the protocol
+  number. Pure Dart, no Flutter, no dart:io.
+version: 0.1.0
+publish_to: none
+repository: https://github.com/al-the-bear/tom_modules
+
+environment:
+  sdk: ^3.10.0
+
+dependencies:
+  meta: ^1.16.0
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.25.6

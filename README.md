@@ -10,7 +10,8 @@ applications use the same model, so it lives here once.
 | [`tom_todo_model`](tom_todo_model/) | The shared todo model (`TomTodo`) and the `*.todo.yaml` file codec. |
 | [`tom_calendar_model`](tom_calendar_model/) | The calendar model: appointments timed in UTC or all-day, a recurrence subset with on-demand expansion, occurrence and series edits, display time frames, tasks, and an RFC 5545 codec. |
 | [`tom_formula`](tom_formula/) | A spreadsheet formula engine: the grammar and printer, the function library, dependency-tracked recalculation, lowering to Dart, and the backend port, with a conformance corpus in `testing.dart`. |
-| [`tom_file_session`](tom_file_session/) | The editing session of one file over `tom_file_system` (encoding, byte preservation, explicit save, external changes, undo), the file-tree filter with its presets, and the `.env` codec. |
+| [`tom_file_session`](tom_file_session/) | The editing session of one file over `tom_file_system` (encoding, byte preservation, explicit save, external changes, undo), the file-tree filter with its presets, and the `.env` codec; for `dart:io` hosts, binary saves and the local content server for webviews (`io.dart`). |
+| [`tom_office_protocol`](tom_office_protocol/) | Protocol 1 between the office editor and its LibreOfficeKit helper: the message types, the frame codec of the stdio transport, the protocol number. Not published. |
 
 The Tom UI modules — Flutter widgets and host capabilities that several Tom
 applications share, each package one purpose:
@@ -28,7 +29,8 @@ applications share, each package one purpose:
 | [`tom_ai_trail_ui`](tom_ai_trail_ui/) | The live trails of AI sessions over `tom_llm`, as a panel, a chip or a phone sheet. |
 
 Each package has its own README and changelog, and each is published on
-pub.dev; inside the workspace they are taken by path.
+pub.dev except those marked *Not published*; inside the workspace they are
+taken by path.
 
 ## License
 
