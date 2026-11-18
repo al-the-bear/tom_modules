@@ -124,7 +124,7 @@ List<PdfTile> planTiles(
 
 /// One cached image.
 final class PdfCacheEntry {
-  PdfCacheEntry(this.image, this.x, this.y);
+  PdfCacheEntry(this.image, this.x, this.y, [this.version = 0]);
 
   /// The image.
   final ui.Image image;
@@ -134,6 +134,11 @@ final class PdfCacheEntry {
 
   /// Its top edge.
   final int y;
+
+  /// The page version it was rendered from
+  /// (`TomPdfEditorController.pageVersion`): an older one is still shown
+  /// until the new image has arrived.
+  final int version;
 
   /// What it holds in memory.
   int get bytes => image.width * image.height * 4;
@@ -168,6 +173,10 @@ class PdfRenderCache {
   /// Whether [key] is cached.
   bool contains(PdfTileKey key) => _entries.containsKey(key);
 
+  /// Whether [key] is cached from page version [version].
+  bool isCurrent(PdfTileKey key, int version) =>
+      _entries[key]?.version == version;
+
   /// Stores an image, evicting the least recently used over the bound
   /// (never one in [keep]).
   void put(
@@ -176,13 +185,14 @@ class PdfRenderCache {
     int x,
     int y, {
     Set<PdfTileKey> keep = const {},
+    int version = 0,
   }) {
     final old = _entries.remove(key);
     if (old != null) {
       _bytes -= old.bytes;
       old.image.dispose();
     }
-    final entry = PdfCacheEntry(image, x, y);
+    final entry = PdfCacheEntry(image, x, y, version);
     _entries[key] = entry;
     _bytes += entry.bytes;
     if (_bytes <= maxBytes) return;

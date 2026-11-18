@@ -13,6 +13,7 @@ import '../controller.dart';
 import '../engine/engine.dart';
 import '../pdf_editor_trail.dart';
 import 'layout.dart';
+import 'note_dialog.dart';
 import 'render_cache.dart';
 
 /// Decodes BGRA pixels into an image (`ui.decodeImageFromPixels`); a test
@@ -77,7 +78,7 @@ class PdfPageViewState extends State<PdfPageView> {
   final horizontal = ScrollController();
 
   late PdfRenderCache _cache = widget.cache ?? PdfRenderCache();
-  final _pending = <PdfTileKey, int>{}; // key → ticket
+  final _pending = <PdfTileKey, (int, int)>{}; // key → (ticket, version)
   var _nextTicket = 1;
   int _generation = -1;
   Size _viewport = Size.zero;
@@ -89,6 +90,16 @@ class PdfPageViewState extends State<PdfPageView> {
 
   // Selection by drag.
   (int, Offset)? _dragStart;
+  Future<void>? _selecting;
+
+  // Moving or resizing the selected annotation: its page, the annotation,
+  // whether it resizes, where the drag started and is now (view points).
+  ({int page, PdfAnnotation annotation, bool resize, Offset start})? _annDrag;
+  Offset _annDragNow = Offset.zero;
+
+  // Ink being drawn: its page and points.
+  int? _inkPage;
+  List<PdfPoint>? _ink;
 
   // Click counting.
   DateTime _lastTap = DateTime.fromMillisecondsSinceEpoch(0);
@@ -223,7 +234,7 @@ class PdfPageViewState extends State<PdfPageView> {
   }
 
   void _cancelAll() {
-    for (final ticket in _pending.values) {
+    for (final (ticket, _) in _pending.values) {
       _c.engine?.cancel(ticket);
       _dropped++;
     }
@@ -243,6 +254,7 @@ class PdfPageViewState extends State<PdfPageView> {
     final scale = l.scale * _dpr;
     final wanted = <PdfTileKey, (PdfTile, PdfRenderPriority)>{};
     for (final page in visible) {
+      if (_c.canAnnotate) unawaited(_c.loadAnnotations(page));
       final rect = l.pageRect(page, _viewport.width);
       // The visible part of the page, in its physical pixels.
       final vis = (
@@ -282,17 +294,21 @@ class PdfPageViewState extends State<PdfPageView> {
     }
     // Cancel what is no longer wanted.
     for (final key in _pending.keys.toList()) {
-      if (!wanted.containsKey(key)) {
-        engine.cancel(_pending.remove(key)!);
+      if (!wanted.containsKey(key) ||
+          _pending[key]!.$2 != _c.pageVersion(key.page)) {
+        engine.cancel(_pending.remove(key)!.$1);
         _dropped++;
       }
     }
     final keep = wanted.keys.toSet();
     for (final MapEntry(:key, :value) in wanted.entries) {
-      if (_cache.contains(key) || _pending.containsKey(key)) continue;
+      final version = _c.pageVersion(key.page);
+      if (_cache.isCurrent(key, version) || _pending.containsKey(key)) {
+        continue;
+      }
       final (tile, priority) = value;
       final ticket = _nextTicket++;
-      _pending[key] = ticket;
+      _pending[key] = (ticket, version);
       _requested++;
       final watch = Stopwatch()..start();
       final generation = _c.generation;
@@ -309,7 +325,7 @@ class PdfPageViewState extends State<PdfPageView> {
             ticket: ticket,
           )
           .then((r) async {
-            if (_pending[key] == ticket) _pending.remove(key);
+            if (_pending[key]?.$1 == ticket) _pending.remove(key);
             if (r == null ||
                 !mounted ||
                 generation != _c.generation ||
@@ -323,7 +339,14 @@ class PdfPageViewState extends State<PdfPageView> {
               image.dispose();
               return;
             }
-            _cache.put(key, image, tile.x, tile.y, keep: keep);
+            _cache.put(
+              key,
+              image,
+              tile.x,
+              tile.y,
+              keep: keep,
+              version: version,
+            );
             if (key.scaleKey == (layout.scale * _dpr * 1000).round()) {
               // The page has its new images: the other zooms can go.
               final complete = planTiles(
@@ -331,13 +354,14 @@ class PdfPageViewState extends State<PdfPageView> {
                 info.pages[key.page].width,
                 info.pages[key.page].height,
                 key.scale,
-              ).every((t) => _cache.contains(t.key));
+              ).every((t) => _cache.isCurrent(t.key, version));
               if (complete) _cache.dropOtherScales(key.page, key.scaleKey);
             }
             setState(() {});
+            if (version != _c.pageVersion(key.page)) _schedule();
           })
           .catchError((Object e, StackTrace s) {
-            _pending.remove(key);
+            if (_pending[key]?.$1 == ticket) _pending.remove(key);
             // A render the document's closing overtook is no error.
             if (_c.info != null && generation == _c.generation) {
               pdfReport(e, s, 'rendering page ${key.page}');
@@ -370,6 +394,31 @@ class PdfPageViewState extends State<PdfPageView> {
       return;
     }
     final (page, at) = hit;
+    switch (_c.tool) {
+      case PdfAnnotationTool.note:
+        unawaited(_newNote(page, at));
+        return;
+      case PdfAnnotationTool.ink:
+        return;
+      case PdfAnnotationTool.highlight:
+        if (_taps >= 2) {
+          unawaited(() async {
+            await _c.selectAround(page, at.dx, at.dy, line: _taps >= 3);
+            await _c.highlightSelection();
+          }());
+          return;
+        }
+      case PdfAnnotationTool.select:
+        final a = _c.annotationAt(page, at.dx, at.dy);
+        if (a != null) {
+          _c.selectAnnotation(page, a.id);
+          if (_taps >= 2 && a.kind == PdfAnnotationKind.note) {
+            unawaited(_editNote(page, a));
+          }
+          return;
+        }
+        _c.selectAnnotation(page, null);
+    }
     if (_taps >= 2) {
       unawaited(_c.selectAround(page, at.dx, at.dy, line: _taps >= 3));
       return;
@@ -384,21 +433,167 @@ class PdfPageViewState extends State<PdfPageView> {
     }());
   }
 
+  Future<void> _newNote(int page, Offset at) async {
+    final text = await showPdfNoteDialog(context);
+    if (text == null || !mounted) return;
+    await _c.addNote(
+      page,
+      at.dx - kPdfNoteSize / 2,
+      at.dy - kPdfNoteSize / 2,
+      text,
+    );
+  }
+
+  Future<void> _editNote(int page, PdfAnnotation note) async {
+    final text = await showPdfNoteDialog(context, initial: note.contents);
+    if (text == null || !mounted) return;
+    await _c.setNoteText(page, note.id, text);
+  }
+
+  /// A content position as view points of [page] (also outside the page).
+  Offset _onPage(int page, Offset content) {
+    final rect = layout.pageRect(page, _viewport.width);
+    return Offset(
+      (content.dx - rect.left) / layout.scale,
+      (content.dy - rect.top) / layout.scale,
+    );
+  }
+
+  /// Whether [at] (view points) is on the resize handle of [a].
+  bool _onHandle(PdfAnnotation a, Offset at) {
+    final reach = 8 / layout.scale;
+    return (at.dx - a.rect.right).abs() <= reach &&
+        (at.dy - a.rect.bottom).abs() <= reach;
+  }
+
   void _onPanStart(DragStartDetails d) {
     _focus.requestFocus();
-    _dragStart = _hit(d.localPosition);
+    _dragStart = null;
+    final hit = _hit(d.localPosition);
+    if (hit == null) return;
+    final (page, at) = hit;
+    switch (_c.tool) {
+      case PdfAnnotationTool.ink:
+        setState(() {
+          _inkPage = page;
+          _ink = [(x: at.dx, y: at.dy)];
+        });
+        return;
+      case PdfAnnotationTool.note:
+        return;
+      case PdfAnnotationTool.select:
+        var a = _c.selectedAnnotation;
+        if (a == null ||
+            _c.selectedAnnotationPage != page ||
+            !(_onHandle(a, at) || annotationContains(a, at.dx, at.dy))) {
+          a = _c.annotationAt(page, at.dx, at.dy);
+          if (a != null) _c.selectAnnotation(page, a.id);
+        }
+        if (a != null && a.kind != PdfAnnotationKind.highlight) {
+          _annDrag = (
+            page: page,
+            annotation: a,
+            resize: a.kind == PdfAnnotationKind.ink && _onHandle(a, at),
+            start: at,
+          );
+          _annDragNow = at;
+          return;
+        }
+        if (a != null) return; // a highlight is not moved
+      case PdfAnnotationTool.highlight:
+        break;
+    }
+    _dragStart = hit;
   }
 
   void _onPanUpdate(DragUpdateDetails d) {
+    final ink = _ink;
+    if (ink != null) {
+      final at = _onPage(_inkPage!, d.localPosition);
+      final size = _info!.pages[_inkPage!];
+      setState(
+        () => ink.add((
+          x: at.dx.clamp(0.0, size.width),
+          y: at.dy.clamp(0.0, size.height),
+        )),
+      );
+      return;
+    }
+    final drag = _annDrag;
+    if (drag != null) {
+      setState(() => _annDragNow = _onPage(drag.page, d.localPosition));
+      return;
+    }
     final start = _dragStart;
     final end = _hit(d.localPosition);
     if (start == null || end == null) return;
-    unawaited(
-      _c.selectBetween(
-        start.$1,
-        (x: start.$2.dx, y: start.$2.dy),
-        end.$1,
-        (x: end.$2.dx, y: end.$2.dy),
+    _selecting = _c.selectBetween(
+      start.$1,
+      (x: start.$2.dx, y: start.$2.dy),
+      end.$1,
+      (x: end.$2.dx, y: end.$2.dy),
+    );
+  }
+
+  void _onPanEnd(DragEndDetails d) {
+    final ink = _ink;
+    if (ink != null) {
+      final page = _inkPage!;
+      setState(() {
+        _ink = null;
+        _inkPage = null;
+      });
+      unawaited(_c.addInk(page, [ink]));
+      return;
+    }
+    final drag = _annDrag;
+    if (drag != null) {
+      _annDrag = null;
+      final target = _dragTarget(drag, _annDragNow);
+      setState(() {});
+      if (target == null) return;
+      final id = drag.annotation.id;
+      unawaited(
+        drag.resize
+            ? _c.resizeAnnotation(drag.page, id, target.rect)
+            : _c.moveAnnotation(
+                drag.page,
+                id,
+                _annDragNow.dx - drag.start.dx,
+                _annDragNow.dy - drag.start.dy,
+              ),
+      );
+      return;
+    }
+    if (_c.tool == PdfAnnotationTool.highlight && _dragStart != null) {
+      final selecting = _selecting;
+      unawaited(() async {
+        await selecting;
+        await _c.highlightSelection();
+      }());
+    }
+    _dragStart = null;
+    _selecting = null;
+  }
+
+  /// Where a move or resize puts the annotation; `null` when it did not
+  /// change.
+  PdfAnnotation? _dragTarget(
+    ({int page, PdfAnnotation annotation, bool resize, Offset start}) drag,
+    Offset now,
+  ) {
+    final a = drag.annotation;
+    final dx = now.dx - drag.start.dx;
+    final dy = now.dy - drag.start.dy;
+    if (dx.abs() < 0.5 && dy.abs() < 0.5) return null;
+    if (!drag.resize) return a.moved(dx, dy);
+    final r = a.rect;
+    return a.resized(
+      PdfRect(
+        r.left,
+        r.top,
+        math.max(r.left + 4, r.right + dx),
+        math.max(r.top + 4, r.bottom + dy),
       ),
     );
   }
@@ -408,7 +603,22 @@ class PdfPageViewState extends State<PdfPageView> {
     _hoverTimer = Timer(const Duration(milliseconds: 60), () async {
       final hit = _hit(e.localPosition);
       var cursor = SystemMouseCursors.basic;
-      if (hit != null) {
+      final tool = _c.tool;
+      if (hit != null &&
+          (tool == PdfAnnotationTool.ink || tool == PdfAnnotationTool.note)) {
+        cursor = SystemMouseCursors.precise;
+      } else if (hit != null &&
+          tool == PdfAnnotationTool.select &&
+          _c.annotationAt(hit.$1, hit.$2.dx, hit.$2.dy) != null) {
+        final a = _c.selectedAnnotation;
+        cursor =
+            a != null &&
+                _c.selectedAnnotationPage == hit.$1 &&
+                a.kind == PdfAnnotationKind.ink &&
+                _onHandle(a, hit.$2)
+            ? SystemMouseCursors.resizeDownRight
+            : SystemMouseCursors.click;
+      } else if (hit != null) {
         final link = await _c.linkAt(hit.$1, hit.$2.dx, hit.$2.dy);
         if (link != null) {
           cursor = SystemMouseCursors.click;
@@ -459,8 +669,39 @@ class PdfPageViewState extends State<PdfPageView> {
       widget.onZoom(100);
       return KeyEventResult.handled;
     }
+    if (meta && key == LogicalKeyboardKey.keyZ) {
+      unawaited(
+        HardwareKeyboard.instance.isShiftPressed ? _c.redo() : _c.undo(),
+      );
+      return KeyEventResult.handled;
+    }
+    final selected = _c.selectedAnnotation;
+    if (selected != null &&
+        (key == LogicalKeyboardKey.delete ||
+            key == LogicalKeyboardKey.backspace)) {
+      unawaited(_c.deleteAnnotation(_c.selectedAnnotationPage!, selected.id));
+      return KeyEventResult.handled;
+    }
+    final plain =
+        !meta &&
+        !HardwareKeyboard.instance.isControlPressed &&
+        !HardwareKeyboard.instance.isAltPressed;
+    final toolKey = {
+      LogicalKeyboardKey.keyV: PdfAnnotationTool.select,
+      LogicalKeyboardKey.keyH: PdfAnnotationTool.highlight,
+      LogicalKeyboardKey.keyN: PdfAnnotationTool.note,
+      LogicalKeyboardKey.keyI: PdfAnnotationTool.ink,
+    }[key];
+    if (plain && toolKey != null && _c.canAnnotate) {
+      _c.setTool(toolKey);
+      return KeyEventResult.handled;
+    }
     if (key == LogicalKeyboardKey.escape) {
-      if (_c.findVisible) {
+      if (_c.tool != PdfAnnotationTool.select) {
+        _c.setTool(PdfAnnotationTool.select);
+      } else if (selected != null) {
+        _c.selectAnnotation(0, null);
+      } else if (_c.findVisible) {
         _c.hideFind();
       } else {
         _c.clearSelection();
@@ -529,9 +770,11 @@ class PdfPageViewState extends State<PdfPageView> {
                       onHover: _onHover,
                       child: GestureDetector(
                         behavior: HitTestBehavior.opaque,
+                        dragStartBehavior: DragStartBehavior.down,
                         onTapUp: _onTapUp,
                         onPanStart: _onPanStart,
                         onPanUpdate: _onPanUpdate,
+                        onPanEnd: _onPanEnd,
                         child: SizedBox(
                           width: contentWidth,
                           height: l.height,
@@ -588,7 +831,7 @@ class PdfPageViewState extends State<PdfPageView> {
       info.pages[page].height,
       scale,
       visible: vis,
-    ).every((t) => _cache.contains(t.key));
+    ).every((t) => _cache.isCurrent(t.key, _c.pageVersion(page)));
   }
 
   /// A spinner over each visible page that has nothing to show yet.
@@ -704,6 +947,76 @@ class _PagesPainter extends CustomPainter {
           selectionPaint,
         );
       }
+    }
+    _paintAnnotationEditing(canvas, c);
+  }
+
+  /// The selected annotation's frame (where a move or resize puts it) and
+  /// its resize handle; the ink being drawn.
+  void _paintAnnotationEditing(Canvas canvas, TomPdfEditorController c) {
+    final frame = Paint()
+      ..color = const Color(0xFF3D7BFD)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    var a = c.selectedAnnotation;
+    final page = c.selectedAnnotationPage;
+    final drag = state._annDrag;
+    if (drag != null) {
+      a = state._dragTarget(drag, state._annDragNow) ?? drag.annotation;
+    }
+    if (a != null && page != null) {
+      final r = layout.toColumn(page, a.rect, viewportWidth).inflate(2);
+      canvas.drawRect(r, frame);
+      if (a.kind == PdfAnnotationKind.ink) {
+        canvas.drawRect(
+          Rect.fromCenter(center: r.bottomRight, width: 8, height: 8),
+          Paint()..color = const Color(0xFF3D7BFD),
+        );
+      }
+      if (drag != null && a.kind == PdfAnnotationKind.ink) {
+        _paintStrokes(canvas, page, a.strokes, a.color, a.width);
+      }
+    }
+    final ink = state._ink;
+    if (ink != null) {
+      _paintStrokes(
+        canvas,
+        state._inkPage!,
+        [ink],
+        c.toolColor(PdfAnnotationTool.ink),
+        2,
+      );
+    }
+  }
+
+  void _paintStrokes(
+    Canvas canvas,
+    int page,
+    List<List<PdfPoint>> strokes,
+    int color,
+    double width,
+  ) {
+    final rect = layout.pageRect(page, viewportWidth);
+    final paint = Paint()
+      ..color = Color(color)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = width * layout.scale
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    for (final s in strokes) {
+      if (s.isEmpty) continue;
+      final path = Path()
+        ..moveTo(
+          rect.left + s.first.x * layout.scale,
+          rect.top + s.first.y * layout.scale,
+        );
+      for (final p in s.skip(1)) {
+        path.lineTo(
+          rect.left + p.x * layout.scale,
+          rect.top + p.y * layout.scale,
+        );
+      }
+      canvas.drawPath(path, paint);
     }
   }
 

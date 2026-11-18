@@ -2,10 +2,12 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:tom_file_session/tom_file_session.dart';
 import 'package:tom_undo/tom_undo.dart';
+import 'package:uuid/uuid.dart';
 
 import 'engine/engine.dart';
 import 'host.dart';
@@ -45,9 +47,8 @@ enum TomPdfReadOnlyReason {
   hostAsked,
 }
 
-/// One edit of the document (an annotation or a form field, todos
-/// officeproto15 and officeproto16): it applies and reverts itself on the
-/// engine's page.
+/// One edit of the document (annotations; form fields): it applies and
+/// reverts itself on the engine's pages.
 abstract interface class TomPdfEdit {
   /// The history label.
   String get label;
@@ -117,8 +118,8 @@ class TomPdfEditorController extends ChangeNotifier {
   bool _deleted = false;
   final _notices = StreamController<(String, String)>.broadcast();
 
-  /// The history: annotation and form edits (later todos); search and
-  /// selection are not history.
+  /// The history: annotation and form edits; search and selection are not
+  /// history.
   final history = TomUndoStack<TomPdfEdit>();
   TomPdfEdit? _savedTop;
   bool _savedEmpty = true;
@@ -183,6 +184,9 @@ class TomPdfEditorController extends ChangeNotifier {
 
   /// Whether redo is possible.
   bool get canRedo => history.canRedo && !history.isApplying;
+
+  /// The label of the edit [undo] reverts.
+  String? get undoLabel => history.canUndo ? _topEdit?.label : null;
 
   bool _disposed = false;
 
@@ -350,6 +354,7 @@ class TomPdfEditorController extends ChangeNotifier {
     _hasTextLayer = null;
     _clearFind();
     clearSelection();
+    _clearAnnotations();
     _set(TomPdfEditorState.opening);
     await _load(_password);
     _reopened++;
@@ -846,6 +851,304 @@ class TomPdfEditorController extends ChangeNotifier {
     }
   }
 
+  // ------------------------------------------------------------- annotations
+
+  PdfAnnotationTool _tool = PdfAnnotationTool.select;
+  final _toolColors = <PdfAnnotationTool, int>{
+    PdfAnnotationTool.highlight: 0xFFFFEB3B,
+    PdfAnnotationTool.note: 0xFFFFC107,
+    PdfAnnotationTool.ink: 0xFFE53935,
+  };
+  final _annotations = <int, List<PdfAnnotation>>{};
+  final _annotationLoads = <int, Future<List<PdfAnnotation>>>{};
+  final _pageVersions = <int, int>{};
+  ({int page, String id})? _selectedAnnotation;
+
+  /// The annotation tool: [PdfAnnotationTool.select] unless [canAnnotate].
+  PdfAnnotationTool get tool => canAnnotate ? _tool : PdfAnnotationTool.select;
+
+  /// Chooses the annotation tool (ignored while annotating is not possible).
+  void setTool(PdfAnnotationTool tool) {
+    if (!canAnnotate && tool != PdfAnnotationTool.select) return;
+    if (_tool == tool) return;
+    pdfTrail('tool ${tool.name}');
+    _tool = tool;
+    if (tool != PdfAnnotationTool.select) _selectedAnnotation = null;
+    notifyListeners();
+  }
+
+  /// The colour (ARGB) new annotations of [tool] get.
+  int toolColor(PdfAnnotationTool tool) => _toolColors[tool] ?? 0xFFFFEB3B;
+
+  /// Sets the colour of [tool]'s new annotations.
+  void setToolColor(PdfAnnotationTool tool, int color) {
+    _toolColors[tool] = color;
+    notifyListeners();
+  }
+
+  /// Counts the edits of [page] since it was opened: a rendered image of an
+  /// older version is shown until the new one has arrived.
+  int pageVersion(int page) => _pageVersions[page] ?? 0;
+
+  /// The annotations of [page] as loaded (empty until [loadAnnotations] has
+  /// read them).
+  List<PdfAnnotation> annotationsOn(int page) =>
+      List.unmodifiable(_annotations[page] ?? const <PdfAnnotation>[]);
+
+  /// Reads the annotations of [page] once (again after an edit or a reopen).
+  Future<List<PdfAnnotation>> loadAnnotations(int page) {
+    final loaded = _annotations[page];
+    if (loaded != null) return Future.value(loaded);
+    return _annotationLoads[page] ??= () async {
+      final info = _info;
+      final engine = _engine;
+      if (info == null || engine == null) return const <PdfAnnotation>[];
+      final generation = _reopened;
+      try {
+        final list = await engine.annotations(info.handle, page);
+        if (generation == _reopened && identical(info, _info)) {
+          _annotations[page] = list;
+          notifyListeners();
+        }
+        return list;
+      } finally {
+        _annotationLoads.remove(page)?.ignore();
+      }
+    }();
+  }
+
+  /// The editable annotation at ([x], [y]) view points of [page], the
+  /// topmost first; `null` when none is there (or not loaded yet).
+  PdfAnnotation? annotationAt(int page, double x, double y) {
+    final list = _annotations[page];
+    if (list == null) return null;
+    for (final a in list.reversed) {
+      if (a.editable && annotationContains(a, x, y)) return a;
+    }
+    return null;
+  }
+
+  /// The selected annotation.
+  PdfAnnotation? get selectedAnnotation {
+    final s = _selectedAnnotation;
+    if (s == null) return null;
+    for (final a in _annotations[s.page] ?? const <PdfAnnotation>[]) {
+      if (a.id == s.id) return a;
+    }
+    return null;
+  }
+
+  /// The page of the selected annotation.
+  int? get selectedAnnotationPage => _selectedAnnotation?.page;
+
+  /// Selects the annotation [id] of [page] (`null`: none).
+  void selectAnnotation(int page, String? id) {
+    final next = id == null ? null : (page: page, id: id);
+    if (_selectedAnnotation == next) return;
+    _selectedAnnotation = next;
+    if (next != null) clearSelection();
+    notifyListeners();
+  }
+
+  /// Highlights the text selection: one highlight per page, one history
+  /// entry. Returns whether anything was highlighted.
+  Future<bool> highlightSelection() async {
+    if (!canAnnotate || _selection.isEmpty) return false;
+    final changes = <_AnnotationChange>[];
+    for (final s in _selection) {
+      if (s.rects.isEmpty) continue;
+      changes.add(
+        _AnnotationChange(
+          s.page,
+          null,
+          _stamp(
+            PdfAnnotation(
+              id: '',
+              kind: PdfAnnotationKind.highlight,
+              rect: _union(s.rects),
+              quads: s.rects,
+              color: toolColor(PdfAnnotationTool.highlight),
+            ),
+          ),
+        ),
+      );
+    }
+    if (changes.isEmpty) return false;
+    clearSelection();
+    await _perform(_AnnotationEdit('Highlight', changes));
+    return true;
+  }
+
+  /// Adds a note with [text] whose icon's top left is at ([x], [y]).
+  Future<PdfAnnotation?> addNote(
+    int page,
+    double x,
+    double y,
+    String text,
+  ) async {
+    if (!canAnnotate) return null;
+    final note = _stamp(
+      PdfAnnotation(
+        id: '',
+        kind: PdfAnnotationKind.note,
+        rect: PdfRect(x, y, x + kPdfNoteSize, y + kPdfNoteSize),
+        color: toolColor(PdfAnnotationTool.note),
+        contents: text,
+      ),
+    );
+    await _perform(
+      _AnnotationEdit('Note', [_AnnotationChange(page, null, note)]),
+    );
+    selectAnnotation(page, note.id);
+    return note;
+  }
+
+  /// Adds an ink annotation from [strokes] (view points; thinned).
+  Future<PdfAnnotation?> addInk(
+    int page,
+    List<List<PdfPoint>> strokes, {
+    double width = 2,
+  }) async {
+    if (!canAnnotate) return null;
+    final thinned = [
+      for (final s in strokes)
+        if (s.isNotEmpty) thinStroke(s),
+    ];
+    if (thinned.isEmpty) return null;
+    final points = thinned.expand((s) => s);
+    final pad = width / 2 + 1;
+    final ink = _stamp(
+      PdfAnnotation(
+        id: '',
+        kind: PdfAnnotationKind.ink,
+        rect: PdfRect(
+          points.map((p) => p.x).reduce(_min) - pad,
+          points.map((p) => p.y).reduce(_min) - pad,
+          points.map((p) => p.x).reduce(_max) + pad,
+          points.map((p) => p.y).reduce(_max) + pad,
+        ),
+        color: toolColor(PdfAnnotationTool.ink),
+        strokes: thinned,
+        width: width,
+      ),
+    );
+    await _perform(
+      _AnnotationEdit('Ink', [_AnnotationChange(page, null, ink)]),
+    );
+    return ink;
+  }
+
+  /// Replaces the annotation [id] of [page] by [next] (moved, resized,
+  /// recoloured, its text changed) as one history entry labelled [label].
+  Future<void> changeAnnotation(
+    int page,
+    String id,
+    PdfAnnotation Function(PdfAnnotation current) next, {
+    required String label,
+  }) async {
+    if (!canAnnotate) return;
+    final current = (await loadAnnotations(page)).where((a) => a.id == id);
+    if (current.isEmpty || !current.first.editable) return;
+    final before = current.first;
+    // An annotation of the file without NM gets one now.
+    final after = _stamp(next(before), id: before.unnamed ? null : before.id);
+    if (after == before) return;
+    await _perform(
+      _AnnotationEdit(label, [_AnnotationChange(page, before, after)]),
+    );
+    if (_selectedAnnotation?.id == id) selectAnnotation(page, after.id);
+  }
+
+  /// Moves the annotation by ([dx], [dy]) points.
+  Future<void> moveAnnotation(int page, String id, double dx, double dy) =>
+      changeAnnotation(page, id, (a) => a.moved(dx, dy), label: 'Move');
+
+  /// Resizes an ink annotation into [rect].
+  Future<void> resizeAnnotation(int page, String id, PdfRect rect) =>
+      changeAnnotation(page, id, (a) => a.resized(rect), label: 'Resize');
+
+  /// Recolours the annotation.
+  Future<void> recolorAnnotation(int page, String id, int color) =>
+      changeAnnotation(
+        page,
+        id,
+        (a) => a.copyWith(color: color),
+        label: 'Color',
+      );
+
+  /// Sets a note's text.
+  Future<void> setNoteText(int page, String id, String text) =>
+      changeAnnotation(
+        page,
+        id,
+        (a) => a.copyWith(contents: text),
+        label: 'Note text',
+      );
+
+  /// Removes the annotation [id] of [page].
+  Future<void> deleteAnnotation(int page, String id) async {
+    if (!canAnnotate) return;
+    final current = (await loadAnnotations(page)).where((a) => a.id == id);
+    if (current.isEmpty || !current.first.editable) return;
+    if (_selectedAnnotation?.id == id) _selectedAnnotation = null;
+    await _perform(
+      _AnnotationEdit('Delete', [_AnnotationChange(page, current.first, null)]),
+    );
+  }
+
+  /// [a] with the author, the modification date and its NM ([id], else a
+  /// new one).
+  PdfAnnotation _stamp(PdfAnnotation a, {String? id}) => a.copyWith(
+    id: id ?? (a.id.isEmpty || a.unnamed ? _uuid.v4() : a.id),
+    author: host.authorName,
+    modified: pdfDate(DateTime.now()),
+  );
+
+  static const _uuid = Uuid();
+
+  Future<void> _perform(_AnnotationEdit edit) async {
+    await edit.apply(this);
+    pushEdit(edit);
+  }
+
+  /// After an annotation edit of [page]: read its annotations again and
+  /// mark its images old.
+  Future<void> _annotationsChanged(int page) async {
+    _annotations.remove(page);
+    _pageVersions[page] = pageVersion(page) + 1;
+    await loadAnnotations(page);
+    notifyListeners();
+  }
+
+  void _clearAnnotations() {
+    _annotations.clear();
+    _annotationLoads.clear();
+    _pageVersions.clear();
+    _selectedAnnotation = null;
+  }
+
+  /// Saves an unencrypted copy of an encrypted document (DPPF-3: the host
+  /// asks first, see `TomPdfEditor`): `<name> (copy).pdf` beside the file.
+  Future<String?> saveUnencryptedCopy() async {
+    final info = _info;
+    if (info == null) return null;
+    final temp = await host.files.temporaryTarget(host.filePath);
+    pdfTrail('save unencrypted copy');
+    final error = await _engine!.saveCopy(
+      info.handle,
+      temp,
+      removeSecurity: true,
+    );
+    if (error != null) {
+      _notice('error', 'Could not save a copy: $error');
+      return null;
+    }
+    final copy = await host.files.keepAsCopy(temp, host.filePath);
+    _notice('info', 'Saved an unencrypted copy as ${copy.split('/').last}');
+    notifyListeners();
+    return copy;
+  }
+
   // ------------------------------------------------------------------- close
 
   /// Closes the document and gives the engine share up.
@@ -870,5 +1173,154 @@ class TomPdfEditorController extends ChangeNotifier {
     unawaited(_notices.close());
     scrollRequest.dispose();
     super.dispose();
+  }
+}
+
+/// The annotation tools.
+enum PdfAnnotationTool {
+  /// Select text, follow links, select annotations.
+  select,
+
+  /// Highlight text: a drag over text highlights it.
+  highlight,
+
+  /// A click places a note.
+  note,
+
+  /// A drag draws ink.
+  ink,
+}
+
+/// A note icon's size in points.
+const kPdfNoteSize = 20.0;
+
+/// Whether ([x], [y]) view points is on [a]: a highlight's areas, an ink
+/// stroke (within its width and 4 points), else the rectangle.
+bool annotationContains(PdfAnnotation a, double x, double y) {
+  bool inRect(PdfRect r, double pad) =>
+      x >= r.left - pad &&
+      x <= r.right + pad &&
+      y >= r.top - pad &&
+      y <= r.bottom + pad;
+  switch (a.kind) {
+    case PdfAnnotationKind.highlight when a.quads.isNotEmpty:
+      return a.quads.any((q) => inRect(q, 1));
+    case PdfAnnotationKind.ink when a.strokes.isNotEmpty:
+      final reach = a.width / 2 + 4;
+      for (final s in a.strokes) {
+        for (var i = 0; i < s.length; i++) {
+          final p = s[i];
+          final q = i + 1 < s.length ? s[i + 1] : p;
+          if (_segmentDistance(x, y, p, q) <= reach) return true;
+        }
+      }
+      return false;
+    default:
+      return inRect(a.rect, 2);
+  }
+}
+
+double _segmentDistance(double x, double y, PdfPoint p, PdfPoint q) {
+  final dx = q.x - p.x;
+  final dy = q.y - p.y;
+  final len = dx * dx + dy * dy;
+  var t = len == 0 ? 0.0 : ((x - p.x) * dx + (y - p.y) * dy) / len;
+  t = t.clamp(0.0, 1.0);
+  final cx = p.x + t * dx - x;
+  final cy = p.y + t * dy - y;
+  return math.sqrt(cx * cx + cy * cy);
+}
+
+double _min(double a, double b) => a < b ? a : b;
+double _max(double a, double b) => a > b ? a : b;
+
+PdfRect _union(List<PdfRect> rects) => PdfRect(
+  rects.map((r) => r.left).reduce(_min),
+  rects.map((r) => r.top).reduce(_min),
+  rects.map((r) => r.right).reduce(_max),
+  rects.map((r) => r.bottom).reduce(_max),
+);
+
+/// One annotation of one page changing: added ([before] `null`), removed
+/// ([after] `null`) or replaced.
+final class _AnnotationChange {
+  _AnnotationChange(this.page, PdfAnnotation? before, this.after)
+    : _match = before?.id,
+      // A removed annotation of the file without NM comes back with one, so
+      // the redo finds it again.
+      before = before != null && before.unnamed
+          ? before.copyWith(id: after?.id ?? const Uuid().v4())
+          : before;
+
+  final int page;
+  final PdfAnnotation? before;
+  final PdfAnnotation? after;
+
+  /// How the engine finds the annotation [before] stands for: its first
+  /// apply may need the `#index` of an annotation without NM.
+  String? _match;
+}
+
+/// One history entry: annotation changes on one or more pages.
+final class _AnnotationEdit implements TomPdfEdit {
+  _AnnotationEdit(this.label, this.changes);
+
+  @override
+  final String label;
+
+  final List<_AnnotationChange> changes;
+
+  @override
+  Future<void> apply(TomPdfEditorController c) async {
+    final engine = c._engine!;
+    final doc = c._info!.handle;
+    for (final ch in changes) {
+      final before = ch.before;
+      final after = ch.after;
+      if (before == null) {
+        await engine.addAnnotation(doc, ch.page, after!);
+      } else if (after == null) {
+        await engine.removeAnnotation(doc, ch.page, ch._match ?? before.id);
+      } else {
+        await engine.updateAnnotation(
+          doc,
+          ch.page,
+          ch._match ?? before.id,
+          after,
+        );
+      }
+      ch._match = null;
+    }
+    pdfTrail('edit: $label');
+    for (final page in {for (final ch in changes) ch.page}) {
+      await c._annotationsChanged(page);
+    }
+  }
+
+  @override
+  Future<void> revert(TomPdfEditorController c) async {
+    final engine = c._engine!;
+    final doc = c._info!.handle;
+    for (final ch in changes.reversed) {
+      final before = ch.before;
+      final after = ch.after;
+      if (after == null) {
+        await engine.addAnnotation(doc, ch.page, before!);
+      } else if (before == null) {
+        await engine.removeAnnotation(doc, ch.page, after.id);
+      } else {
+        // The NM it got stays: [before]'s values under [after]'s name.
+        await engine.updateAnnotation(
+          doc,
+          ch.page,
+          after.id,
+          before.copyWith(id: after.id),
+        );
+      }
+    }
+    pdfTrail('undo: $label');
+    for (final page in {for (final ch in changes) ch.page}) {
+      await c._annotationsChanged(page);
+    }
   }
 }

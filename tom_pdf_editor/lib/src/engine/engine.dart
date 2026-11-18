@@ -12,6 +12,10 @@ library;
 
 import 'package:flutter/foundation.dart';
 
+import 'annotation.dart';
+
+export 'annotation.dart';
+
 /// A rectangle in view points.
 @immutable
 final class PdfRect {
@@ -313,6 +317,38 @@ abstract interface class TomPdfEngine {
 
   /// The link at ([x], [y]) on [page], or `null`.
   Future<PdfLink?> linkAt(int doc, int page, double x, double y);
+
+  /// The annotations of [page], in the file's order.
+  Future<List<PdfAnnotation>> annotations(int doc, int page);
+
+  /// Adds [annotation] to [page] as a PDF annotation (its `NM` is
+  /// [PdfAnnotation.id]); answers it as the page now holds it.
+  Future<PdfAnnotation> addAnnotation(
+    int doc,
+    int page,
+    PdfAnnotation annotation,
+  );
+
+  /// Changes the annotation [match] (an `NM`, or `#<index>`) of [page] to
+  /// [state]: rectangle, colour, quads, strokes, contents, `T`, `M`, and its
+  /// `NM` becomes [PdfAnnotation.id].
+  Future<void> updateAnnotation(
+    int doc,
+    int page,
+    String match,
+    PdfAnnotation state,
+  );
+
+  /// Removes the annotation [match] from [page].
+  Future<void> removeAnnotation(int doc, int page, String match);
+
+  /// Saves a full (not incremental) copy to [target]; [removeSecurity]
+  /// writes it unencrypted. Returns an error message, or `null`.
+  Future<String?> saveCopy(
+    int doc,
+    String target, {
+    bool removeSecurity = false,
+  });
 
   /// Saves the document incrementally to [target] (the original bytes stay
   /// a prefix), applying the cross-reference fix. Returns an error message,

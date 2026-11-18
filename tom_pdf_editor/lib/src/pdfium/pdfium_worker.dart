@@ -189,6 +189,28 @@ final class _Worker {
           job[5] as double,
         ),
         'save' => _save(job[2] as int, job[3] as String),
+        'saveCopy' => _save(
+          job[2] as int,
+          job[3] as String,
+          flags: job[4] == true ? FPDF_REMOVE_SECURITY : 0,
+        ),
+        'annots' => _annotations(job[2] as int, job[3] as int),
+        'addAnnot' => _addAnnotation(
+          job[2] as int,
+          job[3] as int,
+          job[4] as List<Object?>,
+        ),
+        'updateAnnot' => _updateAnnotation(
+          job[2] as int,
+          job[3] as int,
+          job[4] as String,
+          job[5] as List<Object?>,
+        ),
+        'removeAnnot' => _removeAnnotation(
+          job[2] as int,
+          job[3] as int,
+          job[4] as String,
+        ),
         _ => throw ArgumentError('unknown op ${job[1]}'),
       };
       if (result is _Streaming) return; // it answers itself
@@ -671,9 +693,10 @@ final class _Worker {
 
   RandomAccessFile? _sink;
 
-  /// Saves incrementally to [target], then applies the cross-reference fix.
-  /// Answers `null`, or the error in words.
-  String? _save(int doc, String target) {
+  /// Saves to [target]: incrementally by default, then the cross-reference
+  /// fix; with other [flags] (`FPDF_REMOVE_SECURITY`) a full copy. Answers
+  /// `null`, or the error in words.
+  String? _save(int doc, String target, {int? flags}) {
     final d = _docOf(doc);
     final callable =
         NativeCallable<
@@ -685,7 +708,7 @@ final class _Worker {
     try {
       writer.ref.version = 1;
       writer.ref.WriteBlock = callable.nativeFunction;
-      final ok = b.FPDF_SaveAsCopy(d.doc, writer, FPDF_INCREMENTAL);
+      final ok = b.FPDF_SaveAsCopy(d.doc, writer, flags ?? FPDF_INCREMENTAL);
       file.flushSync();
       if (ok == 0) return 'FPDF_SaveAsCopy failed';
     } finally {
@@ -694,7 +717,300 @@ final class _Worker {
       calloc.free(writer);
       callable.close();
     }
-    fixXrefInFile(target);
+    if (flags == null) fixXrefInFile(target);
+    return null;
+  }
+
+  // ------------------------------------------------------------- annotations
+
+  static const _kinds = {
+    FPDF_ANNOT_HIGHLIGHT: 0, // PdfAnnotationKind.highlight
+    FPDF_ANNOT_TEXT: 1, // note
+    FPDF_ANNOT_INK: 2, // ink
+  };
+
+  static int _subtypeOf(int kind) => switch (kind) {
+    0 => FPDF_ANNOT_HIGHLIGHT,
+    1 => FPDF_ANNOT_TEXT,
+    2 => FPDF_ANNOT_INK,
+    _ => throw ArgumentError('cannot create annotation kind $kind'),
+  };
+
+  /// Every annotation of the page, as wire lists (`PdfAnnotation.toWire`).
+  List<Object?> _annotations(int doc, int page) {
+    final d = _docOf(doc);
+    final p = _page(d, page);
+    final count = b.FPDFPage_GetAnnotCount(p.page);
+    final out = <Object?>[];
+    for (var i = 0; i < count; i++) {
+      final a = b.FPDFPage_GetAnnot(p.page, i);
+      if (a == nullptr) continue;
+      try {
+        out.add(_read(p, a, i));
+      } finally {
+        b.FPDFPage_CloseAnnot(a);
+      }
+    }
+    return out;
+  }
+
+  List<Object?> _read(_OpenPage p, FPDF_ANNOTATION a, int index) {
+    final subtype = b.FPDFAnnot_GetSubtype(a);
+    final kind = _kinds[subtype] ?? 3;
+    final nm = _string(a, 'NM');
+    final rect = using((m) {
+      final r = m<FS_RECTF>();
+      if (b.FPDFAnnot_GetRect(a, r) == 0) return [0.0, 0.0, 0.0, 0.0];
+      return _rectToView(p, r.ref.left, r.ref.top, r.ref.right, r.ref.bottom);
+    });
+    final color = using((m) {
+      final r = m<UnsignedInt>();
+      final g = m<UnsignedInt>();
+      final bl = m<UnsignedInt>();
+      final al = m<UnsignedInt>();
+      if (b.FPDFAnnot_GetColor(
+            a,
+            FPDFANNOT_COLORTYPE.FPDFANNOT_COLORTYPE_Color,
+            r,
+            g,
+            bl,
+            al,
+          ) ==
+          0) {
+        return 0xFFFFEB3B;
+      }
+      return (al.value << 24) | (r.value << 16) | (g.value << 8) | bl.value;
+    });
+    final quads = <double>[];
+    final strokes = <Object?>[];
+    var width = 2.0;
+    if (kind == 0) {
+      using((m) {
+        final q = m<FS_QUADPOINTSF>();
+        final n = b.FPDFAnnot_CountAttachmentPoints(a);
+        for (var i = 0; i < n; i++) {
+          if (b.FPDFAnnot_GetAttachmentPoints(a, i, q) == 0) continue;
+          final xs = [q.ref.x1, q.ref.x2, q.ref.x3, q.ref.x4];
+          final ys = [q.ref.y1, q.ref.y2, q.ref.y3, q.ref.y4];
+          quads.addAll(
+            _rectToView(
+              p,
+              xs.reduce((u, v) => u < v ? u : v),
+              ys.reduce((u, v) => u > v ? u : v),
+              xs.reduce((u, v) => u > v ? u : v),
+              ys.reduce((u, v) => u < v ? u : v),
+            ),
+          );
+        }
+      });
+    }
+    if (kind == 2) {
+      final n = b.FPDFAnnot_GetInkListCount(a);
+      for (var i = 0; i < n; i++) {
+        final len = b.FPDFAnnot_GetInkListPath(a, i, nullptr, 0);
+        if (len <= 0) continue;
+        final buf = calloc<FS_POINTF>(len);
+        try {
+          b.FPDFAnnot_GetInkListPath(a, i, buf, len);
+          final stroke = <double>[];
+          for (var k = 0; k < len; k++) {
+            final (x, y) = _toView(p, buf[k].x, buf[k].y);
+            stroke
+              ..add(x)
+              ..add(y);
+          }
+          strokes.add(stroke);
+        } finally {
+          calloc.free(buf);
+        }
+      }
+      using((m) {
+        final h = m<Float>();
+        final v = m<Float>();
+        final w = m<Float>();
+        if (b.FPDFAnnot_GetBorder(a, h, v, w) != 0 && w.value > 0) {
+          width = w.value;
+        }
+      });
+    }
+    return [
+      nm.isEmpty ? '#$index' : nm,
+      kind,
+      subtype,
+      rect,
+      color,
+      quads,
+      strokes,
+      width,
+      _string(a, 'Contents'),
+      _string(a, 'T'),
+      _string(a, 'M'),
+    ];
+  }
+
+  String _string(FPDF_ANNOTATION a, String key) => using((m) {
+    final k = key.toNativeUtf8(allocator: m).cast<Char>();
+    final needed = b.FPDFAnnot_GetStringValue(a, k, nullptr, 0);
+    if (needed <= 2) return '';
+    final buf = calloc<Uint16>(needed ~/ 2);
+    try {
+      b.FPDFAnnot_GetStringValue(a, k, buf.cast(), needed);
+      return String.fromCharCodes(buf.asTypedList(needed ~/ 2 - 1));
+    } finally {
+      calloc.free(buf);
+    }
+  });
+
+  void _setString(FPDF_ANNOTATION a, String key, String value) => using((m) {
+    final units = value.codeUnits;
+    final wide = m<UnsignedShort>(units.length + 1);
+    for (var i = 0; i < units.length; i++) {
+      wide[i] = units[i];
+    }
+    wide[units.length] = 0;
+    b.FPDFAnnot_SetStringValue(a, key.toNativeUtf8(allocator: m).cast(), wide);
+  });
+
+  /// Finds annotation [match] (`NM`, or `#<index>`) on the page; the caller
+  /// closes it.
+  (FPDF_ANNOTATION, int) _find(_OpenPage p, String match) {
+    final count = b.FPDFPage_GetAnnotCount(p.page);
+    if (match.startsWith('#')) {
+      final i = int.parse(match.substring(1));
+      if (i >= count) throw StateError('no annotation $match');
+      return (b.FPDFPage_GetAnnot(p.page, i), i);
+    }
+    for (var i = 0; i < count; i++) {
+      final a = b.FPDFPage_GetAnnot(p.page, i);
+      if (a == nullptr) continue;
+      if (_string(a, 'NM') == match) return (a, i);
+      b.FPDFPage_CloseAnnot(a);
+    }
+    throw StateError('no annotation $match');
+  }
+
+  /// Writes a wire annotation's state into [a].
+  void _write(_OpenPage p, FPDF_ANNOTATION a, List<Object?> w) {
+    // An appearance stream of the file would hide the change (PDFium also
+    // refuses colours on such annotations): clear it, so PDFium and the
+    // viewers generate the appearance from the values, as for new ones.
+    b.FPDFAnnot_SetAP(a, FPDF_ANNOT_APPEARANCEMODE_NORMAL, nullptr);
+    final r = (w[3] as List).cast<double>();
+    using((m) {
+      final rect = m<FS_RECTF>();
+      final (l, t) = _toPage(p, r[0], r[1]);
+      final (rr, bo) = _toPage(p, r[2], r[3]);
+      rect.ref
+        ..left = l < rr ? l : rr
+        ..right = l < rr ? rr : l
+        ..top = t > bo ? t : bo
+        ..bottom = t > bo ? bo : t;
+      b.FPDFAnnot_SetRect(a, rect);
+    });
+    final color = w[4] as int;
+    b.FPDFAnnot_SetColor(
+      a,
+      FPDFANNOT_COLORTYPE.FPDFANNOT_COLORTYPE_Color,
+      (color >> 16) & 0xFF,
+      (color >> 8) & 0xFF,
+      color & 0xFF,
+      (color >> 24) & 0xFF,
+    );
+    final kind = w[1] as int;
+    if (kind == 0) {
+      final q = (w[5] as List).cast<double>();
+      using((m) {
+        final quad = m<FS_QUADPOINTSF>();
+        final existing = b.FPDFAnnot_CountAttachmentPoints(a);
+        for (var i = 0, n = 0; i + 3 < q.length; i += 4, n++) {
+          final (x1, y1) = _toPage(p, q[i], q[i + 1]);
+          final (x2, y2) = _toPage(p, q[i + 2], q[i + 3]);
+          final left = x1 < x2 ? x1 : x2;
+          final right = x1 < x2 ? x2 : x1;
+          final top = y1 > y2 ? y1 : y2;
+          final bottom = y1 > y2 ? y2 : y1;
+          // PDF order: upper left, upper right, lower left, lower right.
+          quad.ref
+            ..x1 = left
+            ..y1 = top
+            ..x2 = right
+            ..y2 = top
+            ..x3 = left
+            ..y3 = bottom
+            ..x4 = right
+            ..y4 = bottom;
+          if (n < existing) {
+            b.FPDFAnnot_SetAttachmentPoints(a, n, quad);
+          } else {
+            b.FPDFAnnot_AppendAttachmentPoints(a, quad);
+          }
+        }
+      });
+    }
+    if (kind == 2) {
+      b.FPDFAnnot_RemoveInkList(a);
+      for (final stroke in (w[6] as List).cast<List>()) {
+        final n = stroke.length ~/ 2;
+        if (n == 0) continue;
+        final pts = calloc<FS_POINTF>(n);
+        try {
+          for (var k = 0; k < n; k++) {
+            final (x, y) = _toPage(
+              p,
+              (stroke[2 * k] as num).toDouble(),
+              (stroke[2 * k + 1] as num).toDouble(),
+            );
+            pts[k]
+              ..x = x
+              ..y = y;
+          }
+          b.FPDFAnnot_AddInkStroke(a, pts, n);
+        } finally {
+          calloc.free(pts);
+        }
+      }
+      b.FPDFAnnot_SetBorder(a, 0, 0, (w[7] as num).toDouble());
+    }
+    _setString(a, 'Contents', w[8] as String);
+    _setString(a, 'T', w[9] as String);
+    _setString(a, 'M', w[10] as String);
+    _setString(a, 'NM', w[0] as String);
+  }
+
+  List<Object?> _addAnnotation(int doc, int page, List<Object?> w) {
+    final d = _docOf(doc);
+    final p = _page(d, page);
+    final a = b.FPDFPage_CreateAnnot(p.page, _subtypeOf(w[1] as int));
+    if (a == nullptr) throw StateError('the annotation could not be created');
+    try {
+      b.FPDFAnnot_SetFlags(a, FPDF_ANNOT_FLAG_PRINT);
+      _write(p, a, w);
+      return _read(p, a, b.FPDFPage_GetAnnotIndex(p.page, a));
+    } finally {
+      b.FPDFPage_CloseAnnot(a);
+    }
+  }
+
+  Object? _updateAnnotation(int doc, int page, String match, List<Object?> w) {
+    final d = _docOf(doc);
+    final p = _page(d, page);
+    final (a, _) = _find(p, match);
+    try {
+      _write(p, a, w);
+    } finally {
+      b.FPDFPage_CloseAnnot(a);
+    }
+    return null;
+  }
+
+  Object? _removeAnnotation(int doc, int page, String match) {
+    final d = _docOf(doc);
+    final p = _page(d, page);
+    final (a, index) = _find(p, match);
+    b.FPDFPage_CloseAnnot(a);
+    if (b.FPDFPage_RemoveAnnot(p.page, index) == 0) {
+      throw StateError('the annotation could not be removed');
+    }
     return null;
   }
 

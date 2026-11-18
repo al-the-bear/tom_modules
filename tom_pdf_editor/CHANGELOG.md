@@ -16,6 +16,12 @@
 - `PdfiumEngine` (`pdfium.dart`): one shared worker isolate makes every
   PDFium call; renders by priority, cancellable; incremental saves with the
   cross-reference fix (`/Type/XRef` inserted when PDFium leaves it out).
+- Annotations: highlight on text, note and ink tools; select, move, resize
+  (ink), recolour, edit a note's text, delete; every change one history
+  entry, saved incrementally; no appearance streams written (an edited
+  annotation of the file has its own cleared); an edited page re-renders
+  behind its old image. Encrypted documents: tools disabled, *Save as copy…*
+  writes an unencrypted copy after a warning (DPPF-3).
 - `TomPdfiumLocator` (`io.dart`): the library from the binaries layer,
   checked against the bindings' release.
 - `testing.dart`: `FakePdfEngine`, `MemoryBinaryFiles`, `FakePdfEditorHost`.

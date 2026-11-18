@@ -2,14 +2,15 @@
 
 A Flutter widget that shows one PDF, rendered natively by PDFium over FFI:
 scroll and zoom, a page list with thumbnails and the outline, search with the
-hits highlighted, text selection and copy, links. A controller beside it is
+hits highlighted, text selection and copy, links, and annotations: highlights
+on text, notes and ink, changed and removed with undo and redo, saved
+incrementally. A controller beside it is
 what a host drives (open, save, undo, redo, find, the dirty state), in the
 same shape as the office editor's, so a host treats both alike.
 
 License: BSD-3-Clause (see [LICENSE](LICENSE)); PDFium is BSD-3-Clause, with
 permissive third-party code ([THIRD_PARTY.md](THIRD_PARTY.md)). Not published
-(`publish_to: none`). Annotations and form filling are added by later work
-(the history and the save path are in place for them).
+(`publish_to: none`).
 
 ## Components
 
@@ -17,6 +18,7 @@ permissive third-party code ([THIRD_PARTY.md](THIRD_PARTY.md)). Not published
 | --- | --- | --- |
 | Editor | `lib/src/editor.dart` | `TomPdfEditor`: the zoom bar, the page list (thumbnails 120 px wide, the outline), the find bar (match case, whole word, previous / next, the count), the bars for read-only files, conflicts (*Keep mine*, *Take theirs*, *Save as copy*) and deleted files, the password dialog, *could not open*. |
 | View | `lib/src/view/` | `PdfPageView`: the page column laid out from the page sizes alone (`PdfLayout`), zoom 50–400 % plus fit width and fit page (Cmd + / − / 0, Ctrl + wheel, pinch); renders by priority (visible, then thumbnails, then prefetch), cancelling what scrolled away; one bitmap per page up to 2048 px wide, 512-px tiles above (`planTiles`); the LRU cache of 256 MiB (`PdfRenderCache`), the old zoom shown until the new one has arrived; search hits and the selection drawn over the pages; drag, double- and triple-click selection, Cmd+C, links with a hand cursor. |
+| Annotations | `lib/src/controller.dart`, `lib/src/engine/annotation.dart` | The tools (Select V, Highlight H, Note N, Ink I; Escape back to Select) and their colours: a drag over text highlights it (one highlight per page, one history entry), a click places a note (its text asked for), a drag draws ink (thinned to 0.5 pt). In Select, a click selects an annotation (highlight, note, ink; others are shown, not editable), a drag moves it (not a highlight), the corner handle resizes ink, the colours recolour it, Backspace / Delete removes it, a double-click edits a note. Every change is one `TomUndoStack` entry (Cmd+Z, Cmd+Shift+Z); new annotations get `T` (the host's author), `M` and `NM` (a UUID), and an annotation of the file without `NM` gets one when first edited. No appearance streams are written: PDFium, PDFKit (Preview) and Chrome draw the three subtypes from their entries; an edited annotation of the file has its old appearance stream cleared. The edited page is rendered again, its old image shown until the new one arrives. An encrypted document has the tools disabled; *Save as copy…* writes an unencrypted copy after a warning (DPPF-3). |
 | Controller | `lib/src/controller.dart` | `TomPdfEditorController`: opening (the library must be usable; the revision taken before and after the load), passwords (three attempts, never logged), permissions (an encrypted file opens view-only, DPPF-3; copy as the file allows), scanned PDFs (*no text layer*: no search or selection), XFA, read-only files, external changes, search (hits streamed, the view jumping to the first), selection and copy (unmapped characters skipped with a notice), links, saving (an incremental save to a temporary target, `TomBinaryFiles.replace`, reopen), the history (`TomUndoStack` with a saved marker). |
 | Host | `lib/src/host.dart` | `TomPdfEditorHost`: the file, its access (`TomBinaryFiles`), the PDFium library (`TomPdfiumLibrary`) and the engine, notices, links, history changes. |
 | Engine | `lib/src/engine/engine.dart`, `lib/src/pdfium/` | `TomPdfEngine`, positions in view points; `PdfiumEngine`, one worker isolate shared by every PDF tab that makes every PDFium call (PDFium is not thread-safe): renders by priority with cancelling, pages and text pages in a window of 12, search page by page, incremental saves with the cross-reference fix (`xref_fix.dart`: `/Type/XRef` inserted when PDFium leaves it out, so macOS Preview opens the file). |

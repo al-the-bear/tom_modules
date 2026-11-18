@@ -99,6 +99,409 @@ class PdfiumBindings {
         int Function(FPDF_DOCUMENT, FPDF_ACTION, ffi.Pointer<ffi.Void>, int)
       >();
 
+  int FPDFAnnot_AddInkStroke(
+    FPDF_ANNOTATION annot,
+    ffi.Pointer<FS_POINTF> points,
+    int point_count,
+  ) {
+    return _FPDFAnnot_AddInkStroke(annot, points, point_count);
+  }
+
+  late final _FPDFAnnot_AddInkStrokePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Int Function(FPDF_ANNOTATION, ffi.Pointer<FS_POINTF>, ffi.Size)
+        >
+      >('FPDFAnnot_AddInkStroke');
+  late final _FPDFAnnot_AddInkStroke =
+      _FPDFAnnot_AddInkStrokePtr.asFunction<
+        int Function(FPDF_ANNOTATION, ffi.Pointer<FS_POINTF>, int)
+      >();
+
+  int FPDFAnnot_AppendAttachmentPoints(
+    FPDF_ANNOTATION annot,
+    ffi.Pointer<FS_QUADPOINTSF> quad_points,
+  ) {
+    return _FPDFAnnot_AppendAttachmentPoints(annot, quad_points);
+  }
+
+  late final _FPDFAnnot_AppendAttachmentPointsPtr =
+      _lookup<
+        ffi.NativeFunction<
+          FPDF_BOOL Function(FPDF_ANNOTATION, ffi.Pointer<FS_QUADPOINTSF>)
+        >
+      >('FPDFAnnot_AppendAttachmentPoints');
+  late final _FPDFAnnot_AppendAttachmentPoints =
+      _FPDFAnnot_AppendAttachmentPointsPtr.asFunction<
+        int Function(FPDF_ANNOTATION, ffi.Pointer<FS_QUADPOINTSF>)
+      >();
+
+  int FPDFAnnot_CountAttachmentPoints(FPDF_ANNOTATION annot) {
+    return _FPDFAnnot_CountAttachmentPoints(annot);
+  }
+
+  late final _FPDFAnnot_CountAttachmentPointsPtr =
+      _lookup<ffi.NativeFunction<ffi.Size Function(FPDF_ANNOTATION)>>(
+        'FPDFAnnot_CountAttachmentPoints',
+      );
+  late final _FPDFAnnot_CountAttachmentPoints =
+      _FPDFAnnot_CountAttachmentPointsPtr.asFunction<
+        int Function(FPDF_ANNOTATION)
+      >();
+
+  int FPDFAnnot_GetAttachmentPoints(
+    FPDF_ANNOTATION annot,
+    int quad_index,
+    ffi.Pointer<FS_QUADPOINTSF> quad_points,
+  ) {
+    return _FPDFAnnot_GetAttachmentPoints(annot, quad_index, quad_points);
+  }
+
+  late final _FPDFAnnot_GetAttachmentPointsPtr =
+      _lookup<
+        ffi.NativeFunction<
+          FPDF_BOOL Function(
+            FPDF_ANNOTATION,
+            ffi.Size,
+            ffi.Pointer<FS_QUADPOINTSF>,
+          )
+        >
+      >('FPDFAnnot_GetAttachmentPoints');
+  late final _FPDFAnnot_GetAttachmentPoints =
+      _FPDFAnnot_GetAttachmentPointsPtr.asFunction<
+        int Function(FPDF_ANNOTATION, int, ffi.Pointer<FS_QUADPOINTSF>)
+      >();
+
+  int FPDFAnnot_GetBorder(
+    FPDF_ANNOTATION annot,
+    ffi.Pointer<ffi.Float> horizontal_radius,
+    ffi.Pointer<ffi.Float> vertical_radius,
+    ffi.Pointer<ffi.Float> border_width,
+  ) {
+    return _FPDFAnnot_GetBorder(
+      annot,
+      horizontal_radius,
+      vertical_radius,
+      border_width,
+    );
+  }
+
+  late final _FPDFAnnot_GetBorderPtr =
+      _lookup<
+        ffi.NativeFunction<
+          FPDF_BOOL Function(
+            FPDF_ANNOTATION,
+            ffi.Pointer<ffi.Float>,
+            ffi.Pointer<ffi.Float>,
+            ffi.Pointer<ffi.Float>,
+          )
+        >
+      >('FPDFAnnot_GetBorder');
+  late final _FPDFAnnot_GetBorder =
+      _FPDFAnnot_GetBorderPtr.asFunction<
+        int Function(
+          FPDF_ANNOTATION,
+          ffi.Pointer<ffi.Float>,
+          ffi.Pointer<ffi.Float>,
+          ffi.Pointer<ffi.Float>,
+        )
+      >();
+
+  DartFPDF_BOOL FPDFAnnot_GetColor(
+    FPDF_ANNOTATION annot,
+    FPDFANNOT_COLORTYPE type,
+    ffi.Pointer<ffi.UnsignedInt> R,
+    ffi.Pointer<ffi.UnsignedInt> G,
+    ffi.Pointer<ffi.UnsignedInt> B,
+    ffi.Pointer<ffi.UnsignedInt> A,
+  ) {
+    return _FPDFAnnot_GetColor(annot, type.value, R, G, B, A);
+  }
+
+  late final _FPDFAnnot_GetColorPtr =
+      _lookup<
+        ffi.NativeFunction<
+          FPDF_BOOL Function(
+            FPDF_ANNOTATION,
+            ffi.UnsignedInt,
+            ffi.Pointer<ffi.UnsignedInt>,
+            ffi.Pointer<ffi.UnsignedInt>,
+            ffi.Pointer<ffi.UnsignedInt>,
+            ffi.Pointer<ffi.UnsignedInt>,
+          )
+        >
+      >('FPDFAnnot_GetColor');
+  late final _FPDFAnnot_GetColor =
+      _FPDFAnnot_GetColorPtr.asFunction<
+        int Function(
+          FPDF_ANNOTATION,
+          int,
+          ffi.Pointer<ffi.UnsignedInt>,
+          ffi.Pointer<ffi.UnsignedInt>,
+          ffi.Pointer<ffi.UnsignedInt>,
+          ffi.Pointer<ffi.UnsignedInt>,
+        )
+      >();
+
+  int FPDFAnnot_GetFlags(FPDF_ANNOTATION annot) {
+    return _FPDFAnnot_GetFlags(annot);
+  }
+
+  late final _FPDFAnnot_GetFlagsPtr =
+      _lookup<ffi.NativeFunction<ffi.Int Function(FPDF_ANNOTATION)>>(
+        'FPDFAnnot_GetFlags',
+      );
+  late final _FPDFAnnot_GetFlags =
+      _FPDFAnnot_GetFlagsPtr.asFunction<int Function(FPDF_ANNOTATION)>();
+
+  int FPDFAnnot_GetInkListCount(FPDF_ANNOTATION annot) {
+    return _FPDFAnnot_GetInkListCount(annot);
+  }
+
+  late final _FPDFAnnot_GetInkListCountPtr =
+      _lookup<ffi.NativeFunction<ffi.UnsignedLong Function(FPDF_ANNOTATION)>>(
+        'FPDFAnnot_GetInkListCount',
+      );
+  late final _FPDFAnnot_GetInkListCount =
+      _FPDFAnnot_GetInkListCountPtr.asFunction<int Function(FPDF_ANNOTATION)>();
+
+  int FPDFAnnot_GetInkListPath(
+    FPDF_ANNOTATION annot,
+    int path_index,
+    ffi.Pointer<FS_POINTF> buffer,
+    int length,
+  ) {
+    return _FPDFAnnot_GetInkListPath(annot, path_index, buffer, length);
+  }
+
+  late final _FPDFAnnot_GetInkListPathPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.UnsignedLong Function(
+            FPDF_ANNOTATION,
+            ffi.UnsignedLong,
+            ffi.Pointer<FS_POINTF>,
+            ffi.UnsignedLong,
+          )
+        >
+      >('FPDFAnnot_GetInkListPath');
+  late final _FPDFAnnot_GetInkListPath =
+      _FPDFAnnot_GetInkListPathPtr.asFunction<
+        int Function(FPDF_ANNOTATION, int, ffi.Pointer<FS_POINTF>, int)
+      >();
+
+  int FPDFAnnot_GetRect(FPDF_ANNOTATION annot, ffi.Pointer<FS_RECTF> rect) {
+    return _FPDFAnnot_GetRect(annot, rect);
+  }
+
+  late final _FPDFAnnot_GetRectPtr =
+      _lookup<
+        ffi.NativeFunction<
+          FPDF_BOOL Function(FPDF_ANNOTATION, ffi.Pointer<FS_RECTF>)
+        >
+      >('FPDFAnnot_GetRect');
+  late final _FPDFAnnot_GetRect =
+      _FPDFAnnot_GetRectPtr.asFunction<
+        int Function(FPDF_ANNOTATION, ffi.Pointer<FS_RECTF>)
+      >();
+
+  int FPDFAnnot_GetStringValue(
+    FPDF_ANNOTATION annot,
+    FPDF_BYTESTRING key,
+    ffi.Pointer<FPDF_WCHAR> buffer,
+    int buflen,
+  ) {
+    return _FPDFAnnot_GetStringValue(annot, key, buffer, buflen);
+  }
+
+  late final _FPDFAnnot_GetStringValuePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.UnsignedLong Function(
+            FPDF_ANNOTATION,
+            FPDF_BYTESTRING,
+            ffi.Pointer<FPDF_WCHAR>,
+            ffi.UnsignedLong,
+          )
+        >
+      >('FPDFAnnot_GetStringValue');
+  late final _FPDFAnnot_GetStringValue =
+      _FPDFAnnot_GetStringValuePtr.asFunction<
+        int Function(
+          FPDF_ANNOTATION,
+          FPDF_BYTESTRING,
+          ffi.Pointer<FPDF_WCHAR>,
+          int,
+        )
+      >();
+
+  int FPDFAnnot_GetSubtype(FPDF_ANNOTATION annot) {
+    return _FPDFAnnot_GetSubtype(annot);
+  }
+
+  late final _FPDFAnnot_GetSubtypePtr =
+      _lookup<
+        ffi.NativeFunction<FPDF_ANNOTATION_SUBTYPE Function(FPDF_ANNOTATION)>
+      >('FPDFAnnot_GetSubtype');
+  late final _FPDFAnnot_GetSubtype =
+      _FPDFAnnot_GetSubtypePtr.asFunction<int Function(FPDF_ANNOTATION)>();
+
+  int FPDFAnnot_RemoveInkList(FPDF_ANNOTATION annot) {
+    return _FPDFAnnot_RemoveInkList(annot);
+  }
+
+  late final _FPDFAnnot_RemoveInkListPtr =
+      _lookup<ffi.NativeFunction<FPDF_BOOL Function(FPDF_ANNOTATION)>>(
+        'FPDFAnnot_RemoveInkList',
+      );
+  late final _FPDFAnnot_RemoveInkList =
+      _FPDFAnnot_RemoveInkListPtr.asFunction<int Function(FPDF_ANNOTATION)>();
+
+  int FPDFAnnot_SetAP(
+    FPDF_ANNOTATION annot,
+    int appearanceMode,
+    FPDF_WIDESTRING value,
+  ) {
+    return _FPDFAnnot_SetAP(annot, appearanceMode, value);
+  }
+
+  late final _FPDFAnnot_SetAPPtr =
+      _lookup<
+        ffi.NativeFunction<
+          FPDF_BOOL Function(
+            FPDF_ANNOTATION,
+            FPDF_ANNOT_APPEARANCEMODE,
+            FPDF_WIDESTRING,
+          )
+        >
+      >('FPDFAnnot_SetAP');
+  late final _FPDFAnnot_SetAP =
+      _FPDFAnnot_SetAPPtr.asFunction<
+        int Function(FPDF_ANNOTATION, int, FPDF_WIDESTRING)
+      >();
+
+  int FPDFAnnot_SetAttachmentPoints(
+    FPDF_ANNOTATION annot,
+    int quad_index,
+    ffi.Pointer<FS_QUADPOINTSF> quad_points,
+  ) {
+    return _FPDFAnnot_SetAttachmentPoints(annot, quad_index, quad_points);
+  }
+
+  late final _FPDFAnnot_SetAttachmentPointsPtr =
+      _lookup<
+        ffi.NativeFunction<
+          FPDF_BOOL Function(
+            FPDF_ANNOTATION,
+            ffi.Size,
+            ffi.Pointer<FS_QUADPOINTSF>,
+          )
+        >
+      >('FPDFAnnot_SetAttachmentPoints');
+  late final _FPDFAnnot_SetAttachmentPoints =
+      _FPDFAnnot_SetAttachmentPointsPtr.asFunction<
+        int Function(FPDF_ANNOTATION, int, ffi.Pointer<FS_QUADPOINTSF>)
+      >();
+
+  int FPDFAnnot_SetBorder(
+    FPDF_ANNOTATION annot,
+    double horizontal_radius,
+    double vertical_radius,
+    double border_width,
+  ) {
+    return _FPDFAnnot_SetBorder(
+      annot,
+      horizontal_radius,
+      vertical_radius,
+      border_width,
+    );
+  }
+
+  late final _FPDFAnnot_SetBorderPtr =
+      _lookup<
+        ffi.NativeFunction<
+          FPDF_BOOL Function(FPDF_ANNOTATION, ffi.Float, ffi.Float, ffi.Float)
+        >
+      >('FPDFAnnot_SetBorder');
+  late final _FPDFAnnot_SetBorder =
+      _FPDFAnnot_SetBorderPtr.asFunction<
+        int Function(FPDF_ANNOTATION, double, double, double)
+      >();
+
+  DartFPDF_BOOL FPDFAnnot_SetColor(
+    FPDF_ANNOTATION annot,
+    FPDFANNOT_COLORTYPE type,
+    int R,
+    int G,
+    int B,
+    int A,
+  ) {
+    return _FPDFAnnot_SetColor(annot, type.value, R, G, B, A);
+  }
+
+  late final _FPDFAnnot_SetColorPtr =
+      _lookup<
+        ffi.NativeFunction<
+          FPDF_BOOL Function(
+            FPDF_ANNOTATION,
+            ffi.UnsignedInt,
+            ffi.UnsignedInt,
+            ffi.UnsignedInt,
+            ffi.UnsignedInt,
+            ffi.UnsignedInt,
+          )
+        >
+      >('FPDFAnnot_SetColor');
+  late final _FPDFAnnot_SetColor =
+      _FPDFAnnot_SetColorPtr.asFunction<
+        int Function(FPDF_ANNOTATION, int, int, int, int, int)
+      >();
+
+  int FPDFAnnot_SetFlags(FPDF_ANNOTATION annot, int flags) {
+    return _FPDFAnnot_SetFlags(annot, flags);
+  }
+
+  late final _FPDFAnnot_SetFlagsPtr =
+      _lookup<ffi.NativeFunction<FPDF_BOOL Function(FPDF_ANNOTATION, ffi.Int)>>(
+        'FPDFAnnot_SetFlags',
+      );
+  late final _FPDFAnnot_SetFlags =
+      _FPDFAnnot_SetFlagsPtr.asFunction<int Function(FPDF_ANNOTATION, int)>();
+
+  int FPDFAnnot_SetRect(FPDF_ANNOTATION annot, ffi.Pointer<FS_RECTF> rect) {
+    return _FPDFAnnot_SetRect(annot, rect);
+  }
+
+  late final _FPDFAnnot_SetRectPtr =
+      _lookup<
+        ffi.NativeFunction<
+          FPDF_BOOL Function(FPDF_ANNOTATION, ffi.Pointer<FS_RECTF>)
+        >
+      >('FPDFAnnot_SetRect');
+  late final _FPDFAnnot_SetRect =
+      _FPDFAnnot_SetRectPtr.asFunction<
+        int Function(FPDF_ANNOTATION, ffi.Pointer<FS_RECTF>)
+      >();
+
+  int FPDFAnnot_SetStringValue(
+    FPDF_ANNOTATION annot,
+    FPDF_BYTESTRING key,
+    FPDF_WIDESTRING value,
+  ) {
+    return _FPDFAnnot_SetStringValue(annot, key, value);
+  }
+
+  late final _FPDFAnnot_SetStringValuePtr =
+      _lookup<
+        ffi.NativeFunction<
+          FPDF_BOOL Function(FPDF_ANNOTATION, FPDF_BYTESTRING, FPDF_WIDESTRING)
+        >
+      >('FPDFAnnot_SetStringValue');
+  late final _FPDFAnnot_SetStringValue =
+      _FPDFAnnot_SetStringValuePtr.asFunction<
+        int Function(FPDF_ANNOTATION, FPDF_BYTESTRING, FPDF_WIDESTRING)
+      >();
+
   FPDF_BITMAP FPDFBitmap_CreateEx(
     int width,
     int height,
@@ -322,6 +725,80 @@ class PdfiumBindings {
       _FPDFLink_GetLinkAtPointPtr.asFunction<
         FPDF_LINK Function(FPDF_PAGE, double, double)
       >();
+
+  void FPDFPage_CloseAnnot(FPDF_ANNOTATION annot) {
+    return _FPDFPage_CloseAnnot(annot);
+  }
+
+  late final _FPDFPage_CloseAnnotPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(FPDF_ANNOTATION)>>(
+        'FPDFPage_CloseAnnot',
+      );
+  late final _FPDFPage_CloseAnnot =
+      _FPDFPage_CloseAnnotPtr.asFunction<void Function(FPDF_ANNOTATION)>();
+
+  FPDF_ANNOTATION FPDFPage_CreateAnnot(FPDF_PAGE page, int subtype) {
+    return _FPDFPage_CreateAnnot(page, subtype);
+  }
+
+  late final _FPDFPage_CreateAnnotPtr =
+      _lookup<
+        ffi.NativeFunction<
+          FPDF_ANNOTATION Function(FPDF_PAGE, FPDF_ANNOTATION_SUBTYPE)
+        >
+      >('FPDFPage_CreateAnnot');
+  late final _FPDFPage_CreateAnnot =
+      _FPDFPage_CreateAnnotPtr.asFunction<
+        FPDF_ANNOTATION Function(FPDF_PAGE, int)
+      >();
+
+  FPDF_ANNOTATION FPDFPage_GetAnnot(FPDF_PAGE page, int index) {
+    return _FPDFPage_GetAnnot(page, index);
+  }
+
+  late final _FPDFPage_GetAnnotPtr =
+      _lookup<ffi.NativeFunction<FPDF_ANNOTATION Function(FPDF_PAGE, ffi.Int)>>(
+        'FPDFPage_GetAnnot',
+      );
+  late final _FPDFPage_GetAnnot =
+      _FPDFPage_GetAnnotPtr.asFunction<
+        FPDF_ANNOTATION Function(FPDF_PAGE, int)
+      >();
+
+  int FPDFPage_GetAnnotCount(FPDF_PAGE page) {
+    return _FPDFPage_GetAnnotCount(page);
+  }
+
+  late final _FPDFPage_GetAnnotCountPtr =
+      _lookup<ffi.NativeFunction<ffi.Int Function(FPDF_PAGE)>>(
+        'FPDFPage_GetAnnotCount',
+      );
+  late final _FPDFPage_GetAnnotCount =
+      _FPDFPage_GetAnnotCountPtr.asFunction<int Function(FPDF_PAGE)>();
+
+  int FPDFPage_GetAnnotIndex(FPDF_PAGE page, FPDF_ANNOTATION annot) {
+    return _FPDFPage_GetAnnotIndex(page, annot);
+  }
+
+  late final _FPDFPage_GetAnnotIndexPtr =
+      _lookup<ffi.NativeFunction<ffi.Int Function(FPDF_PAGE, FPDF_ANNOTATION)>>(
+        'FPDFPage_GetAnnotIndex',
+      );
+  late final _FPDFPage_GetAnnotIndex =
+      _FPDFPage_GetAnnotIndexPtr.asFunction<
+        int Function(FPDF_PAGE, FPDF_ANNOTATION)
+      >();
+
+  int FPDFPage_RemoveAnnot(FPDF_PAGE page, int index) {
+    return _FPDFPage_RemoveAnnot(page, index);
+  }
+
+  late final _FPDFPage_RemoveAnnotPtr =
+      _lookup<ffi.NativeFunction<FPDF_BOOL Function(FPDF_PAGE, ffi.Int)>>(
+        'FPDFPage_RemoveAnnot',
+      );
+  late final _FPDFPage_RemoveAnnot =
+      _FPDFPage_RemoveAnnotPtr.asFunction<int Function(FPDF_PAGE, int)>();
 
   void FPDFText_ClosePage(FPDF_TEXTPAGE text_page) {
     return _FPDFText_ClosePage(text_page);
@@ -1049,6 +1526,23 @@ typedef FPDF_ANNOTATION_SUBTYPE = ffi.Int;
 typedef DartFPDF_ANNOTATION_SUBTYPE = int;
 typedef FPDF_ANNOT_APPEARANCEMODE = ffi.Int;
 typedef DartFPDF_ANNOT_APPEARANCEMODE = int;
+
+const int FPDF_ANNOT_APPEARANCEMODE_COUNT = 3;
+
+const int FPDF_ANNOT_APPEARANCEMODE_DOWN = 2;
+
+const int FPDF_ANNOT_APPEARANCEMODE_NORMAL = 0;
+
+const int FPDF_ANNOT_APPEARANCEMODE_ROLLOVER = 1;
+
+const int FPDF_ANNOT_FLAG_PRINT = 4;
+
+const int FPDF_ANNOT_HIGHLIGHT = 9;
+
+const int FPDF_ANNOT_INK = 15;
+
+const int FPDF_ANNOT_TEXT = 1;
+
 typedef FPDF_ATTACHMENT = ffi.Pointer<fpdf_attachment_t__>;
 typedef FPDF_AVAIL = ffi.Pointer<fpdf_avail_t__>;
 typedef FPDF_BITMAP = ffi.Pointer<fpdf_bitmap_t__>;
@@ -1378,6 +1872,8 @@ typedef FPDF_PAGEOBJECT = ffi.Pointer<fpdf_pageobject_t__>;
 typedef FPDF_PAGEOBJECTMARK = ffi.Pointer<fpdf_pageobjectmark_t__>;
 typedef FPDF_PAGERANGE = ffi.Pointer<fpdf_pagerange_t__>;
 typedef FPDF_PATHSEGMENT = ffi.Pointer<fpdf_pathsegment_t>;
+
+const int FPDF_REMOVE_SECURITY = 4;
 
 enum FPDF_RENDERER_TYPE {
   FPDF_RENDERERTYPE_AGG(0),

@@ -54,7 +54,13 @@ flutter test -x pdfium          # without PDFium
   real library over the tom_forge sample set (`TOM_PDF_SAMPLES` overrides the
   folder); they skip where either is missing. On macOS `PDFIUM-SAVE-1` also
   opens the saved files with PDFKit (Preview's engine), with and without the
-  cross-reference fix.
+  cross-reference fix. `PDF-ANNOT-1` creates, changes and removes
+  annotations, saves incrementally (the original bytes a prefix of the
+  saved file), reopens and has PDFKit list them.
+- Chrome's viewer cannot be screenshotted headless (the PDF plugin does not
+  draw there); to check a saved file in it, start Chrome with
+  `--remote-debugging-port` and take `Page.captureScreenshot` over the
+  DevTools protocol.
 
 ## The example app
 

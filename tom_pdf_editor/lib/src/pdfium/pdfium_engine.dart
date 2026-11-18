@@ -260,6 +260,40 @@ final class PdfiumEngine implements TomPdfEngine {
   }
 
   @override
+  Future<List<PdfAnnotation>> annotations(int doc, int page) async => [
+    for (final w in await _call<List<Object?>>('annots', [doc, page]))
+      PdfAnnotation.fromWire(w! as List<Object?>),
+  ];
+
+  @override
+  Future<PdfAnnotation> addAnnotation(
+    int doc,
+    int page,
+    PdfAnnotation annotation,
+  ) async => PdfAnnotation.fromWire(
+    await _call<List<Object?>>('addAnnot', [doc, page, annotation.toWire()]),
+  );
+
+  @override
+  Future<void> updateAnnotation(
+    int doc,
+    int page,
+    String match,
+    PdfAnnotation state,
+  ) => _call<Object?>('updateAnnot', [doc, page, match, state.toWire()]);
+
+  @override
+  Future<void> removeAnnotation(int doc, int page, String match) =>
+      _call<Object?>('removeAnnot', [doc, page, match]);
+
+  @override
+  Future<String?> saveCopy(
+    int doc,
+    String target, {
+    bool removeSecurity = false,
+  }) => _call<String?>('saveCopy', [doc, target, removeSecurity]);
+
+  @override
   Future<String?> saveIncremental(int doc, String target) =>
       _call<String?>('save', [doc, target]);
 

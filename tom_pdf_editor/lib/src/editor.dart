@@ -12,6 +12,7 @@ import 'controller.dart';
 import 'engine/engine.dart';
 import 'pdf_editor_trail.dart';
 import 'view/layout.dart';
+import 'view/note_dialog.dart';
 import 'view/pdf_view.dart';
 import 'view/render_cache.dart';
 
@@ -144,6 +145,7 @@ class _TomPdfEditorState extends State<TomPdfEditor> {
         return Column(
           children: [
             if (_c.isReadOnly) _ReadOnlyBar(controller: _c),
+            if (info.encrypted) _EncryptedBar(controller: _c),
             if (_c.conflict != null) _ConflictBanner(controller: _c),
             if (_c.isDeleted && _c.conflict == null)
               _Bar(
@@ -174,6 +176,7 @@ class _TomPdfEditorState extends State<TomPdfEditor> {
               onFind: _c.showFind,
               pageCount: info.pageCount,
             ),
+            _AnnotationBar(controller: _c),
             Expanded(
               child: Row(
                 children: [
@@ -276,6 +279,189 @@ class _ReadOnlyBar extends StatelessWidget {
       ),
     ],
   );
+}
+
+class _EncryptedBar extends StatelessWidget {
+  const _EncryptedBar({required this.controller});
+
+  final TomPdfEditorController controller;
+
+  @override
+  Widget build(BuildContext context) => _Bar(
+    icon: Icons.enhanced_encryption_outlined,
+    text: 'Encrypted: view only — annotations are not available.',
+    actions: [
+      TextButton(
+        key: const ValueKey('pdf-save-unencrypted'),
+        onPressed: () async {
+          final ok = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Save an unencrypted copy?'),
+              content: const Text(
+                'The copy is not encrypted: anyone who has the file can open '
+                'it without the password, and its restrictions no longer '
+                'apply. The original stays as it is.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  key: const ValueKey('pdf-save-unencrypted-ok'),
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('Save unencrypted copy'),
+                ),
+              ],
+            ),
+          );
+          if (ok ?? false) await controller.saveUnencryptedCopy();
+        },
+        child: const Text('Save as copy…'),
+      ),
+    ],
+  );
+}
+
+/// The colours offered for annotations.
+const kPdfAnnotationColors = [
+  0xFFFFEB3B, // yellow
+  0xFF66BB6A, // green
+  0xFF42A5F5, // blue
+  0xFFEC407A, // pink
+  0xFFE53935, // red
+  0xFF212121, // black
+];
+
+class _AnnotationBar extends StatelessWidget {
+  const _AnnotationBar({required this.controller});
+
+  final TomPdfEditorController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = controller;
+    final enabled = c.canAnnotate;
+    final selected = c.selectedAnnotation;
+    final page = c.selectedAnnotationPage;
+    final scheme = Theme.of(context).colorScheme;
+    final current = selected?.color ?? c.toolColor(c.tool);
+    Widget tool(PdfAnnotationTool t, IconData icon, String tip) => IconButton(
+      key: ValueKey('pdf-tool-${t.name}'),
+      tooltip: enabled ? tip : 'Annotations are not available',
+      iconSize: 18,
+      isSelected: c.tool == t,
+      color: c.tool == t ? scheme.primary : null,
+      icon: Icon(icon),
+      onPressed: enabled ? () => c.setTool(t) : null,
+    );
+    final colorTarget =
+        selected != null || (c.tool != PdfAnnotationTool.select);
+    return Material(
+      color: Theme.of(context).colorScheme.surfaceContainer,
+      child: SizedBox(
+        height: 36,
+        child: Row(
+          children: [
+            const SizedBox(width: 8),
+            tool(
+              PdfAnnotationTool.select,
+              Icons.near_me_outlined,
+              'Select (V)',
+            ),
+            tool(PdfAnnotationTool.highlight, Icons.highlight, 'Highlight (H)'),
+            tool(
+              PdfAnnotationTool.note,
+              Icons.sticky_note_2_outlined,
+              'Note (N)',
+            ),
+            tool(PdfAnnotationTool.ink, Icons.draw_outlined, 'Ink (I)'),
+            const VerticalDivider(width: 16),
+            for (final color in kPdfAnnotationColors)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                child: InkWell(
+                  key: ValueKey('pdf-color-${color.toRadixString(16)}'),
+                  onTap: enabled && colorTarget
+                      ? () {
+                          if (selected != null) {
+                            unawaited(
+                              c.recolorAnnotation(page!, selected.id, color),
+                            );
+                          } else {
+                            c.setToolColor(c.tool, color);
+                          }
+                        }
+                      : null,
+                  child: Container(
+                    width: 18,
+                    height: 18,
+                    decoration: BoxDecoration(
+                      color: Color(
+                        enabled && colorTarget ? color : color & 0x55FFFFFF,
+                      ),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color:
+                            (current & 0xFFFFFF) == (color & 0xFFFFFF) &&
+                                colorTarget
+                            ? scheme.primary
+                            : scheme.outlineVariant,
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            if (selected != null) ...[
+              const VerticalDivider(width: 16),
+              if (selected.kind == PdfAnnotationKind.note)
+                IconButton(
+                  key: const ValueKey('pdf-edit-note'),
+                  tooltip: 'Edit note',
+                  iconSize: 18,
+                  icon: const Icon(Icons.edit_note),
+                  onPressed: () async {
+                    final text = await showPdfNoteDialog(
+                      context,
+                      initial: selected.contents,
+                    );
+                    if (text != null) {
+                      await c.setNoteText(page!, selected.id, text);
+                    }
+                  },
+                ),
+              IconButton(
+                key: const ValueKey('pdf-delete-annotation'),
+                tooltip: 'Delete (⌫)',
+                iconSize: 18,
+                icon: const Icon(Icons.delete_outline),
+                onPressed: () =>
+                    unawaited(c.deleteAnnotation(page!, selected.id)),
+              ),
+            ],
+            const Spacer(),
+            IconButton(
+              key: const ValueKey('pdf-undo'),
+              tooltip: c.canUndo ? 'Undo ${c.undoLabel ?? ''}'.trim() : 'Undo',
+              iconSize: 18,
+              icon: const Icon(Icons.undo),
+              onPressed: c.canUndo ? () => unawaited(c.undo()) : null,
+            ),
+            IconButton(
+              key: const ValueKey('pdf-redo'),
+              tooltip: 'Redo',
+              iconSize: 18,
+              icon: const Icon(Icons.redo),
+              onPressed: c.canRedo ? () => unawaited(c.redo()) : null,
+            ),
+            const SizedBox(width: 8),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _ConflictBanner extends StatelessWidget {
@@ -517,6 +703,7 @@ class _PageList extends StatefulWidget {
 class _PageListState extends State<_PageList> {
   // Thumbnails 120 logical pixels wide, at most 200 kept.
   final _thumbs = <int, ui.Image>{};
+  final _thumbVersions = <int, int>{};
   final _pending = <int, int>{};
   var _ticket = 1 << 30;
   int _generation = -1;
@@ -555,7 +742,11 @@ class _PageListState extends State<_PageList> {
     final info = _c.info;
     final engine = _c.engine;
     if (info == null || engine == null) return;
-    if (_thumbs.containsKey(page) || _pending.containsKey(page)) return;
+    final version = _c.pageVersion(page);
+    if ((_thumbs.containsKey(page) && _thumbVersions[page] == version) ||
+        _pending.containsKey(page)) {
+      return;
+    }
     final size = info.pages[page];
     final scale = 120 * dpr / size.width;
     final ticket = _ticket++;
@@ -587,7 +778,9 @@ class _PageListState extends State<_PageList> {
               image.dispose();
               return;
             }
+            _thumbs.remove(page)?.dispose();
             _thumbs[page] = image;
+            _thumbVersions[page] = version;
             while (_thumbs.length > 200) {
               _thumbs.remove(_thumbs.keys.first)!.dispose();
             }

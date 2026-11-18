@@ -30,6 +30,7 @@ FakePdfDocument _textDoc({
   int securityRevision = -1,
   Set<(int, int)> unmapped = const {},
   List<PdfOutlineEntry> outline = const [],
+  Map<int, List<PdfAnnotation>>? annotations,
 }) => FakePdfDocument(
   pages: List.filled(pages, _a4),
   texts: [
@@ -54,6 +55,7 @@ FakePdfDocument _textDoc({
   securityRevision: securityRevision,
   unmapped: unmapped,
   outline: outline,
+  annotations: annotations,
 );
 
 extension on PdfRect {
@@ -570,6 +572,278 @@ void main() {
       expect(rig.controller.isDirty, isFalse);
       expect(rig.controller.generation, 1);
       expect(rig.host.historyChanges, greaterThan(0));
+    });
+  });
+
+  group('PDF-ANNOT annotations', () {
+    /// Drags from [from] to [to] with the mouse, through [via].
+    Future<void> drag(
+      WidgetTester tester,
+      Offset from,
+      Offset to, {
+      List<Offset> via = const [],
+    }) async {
+      final g = await tester.startGesture(from, kind: PointerDeviceKind.mouse);
+      await g.moveTo(from + const Offset(3, 0));
+      for (final p in via) {
+        await g.moveTo(p);
+      }
+      await g.moveTo(to);
+      await g.up();
+    }
+
+    Future<void> key(
+      WidgetTester tester,
+      LogicalKeyboardKey k, {
+      bool meta = false,
+      bool shift = false,
+    }) async {
+      if (meta) await tester.sendKeyDownEvent(LogicalKeyboardKey.meta);
+      if (shift) await tester.sendKeyDownEvent(LogicalKeyboardKey.shift);
+      await tester.sendKeyEvent(k);
+      if (shift) await tester.sendKeyUpEvent(LogicalKeyboardKey.shift);
+      if (meta) await tester.sendKeyUpEvent(LogicalKeyboardKey.meta);
+    }
+
+    testWidgets('PDF-ANNOT-W1: a highlight drag is one history entry; undo, '
+        'redo and dirty follow it; the page renders again', (tester) async {
+      final rig = _Rig(_textDoc());
+      await rig.pump(tester);
+      final c = rig.controller;
+      expect(c.canAnnotate, isTrue);
+      await tester.tap(find.byKey(const ValueKey('pdf-tool-highlight')));
+      await rig.settle(tester);
+      expect(c.tool, PdfAnnotationTool.highlight);
+      final renders = rig.engine.renders.where((r) => r.$1 == 0).length;
+      await drag(
+        tester,
+        rig.at(tester, 0, fakeCharRect(_page0, 0)),
+        rig.at(tester, 0, fakeCharRect(_page0, 4)),
+      );
+      await rig.settle(tester);
+      var list = c.annotationsOn(0);
+      expect(list, hasLength(1));
+      final h = list.single;
+      expect(h.kind, PdfAnnotationKind.highlight);
+      expect(h.quads, isNotEmpty);
+      expect(h.author, 'Test Author');
+      expect(h.modified, startsWith('D:'));
+      expect(h.id, matches(RegExp(r'^[0-9a-f-]{36}$')));
+      expect(c.selection, isEmpty);
+      expect(c.isDirty, isTrue);
+      expect(c.canUndo, isTrue);
+      expect(c.undoLabel, 'Highlight');
+      expect(c.pageVersion(0), 1);
+      expect(
+        rig.engine.renders.where((r) => r.$1 == 0).length,
+        greaterThan(renders),
+        reason: 'the edited page renders again',
+      );
+      // Undo with Cmd+Z, redo with Cmd+Shift+Z.
+      await key(tester, LogicalKeyboardKey.keyZ, meta: true);
+      await rig.settle(tester);
+      expect(c.annotationsOn(0), isEmpty);
+      expect(c.isDirty, isFalse);
+      expect(c.canRedo, isTrue);
+      await key(tester, LogicalKeyboardKey.keyZ, meta: true, shift: true);
+      await rig.settle(tester);
+      list = c.annotationsOn(0);
+      expect(list.single.id, h.id);
+      expect(c.isDirty, isTrue);
+      // A selection over two pages is highlighted as one entry.
+      await tester.runAsync(
+        () => c.selectBetween(0, (x: 60, y: 60), 1, (x: 80, y: 60)),
+      );
+      await tester.runAsync(c.highlightSelection);
+      await rig.settle(tester);
+      expect(c.annotationsOn(0), hasLength(2));
+      expect(c.annotationsOn(1), hasLength(1));
+      await tester.runAsync(c.undo);
+      await rig.settle(tester);
+      expect(c.annotationsOn(0), hasLength(1));
+      expect(c.annotationsOn(1), isEmpty);
+    });
+
+    testWidgets('PDF-ANNOT-W2: the note tool places a note with its text; '
+        'editing the text is undone in one step', (tester) async {
+      final rig = _Rig(_textDoc());
+      await rig.pump(tester);
+      final c = rig.controller;
+      // A click gives the view the focus; N chooses the note tool.
+      await tester.tapAt(rig.at(tester, 0, const PdfRect(500, 200, 500, 200)));
+      await rig.settle(tester);
+      await key(tester, LogicalKeyboardKey.keyN);
+      await rig.settle(tester);
+      expect(c.tool, PdfAnnotationTool.note);
+      await tester.tapAt(rig.at(tester, 0, const PdfRect(300, 400, 300, 400)));
+      await rig.settle(tester);
+      await tester.enterText(
+        find.byKey(const ValueKey('pdf-note-text')),
+        'First thought',
+      );
+      await tester.tap(find.byKey(const ValueKey('pdf-note-ok')));
+      await rig.settle(tester);
+      final note = c.annotationsOn(0).single;
+      expect(note.kind, PdfAnnotationKind.note);
+      expect(note.contents, 'First thought');
+      expect(note.rect.left, closeTo(290, 0.5));
+      expect(c.selectedAnnotation?.id, note.id);
+      await tester.tap(find.byKey(const ValueKey('pdf-edit-note')));
+      await rig.settle(tester);
+      await tester.enterText(
+        find.byKey(const ValueKey('pdf-note-text')),
+        'Second thought',
+      );
+      await tester.tap(find.byKey(const ValueKey('pdf-note-ok')));
+      await rig.settle(tester);
+      expect(c.annotationsOn(0).single.contents, 'Second thought');
+      expect(c.undoLabel, 'Note text');
+      await tester.tap(find.byKey(const ValueKey('pdf-undo')));
+      await rig.settle(tester);
+      expect(c.annotationsOn(0).single.contents, 'First thought');
+      await tester.tap(find.byKey(const ValueKey('pdf-undo')));
+      await rig.settle(tester);
+      expect(c.annotationsOn(0), isEmpty);
+      expect(c.isDirty, isFalse);
+    });
+
+    testWidgets('PDF-ANNOT-W3: ink is drawn by a drag, moved by a drag, '
+        'deleted with Backspace; each is one entry', (tester) async {
+      final rig = _Rig(_textDoc());
+      await rig.pump(tester);
+      final c = rig.controller;
+      await tester.tap(find.byKey(const ValueKey('pdf-tool-ink')));
+      await rig.settle(tester);
+      Offset p(double x, double y) => rig.at(tester, 0, PdfRect(x, y, x, y));
+      await drag(
+        tester,
+        p(100, 500),
+        p(200, 500),
+        via: [
+          for (var x = 104.0; x < 200; x += 4)
+            p(x, 500 + (x % 8 == 0 ? 0.1 : 0)),
+        ],
+      );
+      await rig.settle(tester);
+      final ink = c.annotationsOn(0).single;
+      expect(ink.kind, PdfAnnotationKind.ink);
+      expect(ink.strokes.single.length, lessThan(6), reason: 'thinned');
+      expect(ink.strokes.single.first.x, closeTo(100, 1));
+      expect(ink.strokes.single.last.x, closeTo(200, 1));
+      // Select tool: drag the ink 50 points down.
+      await tester.tap(find.byKey(const ValueKey('pdf-tool-select')));
+      await rig.settle(tester);
+      await drag(tester, p(150, 500), p(150, 550));
+      await rig.settle(tester);
+      final moved = c.annotationsOn(0).single;
+      expect(moved.strokes.single.first.y, closeTo(550, 1.5));
+      expect(c.undoLabel, 'Move');
+      expect(c.selectedAnnotation?.id, ink.id);
+      await key(tester, LogicalKeyboardKey.backspace);
+      await rig.settle(tester);
+      expect(c.annotationsOn(0), isEmpty);
+      await tester.runAsync(c.undo);
+      await rig.settle(tester);
+      expect(
+        c.annotationsOn(0).single.strokes.single.first.y,
+        closeTo(550, 1.5),
+      );
+      await tester.runAsync(c.undo);
+      await rig.settle(tester);
+      expect(c.annotationsOn(0).single.strokes.single.first.y, closeTo(500, 1));
+      await tester.runAsync(c.undo);
+      await rig.settle(tester);
+      expect(c.annotationsOn(0), isEmpty);
+      expect(c.isDirty, isFalse);
+    });
+
+    testWidgets('PDF-ANNOT-W4: an annotation of the file without NM is '
+        'recoloured and gets one; dirty against the saved state', (
+      tester,
+    ) async {
+      final rig = _Rig(
+        _textDoc(
+          annotations: {
+            0: [
+              const PdfAnnotation(
+                id: '',
+                kind: PdfAnnotationKind.ink,
+                rect: PdfRect(100, 300, 200, 340),
+                color: 0xFFE53935,
+                strokes: [
+                  [(x: 101, y: 320), (x: 199, y: 320)],
+                ],
+              ),
+            ],
+          },
+        ),
+      );
+      await rig.pump(tester);
+      final c = rig.controller;
+      expect(c.annotationsOn(0).single.id, '#0');
+      await tester.tapAt(rig.at(tester, 0, const PdfRect(150, 320, 150, 320)));
+      await rig.settle(tester);
+      expect(c.selectedAnnotation?.id, '#0');
+      await tester.tap(find.byKey(const ValueKey('pdf-color-ff42a5f5')));
+      await rig.settle(tester);
+      final named = c.annotationsOn(0).single;
+      expect(named.unnamed, isFalse);
+      expect(named.color, 0xFF42A5F5);
+      expect(c.selectedAnnotation?.id, named.id);
+      expect(rig.engine.calls, contains('updateAnnotation 0 #0'));
+      // Saved: clean; an undo after the save makes it dirty again and finds
+      // the annotation by its NM in the reopened document.
+      await tester.runAsync(c.save);
+      await rig.settle(tester);
+      expect(c.isDirty, isFalse);
+      await tester.runAsync(c.undo);
+      await rig.settle(tester);
+      expect(c.isDirty, isTrue);
+      final back = c.annotationsOn(0).single;
+      expect(back.color, 0xFFE53935);
+      expect(back.id, named.id);
+      await tester.runAsync(c.redo);
+      await rig.settle(tester);
+      expect(c.isDirty, isFalse);
+    });
+
+    testWidgets('PDF-ANNOT-W5: an encrypted document has the tools disabled; '
+        'Save as copy writes an unencrypted copy only after the warning', (
+      tester,
+    ) async {
+      final rig = _Rig(_textDoc(password: 'sesame', securityRevision: 3));
+      await rig.pump(tester);
+      await tester.enterText(
+        find.byKey(const ValueKey('pdf-password-field')),
+        'sesame',
+      );
+      await tester.tap(find.text('Open'));
+      await rig.settle(tester);
+      final c = rig.controller;
+      expect(c.canAnnotate, isFalse);
+      final ink = tester.widget<IconButton>(
+        find.byKey(const ValueKey('pdf-tool-ink')),
+      );
+      expect(ink.onPressed, isNull);
+      await key(tester, LogicalKeyboardKey.keyI);
+      expect(c.tool, PdfAnnotationTool.select);
+      // Cancelled: nothing written.
+      await tester.tap(find.byKey(const ValueKey('pdf-save-unencrypted')));
+      await rig.settle(tester);
+      expect(find.text('Save an unencrypted copy?'), findsOneWidget);
+      await tester.tap(find.text('Cancel'));
+      await rig.settle(tester);
+      expect(rig.files.paths, isNot(contains('/docs/sample (copy).pdf')));
+      // Confirmed: the copy has no security.
+      await tester.tap(find.byKey(const ValueKey('pdf-save-unencrypted')));
+      await rig.settle(tester);
+      await tester.tap(find.byKey(const ValueKey('pdf-save-unencrypted-ok')));
+      await rig.settle(tester);
+      expect(
+        utf8.decode(rig.files.read('/docs/sample (copy).pdf')!),
+        '%PDF-unencrypted',
+      );
+      expect(utf8.decode(rig.files.read(_path)!), '%PDF-original');
     });
   });
 

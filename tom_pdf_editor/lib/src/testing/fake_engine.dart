@@ -26,7 +26,9 @@ class FakePdfDocument {
     this.outline = const [],
     this.formType = PdfFormType.none,
     this.unmapped = const {},
-  }) : texts = texts ?? List.filled(pages.length, '');
+    Map<int, List<PdfAnnotation>>? annotations,
+  }) : texts = texts ?? List.filled(pages.length, ''),
+       annotations = annotations ?? {};
 
   /// Every page's size.
   final List<PdfPageSize> pages;
@@ -54,6 +56,9 @@ class FakePdfDocument {
 
   /// `(page, index)` of characters without a Unicode mapping.
   final Set<(int, int)> unmapped;
+
+  /// The annotations of each page (the file's, then the editor's).
+  final Map<int, List<PdfAnnotation>> annotations;
 }
 
 /// The fake grid's left edge, in points.
@@ -307,6 +312,69 @@ class FakePdfEngine implements TomPdfEngine {
     calls.add('save $target');
     _doc(doc);
     files?.write(target, utf8.encode('%PDF-saved'));
+    return null;
+  }
+
+  @override
+  Future<List<PdfAnnotation>> annotations(int doc, int page) async => [
+    for (final (i, a)
+        in (_doc(doc).annotations[page] ?? const <PdfAnnotation>[]).indexed)
+      a.id.isEmpty ? a.copyWith(id: '#$i') : a,
+  ];
+
+  int _index(List<PdfAnnotation> list, String match) {
+    if (match.startsWith('#')) {
+      final i = int.parse(match.substring(1));
+      if (i < list.length && list[i].id.isEmpty) return i;
+      throw StateError('no annotation $match');
+    }
+    final i = list.indexWhere((a) => a.id == match);
+    if (i < 0) throw StateError('no annotation $match');
+    return i;
+  }
+
+  @override
+  Future<PdfAnnotation> addAnnotation(
+    int doc,
+    int page,
+    PdfAnnotation annotation,
+  ) async {
+    calls.add('addAnnotation $page ${annotation.kind.name}');
+    (_doc(doc).annotations[page] ??= []).add(annotation);
+    return annotation;
+  }
+
+  @override
+  Future<void> updateAnnotation(
+    int doc,
+    int page,
+    String match,
+    PdfAnnotation state,
+  ) async {
+    calls.add('updateAnnotation $page $match');
+    final list = _doc(doc).annotations[page] ?? [];
+    list[_index(list, match)] = state;
+  }
+
+  @override
+  Future<void> removeAnnotation(int doc, int page, String match) async {
+    calls.add('removeAnnotation $page $match');
+    final list = _doc(doc).annotations[page] ?? [];
+    list.removeAt(_index(list, match));
+  }
+
+  @override
+  Future<String?> saveCopy(
+    int doc,
+    String target, {
+    bool removeSecurity = false,
+  }) async {
+    calls.add('saveCopy ${removeSecurity ? 'unencrypted' : 'as is'}');
+    _doc(doc);
+    files?.write(
+      target,
+      utf8.encode(removeSecurity ? '%PDF-unencrypted' : '%PDF-copy'),
+    );
     return null;
   }
 
