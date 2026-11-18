@@ -21,6 +21,43 @@ dart run bin/tom_office_host.dart --program /Applications/LibreOffice.app/Conten
 `dart run` runs the build hook too; its "Running build hooks..." goes to
 stderr, so stdout stays protocol frames only.
 
+## Into the binaries layer
+
+```sh
+buildkit :versioner :compiler     # in tom_ai/modules/tom_office_host, on mbp
+```
+
+`buildkit.yaml` holds the `versioner:` stanza (`variable-prefix: officeHost`,
+writing `lib/src/version.versioner.dart`, which `lib/src/version.dart` reads)
+and a `compiler:` pipeline for `darwin-arm64` only. The pipeline:
+
+1. runs `dart build cli -t bin/tom_office_host.dart`;
+2. copies the bundle flattened into `$TOM_BINARY_PATH/darwin-arm64/`
+   (`tom_binaries/tom/darwin-arm64/`, DPPK-2): `tom_office_host` and
+   `libtom_office_host_lok.dylib` side by side;
+3. sets the dylib's install name to
+   `@executable_path/libtom_office_host_lok.dylib` (`install_name_tool -id`);
+4. re-signs both ad hoc (`codesign --force --sign -`);
+5. renames both into place: the copies are written as `.<name>.new` first,
+   because a signed executable overwritten in place hangs every later start
+   of it in the kernel;
+6. runs `dart run tool/check_hello.dart <helper> --beside`: it starts the
+   copied helper, expects `hello` of protocol 1, sends `close`, expects
+   `closed` and exit 0, and checks that the helper loaded its trampoline from
+   beside itself.
+
+**Why the helper loads the trampoline itself.** The bundle's snapshot names
+the code asset as `../lib/libtom_office_host_lok.dylib` relative to the
+executable, and Dart opens it with `dlopen`. That is a path inside the
+snapshot, not a Mach-O load command, so `install_name_tool -change` cannot
+redirect it; flattened, the mapping points at `tom_binaries/tom/lib/`. So
+`lib/src/lok/trampoline.dart` first opens `libtom_office_host_lok.dylib`
+beside `Platform.resolvedExecutable` and falls back to the code-asset mapping
+(`@Native`) everywhere else: `dart run`, `dart test`, the unflattened bundle.
+The helper's log names where it loaded it from (`trampoline: …`).
+
+Then commit the two files in `tom_binaries` with `/tom_push_binaries`.
+
 ## The C part
 
 `hook/build.dart` compiles `src/lok_trampoline.c` with `native_toolchain_c`

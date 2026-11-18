@@ -21,4 +21,9 @@
     way; the private profile is deleted on a clean close.
 - The command line on `tom_build_base`: `--program`, `--profile`,
   `--protocol`, `--version`, `--help`.
+- `buildkit.yaml`: `buildkit :compiler` builds the helper into the
+  binaries layer, flattened (the trampoline beside the executable, which the
+  helper loads from there before the code-asset mapping), re-signed, and
+  checked to answer `hello` (`tool/check_hello.dart`); the version comes from
+  `buildkit :versioner`.
 - The first spike stays in `tool/spike/` (todo later24 removes it).

@@ -76,5 +76,10 @@ owner), the password to modify was not given, or LibreOffice reports
   password-protected DOCX. It skips itself where LibreOffice or the tom_forge
   sample set is missing; `-x libreoffice` leaves it out.
 
-Building, regenerating the bindings and taking in new headers:
+The binaries layer holds the built helper as
+`tom_binaries/tom/darwin-arm64/tom_office_host` with
+`libtom_office_host_lok.dylib` beside it (`buildkit :compiler`).
+
+Building into the binaries layer, regenerating the bindings and taking in new
+headers:
 [`_copilot_guidelines/build.md`](_copilot_guidelines/build.md).

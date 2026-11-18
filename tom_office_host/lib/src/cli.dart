@@ -14,6 +14,7 @@ import 'package:tom_office_protocol/tom_office_protocol.dart';
 
 import 'host.dart';
 import 'lok/ffi_lok.dart';
+import 'lok/trampoline.dart' show trampolineSource;
 import 'version.dart';
 
 /// LibreOffice's program folder on macOS when `--program` is not given.
@@ -110,6 +111,10 @@ class OfficeHostExecutor extends CommandExecutor {
       output: stdout.add,
       log: (line) => stderr.writeln('[tom_office_host $pid] $line'),
       pid: pid,
+    );
+    stderr.writeln(
+      '[tom_office_host $pid] trampoline: '
+      '${trampolineSource ?? 'code asset of the build hook'}',
     );
     final code = await host.serve(stdin);
     await stdout.flush();

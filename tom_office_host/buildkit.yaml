@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../../../.tom/json-schema/buildkit/buildkit.schema.json
+# Tom Build Configuration for tom_office_host
+
+versioner:
+  variable-prefix: officeHost
+
+compiler:
+  compiles:
+    # macOS ARM64 only: the helper runs where LibreOffice runs, and the
+    # prototype targets mbp. `dart build cli` (not `dart compile exe`), since
+    # only it runs the hook that builds the C trampoline. The bundle is
+    # flattened into the binaries layer (DPPK-2): the executable and the
+    # trampoline side by side; the helper loads the trampoline from beside
+    # itself (lib/src/lok/trampoline.dart). The dylib's install name is set
+    # to match, both are re-signed ad hoc, and the copy must answer hello.
+    # Both are written as new files and renamed into place: a signed
+    # executable overwritten in place hangs every later start of it.
+    - pipeline:
+        - shell dart build cli -t %{file}
+        - shell mkdir -p $TOM_BINARY_PATH/%{target-platform-vs}
+        - shell cp build/cli/macos_arm64/bundle/bin/tom_office_host $TOM_BINARY_PATH/%{target-platform-vs}/.tom_office_host.new
+        - shell cp build/cli/macos_arm64/bundle/lib/libtom_office_host_lok.dylib $TOM_BINARY_PATH/%{target-platform-vs}/.libtom_office_host_lok.dylib.new
+        - shell install_name_tool -id @executable_path/libtom_office_host_lok.dylib $TOM_BINARY_PATH/%{target-platform-vs}/.libtom_office_host_lok.dylib.new
+        - shell codesign --force --sign - $TOM_BINARY_PATH/%{target-platform-vs}/.libtom_office_host_lok.dylib.new
+        - shell codesign --force --sign - $TOM_BINARY_PATH/%{target-platform-vs}/.tom_office_host.new
+        - shell mv -f $TOM_BINARY_PATH/%{target-platform-vs}/.libtom_office_host_lok.dylib.new $TOM_BINARY_PATH/%{target-platform-vs}/libtom_office_host_lok.dylib
+        - shell mv -f $TOM_BINARY_PATH/%{target-platform-vs}/.tom_office_host.new $TOM_BINARY_PATH/%{target-platform-vs}/tom_office_host
+        - shell dart run tool/check_hello.dart $TOM_BINARY_PATH/%{target-platform-vs}/tom_office_host --beside
+      files: bin/tom_office_host.dart
+      platforms: [darwin-arm64]
+
+  postcompile:
+    - pipeline:
+        - shell chmod +x $TOM_BINARY_PATH/%{current-platform-vs}/tom_office_host
+      platforms: [darwin-arm64]
