@@ -1,3 +1,8 @@
+## 0.2.0
+
+- `opened` gains `readOnly` (a header without it reads as false) and
+  `lockedBy` (who holds the lock file that made the document read-only).
+
 ## 0.1.0
 
 - Protocol 1 between the office editor and `tom_office_host`: a sealed

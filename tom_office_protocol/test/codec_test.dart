@@ -29,6 +29,17 @@ final List<OfficeMessage> samples = [
     height: 30000,
     tileMode: OfficePixelFormat.bgra,
   ),
+  const OfficeOpened(
+    docType: OfficeDocType.text,
+    parts: 1,
+    partNames: [''],
+    currentPart: 0,
+    width: 11906,
+    height: 16838,
+    tileMode: OfficePixelFormat.bgra,
+    readOnly: true,
+    lockedBy: 'Ann Other',
+  ),
   const OfficePasswordNeeded(toModify: true),
   const OfficePassword(password: 's3cret'),
   const OfficePassword(password: null),
@@ -434,6 +445,21 @@ void main() {
         () => codec.decode(Uint8List.sublistView(big, 0, big.length - 1)),
         refused(OfficeProtocolErrorCode.badLength),
       );
+    });
+
+    test('OFFICE-PROTO-REFUSE-7: an opened header without the 0.2.0 fields '
+        'reads them as absent', () {
+      final m =
+          codec.decode(
+                frame(
+                  OfficeMessageType.opened.code,
+                  '{"docType":"text","parts":1,"partNames":["a"],"currentPart":0,'
+                  '"width":1,"height":2,"tileMode":"bgra"}',
+                ),
+              )
+              as OfficeOpened;
+      expect(m.readOnly, isFalse);
+      expect(m.lockedBy, isNull);
     });
 
     test('OFFICE-PROTO-REFUSE-6: unknown fields are ignored (fields are only '

@@ -212,6 +212,8 @@ sealed class OfficeMessage {
         width: f.int_('width'),
         height: f.int_('height'),
         tileMode: f.enum_('tileMode', OfficePixelFormat.values),
+        readOnly: f.boolOr('readOnly', false),
+        lockedBy: f.stringOrNull('lockedBy'),
       ),
       OfficeMessageType.passwordNeeded => OfficePasswordNeeded(
         toModify: f.bool_('toModify'),
@@ -506,6 +508,8 @@ final class OfficeOpened extends OfficeHelperEvent {
     required this.width,
     required this.height,
     required this.tileMode,
+    this.readOnly = false,
+    this.lockedBy,
   });
 
   /// Text, spreadsheet, presentation or drawing.
@@ -529,6 +533,16 @@ final class OfficeOpened extends OfficeHelperEvent {
   /// The pixel format of the tiles (`getTileMode`).
   final OfficePixelFormat tileMode;
 
+  /// Whether the document is open read-only: asked for in [OfficeOpen], a
+  /// password to modify not given, a lock file of another LibreOffice
+  /// beside it, or LibreOffice reporting `.uno:EditDoc` false. Added in
+  /// 0.2.0; a header without it reads as false.
+  final bool readOnly;
+
+  /// Who holds the lock file (`.~lock.<name>#`) that made it read-only, as
+  /// the lock names them, or `null`.
+  final String? lockedBy;
+
   @override
   OfficeMessageType get messageType => OfficeMessageType.opened;
 
@@ -541,6 +555,8 @@ final class OfficeOpened extends OfficeHelperEvent {
     'width': width,
     'height': height,
     'tileMode': tileMode.name,
+    'readOnly': readOnly,
+    'lockedBy': lockedBy,
   };
 }
 
@@ -1599,6 +1615,13 @@ final class _Fields {
 
   bool bool_(String field) {
     final v = json[field];
+    if (v is bool) return v;
+    _wrong(field, 'a boolean');
+  }
+
+  bool boolOr(String field, bool absent) {
+    final v = json[field];
+    if (v == null && !json.containsKey(field)) return absent;
     if (v is bool) return v;
     _wrong(field, 'a boolean');
   }
