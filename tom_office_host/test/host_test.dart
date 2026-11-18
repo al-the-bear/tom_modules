@@ -42,7 +42,7 @@ class Harness {
   final received = <OfficeMessage>[];
   final _arrived = StreamController<OfficeMessage>.broadcast(sync: true);
   final logLines = <String>[];
-  final profile = Directory('.dart_tool/test_scratch').absolute
+  final profile = Directory('.dart_tool/test_scratch/host_test').absolute
     ..createSync(recursive: true);
   late final Directory profileDir = profile.createTempSync('profile-');
   late final OfficeHost host;
@@ -81,6 +81,11 @@ class Harness {
 
 void main() {
   late Harness h;
+
+  tearDownAll(() {
+    final scratch = Directory('.dart_tool/test_scratch/host_test');
+    if (scratch.existsSync()) scratch.deleteSync(recursive: true);
+  });
 
   setUp(() => h = Harness());
   tearDown(() async {
@@ -691,7 +696,7 @@ void main() {
   });
 
   test('HOST-PROFILE-1: a clean close deletes the profile folder', () async {
-    final dir = Directory('.dart_tool/test_scratch').absolute
+    final dir = Directory('.dart_tool/test_scratch/host_test').absolute
       ..createSync(recursive: true);
     final profile = dir.createTempSync('own-profile-');
     final runtime = FakeRuntime();
