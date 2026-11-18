@@ -1,0 +1,22 @@
+/* Copyright (c) 2026 Peter Nicolai Alexis Kyaw
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * Forge's stylesheet for pdf.js's generic viewer in `integrated` mode: what
+ * the shell does instead is hidden — open, print, download/save, present,
+ * the bookmark and pdf.js's find bar (the shell's find drives pdf.js's
+ * search). Zoom, the sidebar and the annotation tools stay. */
+#openFile,
+#secondaryOpenFile,
+#printButton,
+#secondaryPrint,
+#downloadButton,
+#secondaryDownload,
+#presentationMode,
+#viewBookmark,
+#viewFindButton,
+#viewFind,
+#findbar,
+#editorSignature,
+#editorSignatureButton {
+  display: none !important;
+}

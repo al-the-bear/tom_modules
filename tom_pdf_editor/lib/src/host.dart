@@ -7,9 +7,11 @@ import 'package:tom_file_session/tom_file_session.dart';
 import 'engine/engine.dart';
 import 'engine/library.dart';
 
-/// What the PDF editor asks of the application. It has the shape of
-/// `TomOfficeEditorHost`, so the Forge integration treats both alike.
-abstract interface class TomPdfEditorHost {
+/// What both PDF views ask of the application: the PDFium editor
+/// ([TomPdfEditorHost]) and the pdf.js view (`TomPdfJsView`, `pdfjs.dart`).
+/// It has the shape of `TomOfficeEditorHost`, so the Forge integration treats
+/// every view alike.
+abstract interface class TomPdfViewHost {
   /// The file's name, for notices and history labels.
   String get name;
 
@@ -23,15 +25,6 @@ abstract interface class TomPdfEditorHost {
   /// `dart:io` in a desktop host).
   TomBinaryFiles get files;
 
-  /// Where libpdfium is, or why it cannot be used (`TomPdfiumLocator` in
-  /// `io.dart` answers it).
-  TomPdfiumLibrary get pdfium;
-
-  /// The engine on [library]: in a desktop host `PdfiumEngine.acquire`
-  /// (`pdfium.dart`), one engine shared by every PDF tab. The editor gives
-  /// its share up with [TomPdfEngine.release] when it closes.
-  Future<TomPdfEngine> startEngine(TomPdfiumLibrary library);
-
   /// Shows [message]; [kind] is `info`, `warning` or `error`.
   void notice(BuildContext context, String message, {required String kind});
 
@@ -40,4 +33,17 @@ abstract interface class TomPdfEditorHost {
 
   /// Undo / redo / dirty state changed: the shell refreshes its commands.
   void historyChanged();
+}
+
+/// What the PDFium editor asks of the application besides
+/// [TomPdfViewHost]: the library and the engine.
+abstract interface class TomPdfEditorHost implements TomPdfViewHost {
+  /// Where libpdfium is, or why it cannot be used (`TomPdfiumLocator` in
+  /// `io.dart` answers it).
+  TomPdfiumLibrary get pdfium;
+
+  /// The engine on [library]: in a desktop host `PdfiumEngine.acquire`
+  /// (`pdfium.dart`), one engine shared by every PDF tab. The editor gives
+  /// its share up with [TomPdfEngine.release] when it closes.
+  Future<TomPdfEngine> startEngine(TomPdfiumLibrary library);
 }

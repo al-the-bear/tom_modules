@@ -28,6 +28,14 @@
   tool is chosen; each committed change one history entry, saved
   incrementally; combo and list boxes, push buttons, signatures and
   JavaScript left out; encrypted documents not filled (DPPF-3).
+- `TomPdfJsView` (`pdfjs.dart`): pdf.js 6.5.438 (legacy build, vendored
+  unmodified with its version file) in the webview fork, served by
+  `TomLocalContentServer`, in three modes (`integrated`, `full`,
+  `components`); the bridge both ways through handlers; `saveDocument()`'s
+  bytes POSTed and written through `TomBinaryFiles` with the conflict
+  banner; forms filled by pdf.js; the previous document closed before the
+  next opens; the `[PE:js]` trail. `TomPdfViewHost` is the host both views
+  share; `TomPdfEditorHost` adds the PDFium parts.
 - Redo works after undoing one of several entries (the controller kept the
   newest entry by popping and pushing it, which emptied the redo stack).
 - `TomPdfiumLocator` (`io.dart`): the library from the binaries layer,

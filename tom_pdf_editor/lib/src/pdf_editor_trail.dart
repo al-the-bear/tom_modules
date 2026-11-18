@@ -21,7 +21,12 @@ bool kPdfEditorDebug = false;
 /// Filter the output with the prefix: `flutter run 2>&1 | grep '\[PE'`.
 /// Never pass a search term or a password: searches are logged by length,
 /// passwords as `password <redacted>`.
-void pdfTrail(String event) {
+void pdfTrail(String event) => _trail('PE', event);
+
+/// The pdf.js view's trail: the same flag, the prefix `[PE:js]`.
+void pdfJsTrail(String event) => _trail('PE:js', event);
+
+void _trail(String prefix, String event) {
   if (!kPdfEditorDebug) return;
   final now = DateTime.now();
   final ts =
@@ -29,7 +34,7 @@ void pdfTrail(String event) {
       ':${now.minute.toString().padLeft(2, '0')}'
       ':${now.second.toString().padLeft(2, '0')}'
       '.${now.millisecond.toString().padLeft(3, '0')}';
-  debugPrint('[PE $ts] $event');
+  debugPrint('[$prefix $ts] $event');
 }
 
 /// Reports [error] through [FlutterError.reportError] whether the trail is on

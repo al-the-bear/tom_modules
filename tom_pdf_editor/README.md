@@ -8,9 +8,12 @@ checkboxes, radio buttons), with undo and redo, saved incrementally. A controlle
 what a host drives (open, save, undo, redo, find, the dirty state), in the
 same shape as the office editor's, so a host treats both alike.
 
-License: BSD-3-Clause (see [LICENSE](LICENSE)); PDFium is BSD-3-Clause, with
-permissive third-party code ([THIRD_PARTY.md](THIRD_PARTY.md)). Not published
-(`publish_to: none`).
+Beside it, a second view for comparison: **`TomPdfJsView`**, Mozilla's
+pdf.js in the workspace's webview fork, in three modes the host chooses.
+
+License: BSD-3-Clause (see [LICENSE](LICENSE)); PDFium is BSD-3-Clause, pdf.js
+Apache-2.0, with the third-party parts listed in
+[THIRD_PARTY.md](THIRD_PARTY.md). Not published (`publish_to: none`).
 
 ## Components
 
@@ -25,6 +28,7 @@ permissive third-party code ([THIRD_PARTY.md](THIRD_PARTY.md)). Not published
 | Engine | `lib/src/engine/engine.dart`, `lib/src/pdfium/` | `TomPdfEngine`, positions in view points; `PdfiumEngine`, one worker isolate shared by every PDF tab that makes every PDFium call (PDFium is not thread-safe): renders by priority with cancelling, pages and text pages in a window of 12, search page by page, incremental saves with the cross-reference fix (`xref_fix.dart`: `/Type/XRef` inserted when PDFium leaves it out, so macOS Preview opens the file). |
 | Locator | `lib/src/io/locator.dart` | `TomPdfiumLocator`: `tom_binaries/pdfium/darwin-arm64/libpdfium.dylib` from `TOM_BINARY_PATH`'s parent, refused when its `pdfium.version.json` names another release than the bindings (*PDFium not found*, *PDFium version mismatch*). |
 | Bindings | `lib/src/pdfium/pdfium_bindings.g.dart`, `tool/ffigen.yaml`, `third_party/pdfium/include/` | our own FFIgen bindings (DPPF-1) from the pinned release's headers, only the functions used. |
+| pdf.js view | `lib/src/pdfjs/`, `assets/pdfjs_forge/`, `third_party/pdfjs/6.5.438/` | `TomPdfJsView` and `TomPdfJsController` (`pdfjs.dart`): pdf.js 6.5.438's **legacy** build (the modern one does not start in macOS 15's WKWebView), vendored unmodified as assets, served with Forge's own files by `TomLocalContentServer` (`/<token>/pdfjs/…`, the document at `/<token>/doc/<n>/<name>` with `Range`, the save receiver at `/<token>/save`). **Modes** (`TomPdfJsMode`): `integrated` — the generic viewer with Forge's stylesheet hiding open, print, download, present, bookmark and pdf.js's find bar; `full` — the generic viewer unchanged; `components` — Forge's `components.html` with `pdf_viewer.mjs`'s `PDFViewer`, `PDFLinkService`, `PDFFindController` and annotation editor, and a toolbar drawn in Flutter (tools, undo, redo, zoom, find). The two generic pages are made from pdf.js's `web/viewer.html` and served beside it (its CSP forbids a `<base>`): an options script before the viewer starts (`defaultUrl` empty, `disablePreferences`, `disableHistory`, `enableScripting: false`, `isEvalSupported: false`, `enableXfa: false`, the signature editor off), the bridge after it. **Bridge** (`TomPdfJsChannel`): Dart → page `open`, `close`, `save`, `resetModified`, `undo`, `redo`, `find`, `setTool`, `zoom`, `checkModified` (started, never awaited in the page); page → Dart through the `forge` handler: `ready`, `loaded`, `textLayer`, `modified`, `history`, `findCount`, `saved`, `error`, `openLink`, `passwordRequested`, `shortcut` (Cmd+S, Cmd+F), `trail`. **Saving:** `saveDocument()`'s bytes are POSTed to the site and written through `TomBinaryFiles` (temporary target, replace over an unchanged file, else the conflict banner), then pdf.js's storage is reset and the document reopened. Forms are filled by pdf.js itself. Opening another document closes the previous one first. The history and the dirty state are pdf.js's own. |
 | Debug | `lib/src/pdf_editor_trail.dart` | `kPdfEditorDebug` (switchable at run time), prefix `[PE]`: state changes, engine renders summarised once a second, search (never the term), save steps, focus; the heartbeat and the `FlutterError` intercept while on. |
 
 ## Entry points
@@ -34,12 +38,15 @@ permissive third-party code ([THIRD_PARTY.md](THIRD_PARTY.md)). Not published
 | `package:tom_pdf_editor/tom_pdf_editor.dart` | the widget, controller, host, view, cache, the engine interface | all (no `dart:io`, no `dart:ffi`) |
 | `package:tom_pdf_editor/pdfium.dart` | `PdfiumEngine`, `fixXrefInFile` | desktop (`dart:ffi`, `dart:io`) |
 | `package:tom_pdf_editor/io.dart` | `TomPdfiumLocator` | desktop (`dart:io`) |
-| `package:tom_pdf_editor/testing.dart` | `FakePdfEngine`, `MemoryBinaryFiles`, `FakePdfEditorHost` | all |
+| `package:tom_pdf_editor/pdfjs.dart` | `TomPdfJsView`, `TomPdfJsController`, `TomPdfJsChannel`, `TomPdfJsMode`, `TomPdfJsTool` | desktop (`dart:io`, the webview plugin) |
+| `package:tom_pdf_editor/testing.dart` | `FakePdfEngine`, `MemoryBinaryFiles`, `FakePdfEditorHost`, `FakePdfJsChannel` | all |
 
 ## Dependencies
 
 Flutter, `ffi`, `tom_undo`, `tom_basics`, `path`, `crypto`, `uuid`;
-`tom_file_session` (`TomBinaryFiles`) and `tom_ui_support` by path.
+`tom_file_session` (`TomBinaryFiles`, `TomLocalContentServer`),
+`tom_ui_support` and the webview fork `flutter_inappwebview`
+(`tom_ai/xternal/tom_flutter_inappwebview`) by path.
 
 ## Usage
 
@@ -71,5 +78,16 @@ final controller = TomPdfEditorController(MyPdfHost('/path/to/file.pdf'))..open(
 // TomPdfEditor(controller: controller)
 ```
 
-The example app (`example/`) is a complete desktop host. Building, taking in
+The pdf.js view takes a `TomPdfViewHost` (the host without the PDFium
+parts):
+
+```dart
+final controller = TomPdfJsController(MyPdfHost('/path/to/file.pdf'),
+    mode: TomPdfJsMode.components);
+// TomPdfJsView(controller: controller)
+```
+
+The example app (`example/`) is a complete desktop host
+(`TOM_PDF_VIEW=pdfjs-components|pdfjs-integrated|pdfjs-full` shows the
+pdf.js view). Building, taking in
 a PDFium release and the tests: [_copilot_guidelines/build.md](_copilot_guidelines/build.md).

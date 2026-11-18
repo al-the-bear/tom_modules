@@ -1,0 +1,36 @@
+/* Copyright (c) 2026 Peter Nicolai Alexis Kyaw
+ * SPDX-License-Identifier: BSD-3-Clause */
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: #e6e6e6;
+  font: 13px -apple-system, system-ui, sans-serif;
+}
+#viewerContainer {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+}
+#password {
+  position: absolute;
+  top: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.25);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 320px;
+}
+#password[hidden] {
+  display: none;
+}
+#password .buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

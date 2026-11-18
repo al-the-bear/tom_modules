@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<!-- Copyright (c) 2026 Peter Nicolai Alexis Kyaw
+     SPDX-License-Identifier: BSD-3-Clause
+
+     Forge's own page for the `components` mode: pdf.js's viewer components
+     (pdf_viewer.mjs) without the generic viewer's toolbar; the toolbar is
+     drawn in Flutter above the webview. -->
+<html dir="ltr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; font-src 'self' data:; connect-src 'self' blob: data:; base-uri 'none'; form-action 'none';"
+    />
+    <title>pdf.js</title>
+    <link rel="stylesheet" href="../../components/pdf_viewer.css" />
+    <link rel="stylesheet" href="components.css" />
+    <script src="components.mjs" type="module"></script>
+  </head>
+  <body>
+    <div id="viewerContainer">
+      <div id="viewer" class="pdfViewer"></div>
+    </div>
+    <form id="password" hidden>
+      <label for="passwordField" id="passwordLabel">This PDF is protected. Enter its password:</label>
+      <input type="password" id="passwordField" autocomplete="off" />
+      <div class="buttons">
+        <button type="button" id="passwordCancel">Cancel</button>
+        <button type="submit" id="passwordOpen">Open</button>
+      </div>
+    </form>
+  </body>
+</html>

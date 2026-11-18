@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:tom_file_session/io.dart';
 import 'package:tom_pdf_editor/io.dart';
 import 'package:tom_pdf_editor/pdfium.dart';
+import 'package:tom_pdf_editor/pdfjs.dart';
 import 'package:tom_pdf_editor/tom_pdf_editor.dart';
 
 /// A desktop host: the binaries layer's PDFium, the real file access.
@@ -53,9 +54,37 @@ class DesktopPdfHost implements TomPdfEditorHost {
   void historyChanged() {}
 }
 
+/// `TOM_PDF_VIEW`: `pdfium` (the default) or `pdfjs-components`,
+/// `pdfjs-integrated`, `pdfjs-full` (the pdf.js view in that mode).
 void main() {
   final path = Platform.environment['TOM_PDF_FILE'];
+  final view = Platform.environment['TOM_PDF_VIEW'] ?? 'pdfium';
+  if (view.startsWith('pdfjs') && path != null) {
+    final mode = TomPdfJsMode.values.firstWhere(
+      (m) => view == 'pdfjs-${m.name}',
+      orElse: () => TomPdfJsMode.components,
+    );
+    runApp(
+      PdfJsExampleApp(
+        controller: TomPdfJsController(DesktopPdfHost(path), mode: mode),
+      ),
+    );
+    return;
+  }
   runApp(PdfExampleApp(path: path));
+}
+
+/// The app with the pdf.js view over [controller]'s file.
+class PdfJsExampleApp extends StatelessWidget {
+  const PdfJsExampleApp({super.key, required this.controller});
+
+  /// The pdf.js view's controller.
+  final TomPdfJsController controller;
+
+  @override
+  Widget build(BuildContext context) => MaterialApp(
+    home: Scaffold(body: TomPdfJsView(controller: controller)),
+  );
 }
 
 /// The app: one editor over [path].

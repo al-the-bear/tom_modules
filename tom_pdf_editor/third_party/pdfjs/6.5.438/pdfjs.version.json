@@ -1,0 +1,20 @@
+{
+  "tag": "v6.5.438",
+  "version": "6.5.438",
+  "build": "0a4153349",
+  "viewer": {
+    "asset": "pdfjs-6.5.438-legacy-dist.zip",
+    "url": "https://github.com/mozilla/pdf.js/releases/download/v6.5.438/pdfjs-6.5.438-legacy-dist.zip",
+    "sha256": "55138aa33b5f1f6f68809895338b947f395f344eb6381d424b2420d6daa6a844",
+    "taken": "build/ and web/ (without the source maps)"
+  },
+  "components": {
+    "asset": "pdfjs-dist-6.5.438.tgz",
+    "url": "https://registry.npmjs.org/pdfjs-dist/-/pdfjs-dist-6.5.438.tgz",
+    "sha256": "7461aefcd27c4ef0dd76f9ca5760f09466eb6b3f934432670c12132e7b3d6faa",
+    "integrity": "sha512-vg8Pw1x+AFKy4AMDvhuWl5cOYV8d698UoEANoFFhc79hqXDnZQqnOXoxw3HG907WHOg1JYOvLhP756boddFxpA==",
+    "taken": "package/legacy/web/pdf_viewer.mjs, pdf_viewer.css and images/ as components/, package/LICENSE"
+  },
+  "license": "Apache-2.0",
+  "date": "2026-11-18"
+}

@@ -4,8 +4,10 @@
 /// Test support for the PDF editor: [FakePdfEngine] serves fixed page
 /// images, text and links from [FakePdfDocument]s, [MemoryBinaryFiles] keeps
 /// files in memory, and [FakePdfEditorHost] records what the editor asks of
-/// its host — so the editor's tests run without PDFium.
+/// its host — so the editor's tests run without PDFium; [FakePdfJsChannel]
+/// stands in for the pdf.js view's webview.
 library;
 
 export 'src/testing/fake_engine.dart';
 export 'src/testing/fake_host.dart';
+export 'src/testing/fake_pdfjs_channel.dart';
