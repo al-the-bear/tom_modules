@@ -37,6 +37,10 @@ const kSaveFilters = <String, String>{
   'odg': 'draw8',
 };
 
+/// The formats a save exports to instead of storing the document in: the
+/// document stays the file it was opened from.
+const kExportFormats = {'pdf'};
+
 /// The PDF export filter of each document type.
 const kPdfFilters = <int, String>{
   0: 'writer_pdf_Export',
@@ -605,8 +609,10 @@ class OfficeHost {
     if (password == null) {
       final options = [
         if (save.filterOptions.isNotEmpty) save.filterOptions,
-        // Without it the modified flag stays set.
-        'TakeOwnership',
+        // Without it the modified flag stays set. An export (PDF) keeps the
+        // document where it is: LibreOffice refuses TakeOwnership for it
+        // (0x81a, invalid parameter).
+        if (!kExportFormats.contains(format)) 'TakeOwnership',
       ].join(',');
       ok = doc.saveAs(save.targetPath, format, options);
       if (!ok) error = _office!.lastError() ?? 'saveAs failed';

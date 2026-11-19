@@ -695,7 +695,8 @@ void main() {
       final saved = await h.next<OfficeSaved>();
       expect(saved.ok, isFalse);
       expect(saved.error, isNotNull);
-      expect(h.doc.calls, contains('saveAs /docs/x.pdf pdf A=1,TakeOwnership'));
+      // An export: no TakeOwnership (LibreOffice refuses it for a PDF).
+      expect(h.doc.calls, contains('saveAs /docs/x.pdf pdf A=1'));
     });
   });
 
