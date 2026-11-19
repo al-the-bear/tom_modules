@@ -809,7 +809,10 @@ class _PageListState extends State<_PageList> {
           })
           .catchError((Object e, StackTrace s) {
             _pending.remove(page);
-            pdfReport(e, s, 'thumbnail $page');
+            // A thumbnail the document's closing overtook is no error.
+            if (_c.isOpenDocument(info.handle) && generation == _c.generation) {
+              pdfReport(e, s, 'thumbnail $page');
+            }
           }),
     );
   }

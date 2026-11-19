@@ -213,6 +213,11 @@ class TomPdfEditorController extends ChangeNotifier {
   /// The open document.
   PdfDocumentInfo? get info => _info;
 
+  /// Whether [handle] is the document open now: an engine answer for any
+  /// other (closed, or replaced by a reopen) is dropped, never reported.
+  bool isOpenDocument(int handle) =>
+      _info?.handle == handle && _state != TomPdfEditorState.closed;
+
   /// Why it could not open, or could not continue.
   String? get failure => _failure;
 
@@ -418,7 +423,10 @@ class TomPdfEditorController extends ChangeNotifier {
       }
       notifyListeners();
     } catch (e, s) {
-      pdfReport(e, s, 'checking the text layer');
+      // A check the document's closing overtook is no error.
+      if (isOpenDocument(info.handle)) {
+        pdfReport(e, s, 'checking the text layer');
+      }
     }
   }
 
@@ -755,7 +763,8 @@ class TomPdfEditorController extends ChangeNotifier {
           },
           onError: (Object e, StackTrace s) {
             _searching = false;
-            pdfReport(e, s, 'search');
+            // A search the document's closing overtook is no error.
+            if (isOpenDocument(info.handle)) pdfReport(e, s, 'search');
             notifyListeners();
           },
         );

@@ -10,6 +10,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_pdf_editor/testing.dart';
@@ -1125,6 +1126,48 @@ void main() {
     await rig.settle(tester);
     expect(tester.takeException(), isNull);
     expect(find.byKey(const ValueKey('pdf-undo')), findsOneWidget);
+  });
+
+  testWidgets('PDF-CLOSE-2: closing the controller under a mounted editor '
+      'reports nothing: renders, thumbnails and text requests of the closed '
+      'document are dropped quietly', (tester) async {
+    final rig = _Rig(_textDoc(pages: 40));
+    await rig.pump(tester);
+    expect(rig.controller.state, TomPdfEditorState.open);
+    // Closed while the editor is still shown (the engine lets the document
+    // go at once), then the view and the page list asked for more.
+    final view = tester.state<PdfPageViewState>(find.byType(PdfPageView));
+    final target = view.layout.pageTop(20);
+    final rendersBefore = rig.engine.renders.length;
+    rig.controller.find('reasoning');
+    view.vertical.jumpTo(target);
+    for (final s in tester.stateList<ScrollableState>(
+      find.byType(Scrollable),
+    )) {
+      final p = s.position;
+      if (p.maxScrollExtent > 0 && p.axis == Axis.vertical) {
+        p.jumpTo(p.maxScrollExtent);
+      }
+    }
+    // The frame asks for the new pages and thumbnails; the controller is
+    // closed after it, before the engine has answered them (as PDFium's
+    // worker answers queued renders after a close).
+    late Future<void> closing;
+    SchedulerBinding.instance.addPostFrameCallback(
+      (_) => closing = rig.controller.close(),
+    );
+    await tester.pump();
+    await rig.settle(tester);
+    await tester.runAsync(() => closing);
+    await rig.settle(tester);
+    expect(tester.takeException(), isNull);
+    expect(
+      rig.engine.renders.length,
+      rendersBefore,
+      reason: 'no render of the closed document was answered',
+    );
+    expect(rig.controller.state, TomPdfEditorState.closed);
+    expect(find.byKey(const ValueKey('pdf-failure')), findsOneWidget);
   });
 
   testWidgets('PDF-CLOSE-1: closing gives the engine share up', (tester) async {

@@ -74,3 +74,8 @@
   leaves the tree detaches its channel too, so a later `close()` sends
   nothing to a disposed webview (PDFJS-MAC-CRASH-1, PDFJS-MAC-CLOSE-1/2 in
   the example's macOS integration tests).
+- Closing the PDFium controller while its editor is still shown (as Forge
+  does when a tab closes) reports nothing: no new render, thumbnail or text
+  request starts once the document is closed, and an answer the closing
+  overtook (a thumbnail, a search, the text-layer check) is dropped
+  quietly (`TomPdfEditorController.isOpenDocument`; PDF-CLOSE-2).
