@@ -455,6 +455,9 @@ class TomOfficeEditorController extends ChangeNotifier {
     _contextMenu = null;
     _progress = null;
     _states.clear();
+    _fonts = null;
+    _styleFamilies = null;
+    _lastWindow = null;
     _dirty = _canUndo = _canRedo = false;
   }
 
@@ -477,6 +480,9 @@ class TomOfficeEditorController extends ChangeNotifier {
         officeTrail('-> textInput ${type.name} (${text.length} chars)');
       case OfficePaste(:final mimeType, :final data):
         officeTrail('-> paste $mimeType (${data.length} chars)');
+      case OfficeUno(:final id, :final command, :final args):
+        // The command, never its arguments (they may hold typed text).
+        officeTrail('-> uno #$id $command (${args.length})');
       default:
         officeTrail(
           '-> ${command.messageType.name}'
@@ -545,12 +551,21 @@ class TomOfficeEditorController extends ChangeNotifier {
         _valueWaiters.remove(id)?.complete(json);
       case OfficePong(:final id):
         if (id == _pingId) _pingOpen = false;
-      case OfficeWindowOpened(:final windowId, :final title):
+      case OfficeWindowOpened(
+        :final windowId,
+        :final kind,
+        :final title,
+        :final width,
+        :final height,
+      ):
         // Dialogs are shown by a later part (dialog modes); until then a
-        // dialog would stay invisible and modal, so it is closed at once.
+        // dialog would stay invisible and modal, so it is closed at once,
+        // and the notice says what the helper sent.
+        _lastWindow = event;
         _send(OfficeWindowClose(windowId: windowId));
         _notice(
-          '$title: LibreOffice dialogs are not shown yet',
+          'LibreOffice opened the $kind "$title" ($width × $height); '
+          'dialogs are not shown yet.',
           kind: 'warning',
         );
       case OfficeError(:final id, :final code, :final message):
@@ -1168,6 +1183,13 @@ class TomOfficeEditorController extends ChangeNotifier {
   }
 
   static const _readOnlyCommands = {
+    '.uno:SearchDialog',
+    '.uno:WordCountDialog',
+    '.uno:ControlCodes',
+    '.uno:BrowseView',
+    '.uno:PrintLayout',
+    '.uno:ToggleSheetGrid',
+    '.uno:ViewRowColumnHeaders',
     '.uno:Copy',
     '.uno:SelectAll',
     '.uno:ZoomPlus',
@@ -1237,6 +1259,89 @@ class TomOfficeEditorController extends ChangeNotifier {
   }
 
   // ------------------------------------------------------------- history
+
+  // ------------------------------------------------------------ ribbon
+
+  /// The last window LibreOffice opened (a dialog), as the helper sent it.
+  OfficeWindowOpened? get lastWindow => _lastWindow;
+  OfficeWindowOpened? _lastWindow;
+
+  /// The `STATE_CHANGED` value of [command], or `null` when none came.
+  String? stateOf(String command) => _states[command];
+
+  /// Whether [command] is enabled: anything but `disabled` (a command that
+  /// never sends a state is always enabled).
+  bool isEnabled(String command) => _states[command] != 'disabled';
+
+  /// Whether a toggle [command] is on (`true`).
+  bool isChecked(String command) => _states[command] == 'true';
+
+  final _recent = <int>[];
+
+  /// The colours chosen recently, newest first (at most ten).
+  List<int> get recentColours => List.unmodifiable(_recent);
+
+  final _lastColours = <String, int>{};
+
+  /// The colour [command]'s split button applies, or [fallback].
+  int lastColour(String command, int fallback) =>
+      _lastColours[command] ?? fallback;
+
+  /// Applies [colour] (RGB; −1 is *Automatic*) with [command] and its
+  /// `long` [argument], and remembers it.
+  void applyColour(String command, String argument, int colour) {
+    _lastColours[command] = colour;
+    if (colour >= 0) {
+      _recent
+        ..remove(colour)
+        ..insert(0, colour);
+      if (_recent.length > 10) _recent.removeLast();
+    }
+    uno(command, '{"$argument":{"type":"long","value":$colour}}');
+    notifyListeners();
+  }
+
+  Map<String, List<String>>? _fonts;
+  Map<String, List<String>>? _styleFamilies;
+
+  /// The fonts and each font's sizes (`getCommandValues('.uno:CharFontName')`),
+  /// asked once per document.
+  Future<Map<String, List<String>>> fonts() async =>
+      _fonts ??= await _valuesMap('.uno:CharFontName');
+
+  /// The style families and their styles
+  /// (`getCommandValues('.uno:StyleApply')`).
+  Future<Map<String, List<String>>> styles() async =>
+      _styleFamilies ??= await _valuesMap('.uno:StyleApply');
+
+  Future<Map<String, List<String>>> _valuesMap(String command) async {
+    try {
+      final data = jsonDecode(await commandValues(command));
+      final values = data is Map ? data['commandValues'] : null;
+      if (values is! Map) return const {};
+      return {
+        for (final MapEntry(:key, :value) in values.entries)
+          if (value is List) '$key': [for (final v in value) '$v'],
+      };
+    } catch (e) {
+      officeTrail('values $command: $e');
+      return const {};
+    }
+  }
+
+  /// Opens LibreOffice's Find & Replace (Cmd+F).
+  void find() => uno('.uno:SearchDialog');
+
+  /// *Insert image*: the host's file picker, then `.uno:InsertGraphic`.
+  Future<void> insertImage() async {
+    if (!acceptsEdits) return;
+    final path = await host.pickImage();
+    if (path == null || path.isEmpty) return;
+    uno(
+      '.uno:InsertGraphic',
+      '{"FileName":{"type":"string","value":"${Uri.file(path)}"}}',
+    );
+  }
 
   /// LibreOffice's undo.
   void undo() {

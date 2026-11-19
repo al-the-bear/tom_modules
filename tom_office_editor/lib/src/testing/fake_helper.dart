@@ -34,6 +34,7 @@ class FakeOfficeHelperChannel implements TomOfficeHelperChannel {
     this.clipboard = const {'text/plain;charset=utf-8': 'copied'},
     this.answerPings = true,
     this.answerTiles = true,
+    this.values = const {},
   }) {
     // `hello` goes to the first listener, as a real helper's stdout waits
     // for its reader.
@@ -81,6 +82,9 @@ class FakeOfficeHelperChannel implements TomOfficeHelperChannel {
 
   /// Whether tiles are answered.
   final bool answerTiles;
+
+  /// What `getCommandValues` answers, by command (`{}` for others).
+  final Map<String, String> values;
 
   /// Every command sent, in order.
   final List<OfficeHelperCommand> sent = [];
@@ -199,8 +203,8 @@ class FakeOfficeHelperChannel implements TomOfficeHelperChannel {
         }());
       case OfficeCopy(:final id):
         emit(OfficeClipboard(id: id, data: clipboard));
-      case OfficeCommandValues(:final id):
-        emit(OfficeValues(id: id, json: '{}'));
+      case OfficeCommandValues(:final id, :final command):
+        emit(OfficeValues(id: id, json: values[command] ?? '{}'));
       case OfficePing(:final id):
         if (answerPings) emit(OfficePong(id: id));
       case OfficeClose():

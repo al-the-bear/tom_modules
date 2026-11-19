@@ -5,7 +5,7 @@ description: >-
   controller and host interface; LibreOffice detection and the helper
   launcher (io.dart); a fake helper for tests (testing.dart).
   License: BSD-3-Clause.
-version: 0.1.0
+version: 0.2.0
 publish_to: none
 repository: https://github.com/al-the-bear/tom_modules
 

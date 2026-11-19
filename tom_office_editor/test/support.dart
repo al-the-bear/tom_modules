@@ -71,6 +71,12 @@ class TestHost implements TomOfficeEditorHost {
 
   @override
   void historyChanged() => historyChanges++;
+
+  /// What [pickImage] answers.
+  String? pickedImage = '/pictures/photo.png';
+
+  @override
+  Future<String?> pickImage() async => pickedImage;
 }
 
 /// Pumps [controller]'s editor in a scaffold.

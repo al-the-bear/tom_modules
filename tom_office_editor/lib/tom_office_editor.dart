@@ -22,6 +22,8 @@ export 'src/detection/installation.dart';
 export 'src/helper/helper_channel.dart';
 export 'src/host.dart';
 export 'src/input/vcl_keys.dart';
+export 'src/ribbon/ribbon.dart';
+export 'src/ribbon/ribbon_model.dart';
 export 'src/office_editor_trail.dart'
     show kOfficeEditorDebug, officeTrail, officeReport;
 export 'src/tiles/tile_cache.dart';

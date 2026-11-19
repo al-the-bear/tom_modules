@@ -30,4 +30,8 @@ abstract interface class TomOfficeEditorHost {
 
   /// Undo / redo / dirty state changed: the shell refreshes its commands.
   void historyChanged();
+
+  /// The ribbon's *Insert image*: an image file the user picks, or `null`
+  /// when cancelled.
+  Future<String?> pickImage();
 }

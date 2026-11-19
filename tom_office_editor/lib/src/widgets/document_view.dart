@@ -317,6 +317,11 @@ class TomOfficeDocumentViewState extends State<TomOfficeDocumentView>
         widget.onZoom(100);
         return KeyEventResult.handled;
       }
+      if (key == LogicalKeyboardKey.keyF) {
+        // LibreOffice's Find & Replace.
+        _c.find();
+        return KeyEventResult.handled;
+      }
     }
     final meaning = officeKeyMeaning(
       key,

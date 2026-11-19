@@ -54,6 +54,9 @@ class _Host implements TomOfficeEditorHost {
 
   @override
   void historyChanged() {}
+
+  @override
+  Future<String?> pickImage() async => null;
 }
 
 /// Waits (in real time) until [done] holds.

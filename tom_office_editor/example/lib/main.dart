@@ -285,6 +285,20 @@ class _ExampleHost implements TomOfficeEditorHost {
 
   @override
   void historyChanged() => refresh();
+
+  @override
+  Future<String?> pickImage() async {
+    // The macOS file dialog, through osascript (the example has no file
+    // picker plugin).
+    final result = await Process.run('osascript', [
+      '-e',
+      'POSIX path of (choose file of type {"public.image"} '
+          'with prompt "Insert image")',
+    ]);
+    if (result.exitCode != 0) return null;
+    final path = (result.stdout as String).trim();
+    return path.isEmpty ? null : path;
+  }
 }
 
 /// The launcher when the binaries layer has no helper: it fails to start.

@@ -1,3 +1,17 @@
+## 0.2.0
+
+- The ribbon (`TomOfficeRibbon`, shown by `TomOfficeEditor` unless
+  `showRibbon: false`): tabs and controls per document type, commands with
+  their `STATE_CHANGED` state, dropdowns from `getCommandValues`, colour split
+  buttons with the colour picker, keyboard traversal, *Insert image*, Cmd+F
+  for Find & Replace.
+- `TomOfficeEditorHost.pickImage` (breaking for hosts: implement it).
+- The controller: `stateOf`, `isEnabled`, `isChecked`, `applyColour`,
+  `recentColours`, `fonts`, `styles`, `find`, `insertImage`, `lastWindow`; a
+  dialog's notice names what the helper sent; the trail names each `uno`
+  command (never its arguments).
+- The fake helper answers `getCommandValues` with scripted `values`.
+
 ## 0.1.0
 
 - `TomOfficeEditor` and `TomOfficeEditorController`: one office document

@@ -12,6 +12,8 @@ import '../callbacks.dart';
 import '../controller.dart';
 import '../detection/installation.dart';
 import '../office_editor_trail.dart';
+import '../ribbon/ribbon.dart';
+import '../ribbon/ribbon_model.dart';
 import 'document_view.dart';
 import 'panels.dart';
 
@@ -30,6 +32,7 @@ class TomOfficeEditor extends StatefulWidget {
     this.onChooseLibreOffice,
     this.onOpenLibreOffice,
     this.focusNode,
+    this.showRibbon = true,
   });
 
   /// The document.
@@ -46,6 +49,9 @@ class TomOfficeEditor extends StatefulWidget {
 
   /// The document view's focus node.
   final FocusNode? focusNode;
+
+  /// Whether the ribbon is shown above the document.
+  final bool showRibbon;
 
   @override
   State<TomOfficeEditor> createState() => TomOfficeEditorWidgetState();
@@ -174,6 +180,37 @@ class TomOfficeEditorWidgetState extends State<TomOfficeEditor> {
     await _c.saveAsCopy();
   }
 
+  // ------------------------------------------------------------ ribbon
+
+  void _local(RibbonLocalAction action) {
+    final view = _viewKey.currentState;
+    switch (action) {
+      case RibbonLocalAction.copy:
+        view?.perform(TomOfficeEditCommand.copy);
+      case RibbonLocalAction.cut:
+        view?.perform(TomOfficeEditCommand.cut);
+      case RibbonLocalAction.paste:
+        view?.perform(TomOfficeEditCommand.paste);
+      case RibbonLocalAction.zoomIn:
+      case RibbonLocalAction.zoomOut:
+        final now = _zoom ?? _c.zoom;
+        final up = action == RibbonLocalAction.zoomIn;
+        setState(
+          () => _zoom = up
+              ? kOfficeZoomSteps.firstWhere(
+                  (z) => z > now,
+                  orElse: () => kOfficeZoomSteps.last,
+                )
+              : kOfficeZoomSteps.lastWhere(
+                  (z) => z < now,
+                  orElse: () => kOfficeZoomSteps.first,
+                ),
+        );
+      case RibbonLocalAction.insertImage:
+        unawaited(_c.insertImage());
+    }
+  }
+
   // ----------------------------------------------------- sheet headers
 
   void _onVisible(OfficeTwipRect visible) {
@@ -271,6 +308,7 @@ class TomOfficeEditorWidgetState extends State<TomOfficeEditor> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (widget.showRibbon) TomOfficeRibbon(controller: _c, onLocal: _local),
         if (readOnly != null)
           TomOfficeBar(
             key: const ValueKey('office-read-only'),
