@@ -10,6 +10,13 @@ trail("generic viewer initialised");
 
 installBridge({
   mode: "generic",
+  // For the integration tests and the evaluation harness (forgeBridge.test).
+  get pdfViewer() {
+    return app.pdfViewer;
+  },
+  get findController() {
+    return app.findController;
+  },
   eventBus: app.eventBus,
   async open(url, onPassword) {
     const opening = app.open({ url });

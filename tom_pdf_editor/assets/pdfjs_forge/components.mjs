@@ -74,6 +74,9 @@ const ZOOMS = [0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4];
 installBridge({
   mode: "components",
   eventBus,
+  // For the integration tests and the evaluation harness (forgeBridge.test).
+  pdfViewer,
+  findController,
   async open(url, onPassword) {
     task = pdfjsLib.getDocument({
       url,

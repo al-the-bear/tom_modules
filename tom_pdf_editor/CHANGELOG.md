@@ -64,3 +64,6 @@
   could-not-open panels scroll.
 - The `[PE]` trail's FlutterError line names the widget the error came
   from (`pdfErrorSummary`: message, library, first information line).
+- The bridge's test hooks reach the viewer and its find controller in every
+  mode (`forgeBridge.test.adapter.pdfViewer`, `.findController`), for the
+  integration tests and the PDF routes' evaluation harness.
