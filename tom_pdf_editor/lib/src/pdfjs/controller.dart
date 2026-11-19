@@ -412,9 +412,12 @@ class TomPdfJsController extends ChangeNotifier {
     await channel.load(pageUri);
   }
 
-  /// Lets go of the webview (another controller takes it over): the page's
-  /// messages no longer reach this one.
-  Future<void> detach() async {
+  /// Lets go of the webview (another controller takes it over, or the view
+  /// left the tree and its webview is gone): the page's messages no longer
+  /// reach this one, and nothing is sent to the page. With [channel], only
+  /// when it is the one this controller is attached to.
+  Future<void> detach([TomPdfJsChannel? channel]) async {
+    if (channel != null && !identical(channel, _channel)) return;
     await _messages?.cancel();
     _messages = null;
     _channel = null;
@@ -776,13 +779,21 @@ class TomPdfJsController extends ChangeNotifier {
     _fail('the pdf.js view stopped: its web content process ended');
   }
 
-  /// Loads the page again (after the content process ended).
+  /// Loads the page again (after the content process ended). The view
+  /// shows the failure without its webview, which lets go of the channel:
+  /// then the view makes a new webview, which [attach]es and loads the page.
   Future<void> reload() async {
-    final channel = _channel;
-    if (channel == null || _site == null) return;
+    if (_site == null) return;
     _failure = null;
     _set(TomPdfJsState.starting);
-    await channel.load(pageUri);
+    final channel = _channel;
+    if (channel == null) return;
+    try {
+      await channel.load(pageUri);
+    } catch (e, s) {
+      pdfReport(e, s, 'reloading the pdf.js page');
+      _fail('could not reload the pdf.js view: $e');
+    }
   }
 
   // ------------------------------------------------------------------ close

@@ -67,3 +67,10 @@
 - The bridge's test hooks reach the viewer and its find controller in every
   mode (`forgeBridge.test.adapter.pdfViewer`, `.findController`), for the
   integration tests and the PDF routes' evaluation harness.
+- The pdf.js view after its WebKit content process ended: the failure is
+  shown without the webview, the controller lets go of the dead channel, and
+  `reload()` gets a new webview that loads the page and reopens the
+  document (it called the dead webview before and failed). A view that
+  leaves the tree detaches its channel too, so a later `close()` sends
+  nothing to a disposed webview (PDFJS-MAC-CRASH-1, PDFJS-MAC-CLOSE-1/2 in
+  the example's macOS integration tests).

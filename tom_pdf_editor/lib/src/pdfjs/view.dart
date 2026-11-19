@@ -103,13 +103,28 @@ class TomPdfJsViewState extends State<TomPdfJsView> {
   @override
   void dispose() {
     _unlisten(_c);
+    // The webview goes with this view: the controller must not call into it
+    // (a close after the tab has gone would reach a disposed webview).
+    final channel = _channel;
+    if (channel != null) unawaited(_c.detach(channel));
     _findText.dispose();
     _findFocus.dispose();
     super.dispose();
   }
 
   void _changed() {
+    // A failure is shown without the webview (see build): it leaves the
+    // tree, so the controller lets go of its channel and a reload gets a
+    // new webview.
+    if (_c.state == TomPdfJsState.failed) _webViewGone();
     if (mounted) setState(() {});
+  }
+
+  void _webViewGone() {
+    final channel = _channel;
+    if (channel is! _WebViewChannel) return;
+    _channel = null;
+    unawaited(_c.detach(channel));
   }
 
   /// Evaluates [source] in the page and answers its value: the integration
