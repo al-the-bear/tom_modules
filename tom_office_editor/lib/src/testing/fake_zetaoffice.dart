@@ -122,6 +122,10 @@ class FakeZetaOfficeChannel implements TomZetaOfficeChannel {
   /// Sends [message] as the page would.
   void emit(Map<String, Object?> message) => _messages.add(message);
 
+  /// Says the webview's content process ended, as the real channel does
+  /// when WebKit reports it.
+  void processGone() => _messages.add(const {'type': 'processGone'});
+
   @override
   Stream<Map<String, Object?>> get messages => _messages.stream;
 

@@ -83,7 +83,8 @@ abstract interface class TomZetaOfficeChannel {
   /// The page as the webview shows it (PNG), or null.
   Future<Uint8List?> snapshot();
 
-  /// What the page sent.
+  /// What the page sent, and `{type: processGone}` when the webview's
+  /// content process ended (the page is gone with it).
   Stream<Map<String, Object?>> get messages;
 }
 

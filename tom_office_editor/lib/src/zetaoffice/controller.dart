@@ -289,6 +289,16 @@ class TomZetaOfficeController extends ChangeNotifier {
     }
   }
 
+  /// Lets go of [channel] when it is the attached one (its webview left the
+  /// tree): nothing is sent to it again, and the next start waits for the
+  /// channel [attach] gives.
+  void detach(TomZetaOfficeChannel channel) {
+    if (!identical(_channel, channel)) return;
+    unawaited(_sub?.cancel());
+    _sub = null;
+    _channel = null;
+  }
+
   void _onMessage(Map<String, Object?> m) {
     if (!_pageMessages.isClosed) _pageMessages.add(m);
     final type = m['type'];
@@ -334,16 +344,22 @@ class TomZetaOfficeController extends ChangeNotifier {
       case 'text':
         _reading?.complete('${m['text'] ?? ''}');
         _reading = null;
+      case 'processGone':
+        // Not the page's: the channel says the webview's content process
+        // ended (the system killed it, or it crashed).
+        contentProcessGone();
       case 'error':
         final code = '${m['code'] ?? ''}';
         final message = '${m['message'] ?? ''}';
         zetaTrail('page error $code');
         if (_state == TomZetaOfficeState.starting) {
-          _fail(
-            code == 'notIsolated'
-                ? 'ZetaOffice needs a cross-origin isolated page: $message'
-                : 'ZetaOffice could not start: $message',
-          );
+          _fail(switch (code) {
+            'notIsolated' =>
+              'ZetaOffice needs a cross-origin isolated page: $message',
+            // The document itself: as the LibreOfficeKit route says it.
+            'loadFailed' => '${host.name} could not be opened: $message',
+            _ => 'ZetaOffice could not start: $message',
+          });
         } else {
           _notice(message, kind: 'error');
         }
@@ -414,6 +430,7 @@ class TomZetaOfficeController extends ChangeNotifier {
       final exporting = _exporting;
       if (exporting != null && !ok) {
         _exporting = null;
+        _exportErrorForTest = '${m['error'] ?? 'no reason given'}';
         exporting.complete(null);
         return;
       }
@@ -538,6 +555,7 @@ class TomZetaOfficeController extends ChangeNotifier {
   /// The webview's content process was killed (memory pressure): the
   /// document is gone; the tab says so.
   void contentProcessGone() {
+    if (_state == TomZetaOfficeState.closed) return;
     zetaTrail('content process terminated');
     _startTimer?.cancel();
     final wasDirty = isDirty || _canUndo;
@@ -562,18 +580,25 @@ class TomZetaOfficeController extends ChangeNotifier {
   Future<Uint8List?> exportPdfForTest() async {
     final channel = _channel;
     if (channel == null || _state != TomZetaOfficeState.open) return null;
+    _exportErrorForTest = null;
     final done = _exporting = Completer<Uint8List?>();
     await channel.call('exportPdf');
     return done.future.timeout(
       saveTimeout,
       onTimeout: () {
         _exporting = null;
+        _exportErrorForTest = 'no answer in ${saveTimeout.inSeconds} s';
         return null;
       },
     );
   }
 
   Completer<Uint8List?>? _exporting;
+  String? _exportErrorForTest;
+
+  /// Test hook: why the last [exportPdfForTest] gave null (ZetaOffice's
+  /// error, or that it did not answer), or null after one that exported.
+  String? get exportErrorForTest => _exportErrorForTest;
 
   final _pageMessages = StreamController<Map<String, Object?>>.broadcast();
 

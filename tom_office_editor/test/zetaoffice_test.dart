@@ -328,4 +328,121 @@ void main() {
     );
     await tab.close(tester);
   });
+
+  testWidgets('ZO-11: a content process that ends, as the webview channel '
+      'says it, puts the tab in its process-gone state; Reload opens the '
+      'document again', (tester) async {
+    final tab = _Tab(cache: TomZetaOfficeCacheState.ready);
+    await tab.pump(tester);
+    await tab.loaded(tester);
+    tab.channel.emit({'type': 'modified', 'value': true});
+    await tester.pump();
+    expect(tab.controller.isDirty, isTrue);
+    final loads = tab.channel.loaded.length;
+
+    tab.channel.processGone();
+    await tester.pump();
+    await tester.pump();
+    expect(tab.controller.state, TomZetaOfficeState.processGone);
+    expect(tab.controller.isDirty, isFalse);
+    expect(find.byKey(const ValueKey('zeta-process-gone')), findsOneWidget);
+    expect(
+      tab.host.notices.map((n) => n.$2),
+      contains(contains('unsaved changes are lost')),
+    );
+
+    await _drive(tester, tab.controller.reload());
+    await tester.pump();
+    expect(tab.controller.state, TomZetaOfficeState.starting);
+    expect(tab.channel.loaded.length, loads + 1);
+    await tab.loaded(tester);
+    expect(tab.controller.state, TomZetaOfficeState.open);
+    expect(find.byKey(const ValueKey('zeta-process-gone')), findsNothing);
+    await tab.close(tester);
+  });
+
+  testWidgets('ZO-12: a document LibreOffice cannot read fails as the '
+      'LibreOfficeKit route says it, not as a script error', (tester) async {
+    final tab = _Tab(cache: TomZetaOfficeCacheState.ready);
+    await tab.pump(tester);
+    tab.channel
+      ..emit({'type': 'ready'})
+      ..emit({
+        'type': 'error',
+        'code': 'loadFailed',
+        'message':
+            'LibreOffice found no document in it (the file is damaged or '
+            'not in a format it reads)',
+      });
+    await tester.pump();
+    expect(tab.controller.state, TomZetaOfficeState.failed);
+    expect(
+      tab.controller.error,
+      'report.docx could not be opened: LibreOffice found no document in it '
+      '(the file is damaged or not in a format it reads)',
+    );
+    expect(tab.controller.error, isNot(contains('could not start')));
+    await tab.close(tester);
+  });
+
+  testWidgets('ZO-13: a failed PDF export gives null and keeps the reason; '
+      'one without an answer says so', (tester) async {
+    final tab = _Tab(
+      cache: TomZetaOfficeCacheState.ready,
+      saveTimeout: const Duration(seconds: 1),
+    );
+    await tab.pump(tester);
+    await tab.loaded(tester);
+    tab.channel.onCall = (function, args) {
+      if (function != 'exportPdf') return;
+      tab.channel.emit({
+        'type': 'saved',
+        'ok': false,
+        'copy': true,
+        'error': 'com.sun.star.task.ErrorCodeIOException',
+      });
+    };
+    expect(await _drive(tester, tab.controller.exportPdfForTest()), isNull);
+    expect(
+      tab.controller.exportErrorForTest,
+      'com.sun.star.task.ErrorCodeIOException',
+    );
+
+    tab.channel.onCall = null;
+    final silent = tab.controller.exportPdfForTest();
+    await tester.pump(const Duration(seconds: 2));
+    expect(await _drive(tester, silent), isNull);
+    expect(tab.controller.exportErrorForTest, 'no answer in 1 s');
+    await tab.close(tester);
+  });
+
+  testWidgets('ZO-14: a detached channel gets nothing more; the next start '
+      'loads the page into the channel attached then', (tester) async {
+    final tab = _Tab(cache: TomZetaOfficeCacheState.ready);
+    await tab.pump(tester);
+    await tab.loaded(tester);
+    tab.channel.processGone();
+    await tester.pump();
+    final gone = tab.channel.loaded.length;
+
+    // The webview left the tree with the page: its channel is let go.
+    tab.controller.detach(tab.channel);
+    await _drive(tester, tab.controller.reload());
+    expect(tab.controller.state, TomZetaOfficeState.starting);
+    expect(tab.channel.loaded.length, gone);
+
+    // The new webview attaches its channel and gets the page.
+    final fresh = FakeZetaOfficeChannel();
+    await _drive(tester, tab.controller.attach(fresh));
+    expect(fresh.loaded, [FakeZetaOfficeServing.page]);
+    fresh
+      ..emit({'type': 'ready'})
+      ..emit({'type': 'loaded', 'kind': 'text', 'product': 'ZetaOffice'});
+    await tester.pump();
+    expect(tab.controller.state, TomZetaOfficeState.open);
+    tab.channel.emit({'type': 'modified', 'value': true});
+    await tester.pump();
+    expect(tab.controller.isDirty, isFalse, reason: 'the old channel is gone');
+    await tab.close(tester);
+  });
 }

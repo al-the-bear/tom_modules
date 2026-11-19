@@ -45,8 +45,31 @@ function modified() {
 
 function frame() { return xModel.getCurrentController().getFrame(); }
 
+function unoMessage(e) {
+  let message = String(e);
+  try { message = String(zetajs.getAnyType(zetajs.catchUnoException(e))); } catch (x) { /* plain JS error */ }
+  return message;
+}
+
 function load(url) {
-  xModel = desktop.loadComponentFromURL(url, '_default', 0, []);
+  // A file LibreOffice cannot read yields no model (or an exception): the
+  // load fails with the reason, before anything touches the model.
+  let model;
+  try {
+    model = desktop.loadComponentFromURL(url, '_default', 0, []);
+  } catch (e) {
+    post({ type: 'error', code: 'loadFailed', message: unoMessage(e) });
+    return;
+  }
+  if (!model) {
+    post({
+      type: 'error',
+      code: 'loadFailed',
+      message: 'LibreOffice found no document in it (the file is damaged or not in a format it reads)',
+    });
+    return;
+  }
+  xModel = model;
   xModel.addModifyListener(zetajs.unoObject([css.util.XModifyListener], {
     modified() { modified(); },
     disposing() {},
@@ -70,9 +93,7 @@ function store(copy, url, filter) {
       modified();
     }
   } catch (e) {
-    let message = String(e);
-    try { message = String(zetajs.getAnyType(zetajs.catchUnoException(e))); } catch (x) { /* plain JS error */ }
-    post({ type: 'stored', ok: false, copy, error: message });
+    post({ type: 'stored', ok: false, copy, error: unoMessage(e) });
   }
 }
 

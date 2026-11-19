@@ -43,6 +43,7 @@ class _TomZetaOfficeViewState extends State<TomZetaOfficeView> {
   Timer? _heartbeat;
 
   TomZetaOfficeController get _c => widget.controller;
+  _WebViewChannel? _webChannel;
 
   @override
   void initState() {
@@ -92,18 +93,28 @@ class _TomZetaOfficeViewState extends State<TomZetaOfficeView> {
   }
 
   void _changed() {
+    // A state without the page takes the webview out of the tree, and its
+    // channel dies with it: the controller lets go of it, so the next start
+    // loads the page into the webview made then (it attaches itself).
+    final channel = _webChannel;
+    if (channel != null && !_showsPage(_c.state)) {
+      _webChannel = null;
+      _c.detach(channel);
+    }
     if (mounted) setState(() {});
   }
+
+  static bool _showsPage(TomZetaOfficeState s) =>
+      s == TomZetaOfficeState.starting ||
+      s == TomZetaOfficeState.open ||
+      s == TomZetaOfficeState.saving;
 
   static String _mb(int bytes) => (bytes / 1e6).toStringAsFixed(1);
 
   @override
   Widget build(BuildContext context) {
     final s = _c.state;
-    final showsPage =
-        s == TomZetaOfficeState.starting ||
-        s == TomZetaOfficeState.open ||
-        s == TomZetaOfficeState.saving;
+    final showsPage = _showsPage(s);
     return Stack(
       children: [
         if (showsPage) Positioned.fill(child: _webview()),
@@ -280,7 +291,7 @@ class _TomZetaOfficeViewState extends State<TomZetaOfficeView> {
         useShouldOverrideUrlLoading: true,
       ),
       onWebViewCreated: (web) {
-        final channel = _WebViewChannel(web);
+        final channel = _webChannel = _WebViewChannel(web);
         web.addJavaScriptHandler(
           handlerName: 'forge',
           callback: (args) {
@@ -308,7 +319,18 @@ class _TomZetaOfficeViewState extends State<TomZetaOfficeView> {
           zetaTrail('console: ${message.message}');
         }
       },
-      onWebContentProcessDidTerminate: (web) => _c.contentProcessGone(),
+      // Through the channel, as the page's messages come: the controller
+      // hears it whichever channel it has (a test's fake says it the same
+      // way).
+      onWebContentProcessDidTerminate: (web) {
+        zetaTrail('webview: content process terminated');
+        final channel = _webChannel;
+        if (channel != null) {
+          channel.receive(const {'type': 'processGone'});
+        } else {
+          _c.contentProcessGone();
+        }
+      },
     );
   }
 }
