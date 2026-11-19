@@ -727,6 +727,9 @@ class TomItem {
     this.repeat,
     this.nextRepeat,
     this.repeatCount,
+    this.remind,
+    this.nextRemind,
+    this.remindCount,
     DateTime? completedDate,
     this.completedBy,
     List<String> dependencies = const [],
@@ -925,6 +928,19 @@ class TomItem {
 
   /// How many times it has been done and repeated.
   int? repeatCount;
+
+  /// The rule an open item keeps reminding by (the [repeat] rule forms but
+  /// `manual`); it rings at each moment the rule names until it is done,
+  /// cancelled or the rule ends. Independent of [repeat].
+  TomTodoRepeat? remind;
+
+  /// When the [remind] rule rings next, `yyyy-MM-ddTHH:MM` with `Z` or an
+  /// offset, verbatim; absent once the rule has ended. Written before the
+  /// reminder is sent, so it rings once across devices.
+  String? nextRemind;
+
+  /// How many reminders the [remind] rule has sent.
+  int? remindCount;
 
   /// When it was done; date-only.
   DateTime? get completedDate => _completedDate;
@@ -1202,7 +1218,8 @@ class TomItem {
   }
 
   /// Validates the fields with a form: [estimate], [blockedUntil],
-  /// [nextRepeat], [repeatCount] and the workflow's.
+  /// [nextRepeat], [repeatCount], [remind], [nextRemind], [remindCount] and
+  /// the workflow's.
   void check() {
     if (estimate != null && !_durationRe.hasMatch(estimate!)) {
       throw FormatException(
@@ -1221,6 +1238,22 @@ class TomItem {
     if (repeatCount != null && repeatCount! < 0) {
       throw FormatException(
         'Todo "repeat_count" must be 0 or more: $repeatCount',
+      );
+    }
+    if (remind != null && remind!.rule == TomTodoRepeatRule.manual) {
+      throw const FormatException(
+        'Todo "remind" cannot be manual: a reminder rule names its moments',
+      );
+    }
+    if (nextRemind != null &&
+        !TomTodoRepeat.nextRepeatRe.hasMatch(nextRemind!)) {
+      throw FormatException(
+        'Todo "next_remind" must read yyyy-MM-ddTHH:MM with Z or an offset: "$nextRemind"',
+      );
+    }
+    if (remindCount != null && remindCount! < 0) {
+      throw FormatException(
+        'Todo "remind_count" must be 0 or more: $remindCount',
       );
     }
     workflow?.check();
@@ -1250,6 +1283,9 @@ class TomItem {
     TomTodoRepeat? repeat,
     String? nextRepeat,
     int? repeatCount,
+    TomTodoRepeat? remind,
+    String? nextRemind,
+    int? remindCount,
     DateTime? completedDate,
     String? completedBy,
     List<String>? dependencies,
@@ -1292,6 +1328,9 @@ class TomItem {
     if (repeat != null) next.repeat = repeat.copy();
     if (nextRepeat != null) next.nextRepeat = nextRepeat;
     if (repeatCount != null) next.repeatCount = repeatCount;
+    if (remind != null) next.remind = remind.copy();
+    if (nextRemind != null) next.nextRemind = nextRemind;
+    if (remindCount != null) next.remindCount = remindCount;
     if (completedDate != null) next.completedDate = completedDate;
     if (completedBy != null) next.completedBy = completedBy;
     if (dependencies != null) next.dependencies = List.of(dependencies);
@@ -1390,6 +1429,9 @@ class TomItem {
     'repeat',
     'next_repeat',
     'repeat_count',
+    'remind',
+    'next_remind',
+    'remind_count',
     'completed_date',
     'completed_by',
   ];
@@ -1440,6 +1482,9 @@ class TomItem {
     'repeat',
     'next_repeat',
     'repeat_count',
+    'remind',
+    'next_remind',
+    'remind_count',
     'due_reminded',
     'notes',
     'source',
@@ -1524,6 +1569,9 @@ class TomItem {
       if (repeat != null) 'repeat': repeat!.toMap(),
       'next_repeat': ?nextRepeat,
       'repeat_count': ?repeatCount,
+      if (remind != null) 'remind': remind!.toMap(),
+      'next_remind': ?nextRemind,
+      'remind_count': ?remindCount,
       if (wf.containsKey('due_reminded')) 'due_reminded': wf['due_reminded'],
       'notes': ?notes,
       'source': ?source,
@@ -1626,6 +1674,17 @@ class TomItem {
                 ? map['repeat_count'] as int
                 : throw FormatException(
                     'Todo "repeat_count" must be a whole number, not "${map['repeat_count']}"',
+                  )),
+      remind: map['remind'] == null
+          ? null
+          : TomTodoRepeat.fromMap(map['remind'] as Map),
+      nextRemind: map['next_remind']?.toString(),
+      remindCount: map['remind_count'] == null
+          ? null
+          : (map['remind_count'] is int
+                ? map['remind_count'] as int
+                : throw FormatException(
+                    'Todo "remind_count" must be a whole number, not "${map['remind_count']}"',
                   )),
       completedDate: _date(map, 'completed_date'),
       completedBy: map['completed_by'] as String?,

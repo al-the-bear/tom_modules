@@ -1,3 +1,10 @@
+## 0.3.1
+
+- A PDF export (`saveAs` to `pdf`) no longer passes `TakeOwnership`:
+  LibreOffice refused the export with 0x81a, and an export must not make
+  the PDF the document's file anyway. Other `saveAs` calls still take
+  ownership.
+
 ## 0.3.0
 
 - `WINDOW` callbacks carry what the editor needs to show a dialog: a child

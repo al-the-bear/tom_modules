@@ -333,6 +333,16 @@ class _WebViewChannel implements TomZetaOfficeChannel {
     final call =
         'window.forgeBridge && window.forgeBridge.$function'
         '(${args.map(jsonEncode).join(', ')}); void 0;';
-    await web.evaluateJavascript(source: call);
+    // A page that does not answer (ZetaOffice's event loop stalled) must not
+    // hang the caller: the bridge's calls answer through messages anyway.
+    await web
+        .evaluateJavascript(source: call)
+        .timeout(_callTimeout, onTimeout: () => null);
   }
+
+  static const _callTimeout = Duration(seconds: 10);
+
+  @override
+  Future<Uint8List?> snapshot() =>
+      web.takeScreenshot().timeout(_callTimeout, onTimeout: () => null);
 }

@@ -128,6 +128,12 @@ class FakeZetaOfficeChannel implements TomZetaOfficeChannel {
   @override
   Future<void> load(Uri page) async => loaded.add(page);
 
+  /// What [snapshot] answers.
+  Uint8List? snapshotBytes;
+
+  @override
+  Future<Uint8List?> snapshot() async => snapshotBytes;
+
   @override
   Future<void> call(String function, [List<Object?> args = const []]) async {
     calls.add(args.isEmpty ? function : '$function(${args.join(', ')})');

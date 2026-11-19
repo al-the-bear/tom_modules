@@ -308,4 +308,24 @@ void main() {
     expect(tab.controller.error, contains('did not show the document'));
     await tab.close(tester);
   });
+
+  testWidgets('ZO-10: the PDF export test hook hands the exported bytes back '
+      'and writes no copy', (tester) async {
+    final tab = _Tab(cache: TomZetaOfficeCacheState.ready);
+    await tab.pump(tester);
+    await tab.loaded(tester);
+    tab.channel.onCall = (function, args) async {
+      if (function != 'exportPdf') return;
+      await tab.serving.postCopy(utf8.encode('%PDF-zeta'));
+      tab.channel.emit({'type': 'saved', 'ok': true, 'copy': true});
+    };
+    final bytes = await _drive(tester, tab.controller.exportPdfForTest());
+    expect(utf8.decode(bytes!), '%PDF-zeta');
+    expect(tab.channel.calls, contains('exportPdf'));
+    expect(
+      await tab.host.fs.exists(tab.host.fs.uriOf('/docs/report (copy).docx')),
+      isFalse,
+    );
+    await tab.close(tester);
+  });
 }

@@ -290,6 +290,7 @@ class TomZetaOfficeController extends ChangeNotifier {
   }
 
   void _onMessage(Map<String, Object?> m) {
+    if (!_pageMessages.isClosed) _pageMessages.add(m);
     final type = m['type'];
     if (type != 'trail' && type != 'status') zetaTrail('<- $type');
     switch (type) {
@@ -410,6 +411,13 @@ class TomZetaOfficeController extends ChangeNotifier {
     final copy = m['copy'] == true;
     final ok = m['ok'] == true;
     if (copy) {
+      final exporting = _exporting;
+      if (exporting != null && !ok) {
+        _exporting = null;
+        exporting.complete(null);
+        return;
+      }
+      if (exporting != null) return; // the bytes complete it
       final waiting = _copying;
       _copying = null;
       if (!ok) {
@@ -470,6 +478,12 @@ class TomZetaOfficeController extends ChangeNotifier {
   }
 
   Future<void> _receiveCopy(Uint8List bytes) async {
+    final exporting = _exporting;
+    if (exporting != null) {
+      _exporting = null;
+      exporting.complete(bytes);
+      return;
+    }
     final temporary = await host.files.temporaryTarget(host.filePath);
     final written = await host.files.save(
       temporary,
@@ -542,6 +556,38 @@ class TomZetaOfficeController extends ChangeNotifier {
   /// Test hook: inserts [text] at the start of the document through UNO.
   Future<void> editForTest(String text) async => _channel?.call('edit', [text]);
 
+  /// Test hook: the document as a PDF exported by ZetaOffice (`storeToURL`
+  /// with the kind's PDF filter); null when it failed or did not answer in
+  /// [saveTimeout]. The evaluation compares ZetaOffice's rendering with it.
+  Future<Uint8List?> exportPdfForTest() async {
+    final channel = _channel;
+    if (channel == null || _state != TomZetaOfficeState.open) return null;
+    final done = _exporting = Completer<Uint8List?>();
+    await channel.call('exportPdf');
+    return done.future.timeout(
+      saveTimeout,
+      onTimeout: () {
+        _exporting = null;
+        return null;
+      },
+    );
+  }
+
+  Completer<Uint8List?>? _exporting;
+
+  final _pageMessages = StreamController<Map<String, Object?>>.broadcast();
+
+  /// Test hook: every message the page sends, as it arrives (the
+  /// evaluation's measuring scripts answer through it).
+  Stream<Map<String, Object?>> get pageMessagesForTest => _pageMessages.stream;
+
+  /// Test hook: the page as the webview shows it (PNG), or null.
+  Future<Uint8List?> snapshotForTest() async => _channel?.snapshot();
+
+  /// Test hook: runs [source] in the page.
+  Future<void> runInPageForTest(String source) async =>
+      _channel?.call('run', [source]);
+
   /// Test hook: the document's text (a text document's body, a sheet's A1,
   /// a slide's first shape).
   Future<String> readForTest() async {
@@ -565,6 +611,7 @@ class TomZetaOfficeController extends ChangeNotifier {
   void dispose() {
     if (_state != TomZetaOfficeState.closed) unawaited(close());
     unawaited(_notices.close());
+    unawaited(_pageMessages.close());
     super.dispose();
   }
 }
