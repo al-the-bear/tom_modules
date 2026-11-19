@@ -1,0 +1,31 @@
+name: tom_office_editor_example
+description: >-
+  The office editor in a window: opens a sample DOCX, XLSX or PPTX (or the
+  file in TOM_OFFICE_FILE) with the installed LibreOffice and the helper from
+  the binaries layer, edits and saves it.
+publish_to: none
+version: 0.1.0
+
+environment:
+  sdk: ^3.10.8
+
+dependencies:
+  flutter:
+    sdk: flutter
+  path: ^1.9.0
+  tom_file_session:
+    path: ../../tom_file_session
+  tom_office_editor:
+    path: ..
+  tom_ui_support:
+    path: ../../tom_ui_support
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
