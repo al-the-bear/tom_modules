@@ -1,7 +1,7 @@
 // zeta.js from https://github.com/allotropia/zetajs (source/zeta.js), commit
 // b3dec98af5dc4c059a260afd6db0bf0fe38c6384, unmodified below this header.
 // MIT License, Copyright (c) 2024 allotropia software GmbH and contributors;
-// the licence text is in zeta.js.LICENSE beside it.
+// the licence text is in LICENSE.zetajs beside it.
 /* -*- Mode: JS; tab-width: 2; indent-tabs-mode: nil; js-indent-level: 2; fill-column: 100 -*- */
 // SPDX-License-Identifier: MIT
 
