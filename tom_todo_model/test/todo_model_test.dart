@@ -53,6 +53,13 @@ TomTodo everyField() => TomTodo(
   ),
   nextRepeat: '2026-11-27T10:00+01:00',
   repeatCount: 2,
+  remind: TomTodoRepeat(
+    rule: TomTodoRepeatRule.weekly,
+    weekdays: ['mon'],
+    time: '09:00',
+  ),
+  nextRemind: '2026-11-23T09:00+01:00',
+  remindCount: 1,
   dueReminded: '2026-10-20T09:00+02:00',
   notes: 'Ask Ada first.',
   created: DateTime.utc(2026, 10, 1),
@@ -92,9 +99,9 @@ TomTodo everyField() => TomTodo(
 
 void main() {
   group('WONETESTA5-A the codec', () {
-    test('WONETESTA5-01: the closed field set is the schema\'s 59 fields; '
+    test('WONETESTA5-01: the closed field set is the schema\'s 62 fields; '
         'the 3.x fields are emitted in the 3.x order [1011]', () {
-      expect(TomItem.fields, hasLength(59));
+      expect(TomItem.fields, hasLength(62));
       final threeX = everyField().toMap().keys.toList();
       expect(
         TomItem.fields.where(threeX.contains).toList(),
@@ -122,6 +129,9 @@ void main() {
         'repeat',
         'next_repeat',
         'repeat_count',
+        'remind',
+        'next_remind',
+        'remind_count',
         'due_reminded',
         'notes',
         'created',

@@ -9,9 +9,10 @@ document section.
   `id`, the stored `itemTypes`, `headline`, `summary`, `description`
   (Markdown: CommonMark with the GitHub extensions), `categories`, `tags`,
   the todo fields (`status`, `priority`, `flag`, `start`, `due`, `estimate`,
-  `reminders`, `repeat`, `nextRepeat`, `repeatCount`, `completedDate`,
-  `completedBy`), the dependency fields (`dependencies`, `blockedBy`,
-  `blocking`, `blockedUntil`, `comprisedOf`), `assignees`, `memberships`,
+  `reminders`, `repeat`, `nextRepeat`, `repeatCount`, `remind`,
+  `nextRemind`, `remindCount`, `completedDate`, `completedBy`), the
+  dependency fields (`dependencies`, `blockedBy`, `blocking`,
+  `blockedUntil`, `comprisedOf`), `assignees`, `memberships`,
   `links` (`external`, the todo schema's `references`, and `related`),
   `source`, `notes`, `created`, `updated`, `author`, `editedBy`, and the body
   (`bodyType`, a MIME type; `body`; `presentation`; `template`). The four

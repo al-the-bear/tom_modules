@@ -1,3 +1,14 @@
+## 4.1.0
+
+The reminder schedule: a todo can keep reminding while it is open.
+
+- `TomItem.remind` (`TomTodoRepeat`): the rule an open item rings by — the
+  `repeat` rule forms but `manual` (refused by `check`) — independent of
+  `repeat`; `nextRemind` (the next moment, `yyyy-MM-ddTHH:MM` with `Z` or an
+  offset, absent once the rule has ended) and `remindCount` (the reminders
+  sent). Planning fields (D1 §3.5.1), written after `repeat_count` in the flat
+  todo-file form, which now has 62 keys.
+
 ## 4.0.0
 
 The item model: `TomItem`, one record for whatever can have a status, a
