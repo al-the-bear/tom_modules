@@ -75,8 +75,13 @@ abstract interface class TomZetaOfficeChannel {
   /// Loads [page].
   Future<void> load(Uri page);
 
-  /// Calls `window.forgeBridge.<function>(...args)` in the page.
+  /// Calls `window.forgeBridge.<function>(...args)` in the page; completes
+  /// once the page took the call, or after a few seconds when it does not
+  /// answer (a page that hangs never hangs its caller).
   Future<void> call(String function, [List<Object?> args = const []]);
+
+  /// The page as the webview shows it (PNG), or null.
+  Future<Uint8List?> snapshot();
 
   /// What the page sent.
   Stream<Map<String, Object?>> get messages;

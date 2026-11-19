@@ -1,3 +1,14 @@
+## 0.4.1
+
+- ZetaOffice: a bridge call the page does not answer (its event loop
+  stalled, e.g. while the window cannot be seen) no longer hangs the caller:
+  `TomZetaOfficeChannel.call` gives up after ten seconds, so `save()` and the
+  others reach their own timeouts.
+- `TomZetaOfficeChannel.snapshot` and the controller's test hooks for the
+  office evaluation: `exportPdfForTest` (the document as ZetaOffice's PDF
+  export), `runInPageForTest` and `pageMessagesForTest` (measuring scripts in
+  the page), `snapshotForTest` (the webview's image).
+
 ## 0.4.0
 
 - ZetaOffice in the webview (`package:tom_office_editor/zetaoffice.dart`):

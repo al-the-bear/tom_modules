@@ -67,6 +67,11 @@
     odp: 'impress8', doc: 'MS Word 97', xls: 'MS Excel 97',
     ppt: 'MS PowerPoint 97', rtf: 'Rich Text Format', csv: 'Text - txt - csv (StarCalc)',
   };
+  const pdfFilters = {
+    docx: 'writer_pdf_Export', odt: 'writer_pdf_Export', doc: 'writer_pdf_Export', rtf: 'writer_pdf_Export',
+    xlsx: 'calc_pdf_Export', ods: 'calc_pdf_Export', xls: 'calc_pdf_Export', csv: 'calc_pdf_Export',
+    pptx: 'impress_pdf_Export', odp: 'impress_pdf_Export', ppt: 'impress_pdf_Export',
+  };
   const ext = name.includes('.') ? name.split('.').pop().toLowerCase() : '';
 
   window.forgeBridge = {
@@ -79,6 +84,14 @@
     // Test hooks: an edit through UNO, and the text read back.
     edit(text) { send({ cmd: 'edit', text: String(text) }); },
     read() { send({ cmd: 'read' }); },
+    // Test hook: runs [source] in the page (the evaluation's measuring
+    // scripts post their results through the forge handler themselves).
+    run(source) { (0, eval)(String(source)); },
+    // Test hook: a PDF copy in the document kind's PDF filter (the
+    // evaluation compares ZetaOffice's rendering through it).
+    exportPdf() {
+      send({ cmd: 'saveCopy', url: 'file://' + dir + '/copy/export.pdf', filter: pdfFilters[ext] || 'writer_pdf_Export' });
+    },
   };
 
   async function postBytes(url, path) {
