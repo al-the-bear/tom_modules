@@ -1,3 +1,11 @@
+## 0.2.0
+
+- `open` takes `filterOptions` (protocol package 0.3.0): the load options
+  are `Language=<tag>`, which LibreOfficeKit reads (the JSON form before was
+  handed to the import filter instead), with the filter options and
+  `Batch=true` in front when given, so a CSV file opens with its separator
+  and encoding and without the Text Import dialog, which blocked the load.
+
 ## 0.1.0
 
 - The LibreOfficeKit helper: one document per process, protocol 1

@@ -20,6 +20,11 @@ final List<OfficeMessage> samples = [
     readOnly: true,
     language: 'de-DE',
   ),
+  const OfficeOpen(
+    path: '/docs/data.csv',
+    language: 'en-US',
+    filterOptions: '44,34,76,1',
+  ),
   const OfficeOpened(
     docType: OfficeDocType.spreadsheet,
     parts: 3,

@@ -203,6 +203,7 @@ sealed class OfficeMessage {
         path: f.string('path'),
         readOnly: f.bool_('readOnly'),
         language: f.string('language'),
+        filterOptions: f.stringOr('filterOptions', ''),
       ),
       OfficeMessageType.opened => OfficeOpened(
         docType: f.enum_('docType', OfficeDocType.values),
@@ -475,6 +476,7 @@ final class OfficeOpen extends OfficeHelperCommand {
     required this.path,
     this.readOnly = false,
     required this.language,
+    this.filterOptions = '',
   });
 
   /// The document's absolute path.
@@ -486,6 +488,12 @@ final class OfficeOpen extends OfficeHelperCommand {
   /// The language for the load options, e.g. `en-US`.
   final String language;
 
+  /// The import filter's options, e.g. `44,34,76,1` for a CSV file (comma,
+  /// double quote, UTF-8, from line 1), since LibreOfficeKit shows no import
+  /// dialog; empty for the filter's defaults. Added in 0.3.0; a header
+  /// without it reads as empty.
+  final String filterOptions;
+
   @override
   OfficeMessageType get messageType => OfficeMessageType.open;
 
@@ -494,6 +502,7 @@ final class OfficeOpen extends OfficeHelperCommand {
     'path': path,
     'readOnly': readOnly,
     'language': language,
+    'filterOptions': filterOptions,
   };
 }
 
@@ -1624,6 +1633,13 @@ final class _Fields {
     if (v == null && !json.containsKey(field)) return absent;
     if (v is bool) return v;
     _wrong(field, 'a boolean');
+  }
+
+  String stringOr(String field, String absent) {
+    final v = json[field];
+    if (v == null && !json.containsKey(field)) return absent;
+    if (v is String) return v;
+    _wrong(field, 'a string');
   }
 
   String string(String field) {

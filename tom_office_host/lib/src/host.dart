@@ -478,7 +478,7 @@ class OfficeHost {
     _editDocFalse = false;
     office.armPasswordAnswer(password);
     final watch = Stopwatch()..start();
-    final doc = office.load(open.path, jsonEncode({'Language': open.language}));
+    final doc = office.load(open.path, loadOptions(open));
     final asked = runtime.passwordAsked;
     if (doc == null) {
       if (asked & 1 != 0) {
@@ -792,3 +792,14 @@ final class _Refused implements Exception {
   final String code;
   final String message;
 }
+
+/// The options string of `documentLoadWithOptions` for [open].
+/// LibreOfficeKit takes `Name=value` pairs it knows (`Language`, `Batch`) out
+/// of it and hands the rest to the import filter as its `FilterOptions`.
+/// With filter options (a CSV file's separator, quote, encoding and first
+/// line) the load also runs as `Batch=true`: otherwise LibreOffice shows its
+/// Text Import dialog and the load never returns. Without them it stays
+/// interactive, so the password callbacks still come.
+String loadOptions(OfficeOpen open) => open.filterOptions.isEmpty
+    ? 'Language=${open.language}'
+    : 'Batch=true,${open.filterOptions},Language=${open.language}';

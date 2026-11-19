@@ -140,9 +140,26 @@ void main() {
       expect(opened.readOnly, isFalse);
       expect(
         h.runtime.office!.loads.single,
-        '/docs/report.xlsx {"Language":"en-US"}',
+        '/docs/report.xlsx Language=en-US',
       );
       expect(h.doc.calls, contains('initializeForRendering'));
+    });
+
+    test('HOST-OPEN-6: filter options come first, with Batch', () {
+      expect(
+        loadOptions(const OfficeOpen(path: '/d/a.docx', language: 'de-DE')),
+        'Language=de-DE',
+      );
+      expect(
+        loadOptions(
+          const OfficeOpen(
+            path: '/d/a.csv',
+            language: 'en-US',
+            filterOptions: '59,34,76,1',
+          ),
+        ),
+        'Batch=true,59,34,76,1,Language=en-US',
+      );
     });
 
     test('HOST-OPEN-2: a load error is an error message', () async {

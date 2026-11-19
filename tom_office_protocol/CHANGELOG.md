@@ -1,3 +1,9 @@
+## 0.3.0
+
+- `open` gains `filterOptions`, the import filter's options (a CSV file's
+  separator, quote, encoding and first line); a header without it reads as
+  empty.
+
 ## 0.2.0
 
 - `opened` gains `readOnly` (a header without it reads as false) and

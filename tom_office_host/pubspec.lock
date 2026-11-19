@@ -655,7 +655,7 @@ packages:
       path: "../../basics/tom_build_base"
       relative: true
     source: path
-    version: "2.42.0"
+    version: "2.44.0"
   tom_dcli:
     dependency: transitive
     description:
@@ -670,7 +670,7 @@ packages:
       path: "../tom_office_protocol"
       relative: true
     source: path
-    version: "0.2.0"
+    version: "0.3.0"
   typed_data:
     dependency: transitive
     description:

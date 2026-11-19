@@ -362,4 +362,42 @@ void main() {
     },
     skip: _skip,
   );
+
+  test('OFFICE-HOST-LO-4: a CSV file opens with its filter options and saves '
+      'with others', () async {
+    final csv = File('${scratch.path}/data.csv')
+      ..writeAsStringSync('name;amount\nAnna;1,5\nBob;2\n');
+    final h = await Helper.start(scratch);
+    final hello = await h.next<OfficeHello>(
+      timeout: const Duration(minutes: 2),
+    );
+    OfficeProtocolCodec.checkHello(hello);
+    h.send(
+      OfficeOpen(
+        path: csv.path,
+        language: 'en-US',
+        filterOptions: '59,34,76,1',
+      ),
+    );
+    final opened = await h.next<OfficeOpened>();
+    expect(opened.docType, OfficeDocType.spreadsheet);
+    final target = '${scratch.path}/.data.csv.tom-save-1';
+    final id = h.nextId;
+    h.send(
+      OfficeSave(
+        id: id,
+        targetPath: target,
+        format: 'csv',
+        filterOptions: '44,34,76,1,,0,false',
+      ),
+    );
+    final saved = await h.next<OfficeSaved>(where: (s) => s.id == id);
+    expect(saved.ok, isTrue, reason: '${saved.error}');
+    expect(
+      File(target).readAsStringSync(),
+      'name,amount\nAnna,"1,5"\nBob,2\n',
+      reason: 'the semicolons were read as separators, the commas written',
+    );
+    expect(await h.close(), 0);
+  }, skip: _skip);
 }
