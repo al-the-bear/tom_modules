@@ -1,0 +1,23 @@
+name: tom_ui_controls
+description: >-
+  Flutter controls for any application: a generic tree view with its
+  controller and theme, split panels with draggable separators, a search and
+  replace box, small action buttons and collapse toggles, and validation
+  markers with their error model. License: BSD-3-Clause.
+version: 0.1.0
+repository: https://github.com/al-the-bear/tom_modules
+
+environment:
+  sdk: ^3.10.8
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

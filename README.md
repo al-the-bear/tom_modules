@@ -20,6 +20,7 @@ applications share, each package one purpose:
 | Package | What it is |
 | --- | --- |
 | [`tom_ui_support`](tom_ui_support/) | Colours kept readable (WCAG AA), the editing-surface marker, the notice queue, running a change after the frame. |
+| [`tom_ui_controls`](tom_ui_controls/) | The tree view with its controller and theme, split panels with draggable separators, the search and replace box, small action buttons and collapse toggles, validation markers with their error model. |
 | [`tom_ui_testing`](tom_ui_testing/) | Test support: the golden harness (real fonts, content, contrast and machine-path checks) and `tester.pumpUntil`. |
 | [`tom_host_ui`](tom_host_ui/) | Copy with formatting, the protected-value clipboard binding, printing HTML through the platform's dialog; desktop and browser. |
 | [`tom_credentials_ui`](tom_credentials_ui/) | Key and token prompts, the sign-in item, the platform keychain as a secret store. |

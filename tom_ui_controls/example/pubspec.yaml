@@ -1,0 +1,22 @@
+name: tom_ui_controls_example
+description: >-
+  A tree in a split panel with a search box filtering it, over tom_ui_controls.
+publish_to: none
+version: 0.1.0
+
+environment:
+  sdk: ^3.10.8
+
+dependencies:
+  flutter:
+    sdk: flutter
+  tom_ui_controls:
+    path: ..
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
