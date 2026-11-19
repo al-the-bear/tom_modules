@@ -35,9 +35,6 @@ class TomFileSystemBinaryFiles implements TomBinaryFileBytes {
 
   Uri _uri(String path) => fileSystem.uriOf(path);
 
-  static TomFileRevision _revision(fs.TomFileRevision r) =>
-      TomFileRevision(size: r.size, modified: r.modified, sha256: r.sha256);
-
   Future<fs.TomFileContent?> _read(String path) async {
     final uri = _uri(path);
     if (!await fileSystem.exists(uri)) return null;
@@ -50,7 +47,7 @@ class TomFileSystemBinaryFiles implements TomBinaryFileBytes {
   @override
   Future<TomFileRevision?> revisionOf(String path) async {
     final content = await _read(path);
-    return content == null ? null : _revision(content.revision);
+    return content?.revision;
   }
 
   /// A file system says nothing of permissions: a file that exists is taken
@@ -85,7 +82,7 @@ class TomFileSystemBinaryFiles implements TomBinaryFileBytes {
     bool force = false,
   }) async {
     final current = await _read(original);
-    final now = current == null ? null : _revision(current.revision);
+    final now = current?.revision;
     final unchanged = expectedRevision == null
         ? now == null
         : now != null && now.sameContent(expectedRevision);
@@ -97,7 +94,7 @@ class TomFileSystemBinaryFiles implements TomBinaryFileBytes {
       );
     }
     final bytes = (await fileSystem.read(_uri(temporary))).bytes;
-    final fs.TomFileRevision written;
+    final TomFileRevision written;
     try {
       written = await fileSystem.write(
         _uri(original),
@@ -107,14 +104,14 @@ class TomFileSystemBinaryFiles implements TomBinaryFileBytes {
     } on fs.TomFileConflict catch (e) {
       return TomBinaryReplaceResult(
         TomBinaryReplaceOutcome.conflict,
-        e.current == null ? null : _revision(e.current!),
+        e.current,
         temporary,
       );
     }
     await fileSystem.delete(_uri(temporary));
     return TomBinaryReplaceResult(
       TomBinaryReplaceOutcome.replaced,
-      _revision(written),
+      written,
       temporary,
     );
   }

@@ -1,3 +1,13 @@
+## 1.9.0
+
+- The binary save rules use `tom_file_system`'s `TomFileRevision`, which
+  the main library and `io.dart` re-export, instead of a class of the same
+  name of their own: a library that imports both packages saw two
+  declarations and did not compile. `sameContent` is now the extension
+  `TomFileRevisionContent`. Two revisions are equal when their bytes are
+  (size and SHA-256), as `tom_file_system` defines it; the modification
+  time is no longer compared.
+
 ## 1.8.0
 
 - `TomFileSystemBinaryFiles`: the binary save rules (`TomBinaryFiles`) over

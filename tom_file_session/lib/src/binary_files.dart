@@ -1,47 +1,20 @@
 import 'package:meta/meta.dart';
+import 'package:tom_file_system/tom_file_system.dart' show TomFileRevision;
 
-/// What a file was when it was read: its size, modification time and the
-/// SHA-256 of its bytes.
+export 'package:tom_file_system/tom_file_system.dart' show TomFileRevision;
+
+/// The revision of a binary file is `tom_file_system`'s [TomFileRevision]
+/// (size, modification time, SHA-256), the same type the editing session and
+/// every file system use, so a library that imports both packages sees one
+/// declaration.
 ///
-/// Two revisions are equal when all three agree. Whether a file changed for a
-/// save is decided by [sameContent]: a file touched without a change to its
-/// bytes is still the file that was read.
-@immutable
-final class TomFileRevision {
-  /// A revision from its parts.
-  const TomFileRevision({
-    required this.size,
-    required this.modified,
-    required this.sha256,
-  });
-
-  /// The size in bytes.
-  final int size;
-
-  /// The modification time.
-  final DateTime modified;
-
-  /// The SHA-256 of the bytes, lower-case hexadecimal.
-  final String sha256;
-
+/// Whether a file changed for a save is decided by
+/// [TomFileRevisionContent.sameContent]: a file touched without a change to
+/// its bytes is still the file that was read.
+extension TomFileRevisionContent on TomFileRevision {
   /// Whether [other] has the same bytes: the same size and SHA-256.
   bool sameContent(TomFileRevision other) =>
       size == other.size && sha256 == other.sha256;
-
-  @override
-  bool operator ==(Object other) =>
-      other is TomFileRevision &&
-      other.size == size &&
-      other.modified == modified &&
-      other.sha256 == sha256;
-
-  @override
-  int get hashCode => Object.hash(size, modified, sha256);
-
-  @override
-  String toString() =>
-      'TomFileRevision($size bytes, ${modified.toIso8601String()}, '
-      '${sha256.substring(0, 12)}…)';
 }
 
 /// How [TomBinaryFileAccess.replace] ended.

@@ -46,12 +46,13 @@ void main() {
       expect(after, isNot(before));
     });
 
-    test('BINARY-REV-3: a touch keeps the content, not the revision', () async {
+    test('BINARY-REV-3: a touch keeps the content, changes the time', () async {
       final before = (await access.revisionOf(doc))!;
       File(doc).setLastModifiedSync(DateTime(2001));
       final after = (await access.revisionOf(doc))!;
       expect(after.sameContent(before), isTrue);
-      expect(after, isNot(before));
+      expect(after, before, reason: 'equal revisions are equal content');
+      expect(after.modified, isNot(before.modified));
     });
 
     test('BINARY-REV-4: no file, no revision', () async {
