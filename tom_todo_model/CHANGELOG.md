@@ -1,3 +1,61 @@
+## 4.0.0
+
+The item model: `TomItem`, one record for whatever can have a status, a
+reminder or a repetition (Webwork D1 §3, D2 §2.1).
+
+- `TomItem` with the base fields every item has — the 3.x todo fields and
+  `itemTypes`, `summary`, `categories`, `flag`, `start`, `reminders`
+  (`TomItemReminder`), `assignees` (`TomItemAddress`), `memberships`
+  (`TomItemMembership`), `links` (`TomItemLinks`: `external`, the 3.x
+  `references`, and `related`), `source`, `editedBy`, `bodyType`, `body`,
+  `presentation`, `template` — and the extensions `container`
+  (`TomItemContainer`: `TomItemSlot` and `TomItemInline` children), `people`
+  (`TomItemPeople`), `mail` (`TomItemMail`) and `workflow`
+  (`TomItemWorkflow`: the quest tooling's fields). `copyWith`, value
+  equality, and a field list per group (`recordFields`, `baseFields`,
+  `planningFields`, `dependencyFields`, each extension's `fields`).
+- The item types (`TomItemType`): `todo` and `reminder` stored in
+  `itemTypes` (`addType`, `removeType`, `hasStoredType`); `journalEntry`,
+  `mindmapNode` and `email` computed by `types([TomItemTypeContext])` from
+  the memberships, the home and the mail extension, and refused by
+  `addType`.
+- `TomTodoStatus.none` (`none`): an item currently not treated as a todo. It
+  is neither done nor a group, and the decision rule leaves it alone.
+- The flat todo-file form grows to 59 keys (`TomItem.fields`); every field
+  that is set is written, nothing empty is. An item without `item_types` is
+  a `todo`; a computed type found in a file is ignored, an unknown one kept.
+- `created` and `updated` keep their time of day: a value without one is
+  still written `YYYY-MM-DD`, any other as a UTC timestamp, and both forms
+  are read. `recordCreation` and `changeStatus` still record the day.
+- `TomTodoFile`: `TomTodoFileEntry.item`, `TomTodoFile.items`, `withItem`.
+  When an item changes, the keys it holds with an empty value (`null`,
+  `[]`, `""`) are dropped with the change; an unchanged item is never
+  rewritten.
+
+Breaking:
+
+- A new status value: an exhaustive `switch` over `TomTodoStatus` needs a
+  `none` case, and a 3.x reader refuses an item with `status: none` or one of
+  the new keys (an unknown value / key), leaving the rest of its file
+  readable. The workspace's todo files carry none of them.
+- The workflow fields live in `TomItem.workflow`; reading one of the 3.x
+  forwarders (`todo.decisions`, …) on an item without workflow fields still
+  answers the empty value.
+
+Upgrading from 3.x — every 3.x name is kept, deprecated, and names its
+replacement, so code compiles and the analyzer lists what to change:
+
+| 3.x | 4.0 |
+| --- | --- |
+| `TomTodo` | `TomItem` |
+| `TomTodo(title: …)`, `todo.title` | `TomItem(headline: …)`, `item.headline` |
+| `references:`, `todo.references` | `links: TomItemLinks(external: …)`, `item.links.external` |
+| `decisions`, `userAction`, `scope`, `executionRole`, `qaRole`, `orchestrationRole`, `bundleId`, `derivedFrom`, `feedbackSource`, `filedBy`, `onDone`, `lastAnswer`, `resources`, `claimHold`, `claimFree`, `dueReminded`, `archived`, `deleted` | the same names on `item.workflow` (`TomItemWorkflow`) |
+| `TomTodoFileEntry.todo` | `TomTodoFileEntry.item` |
+| `TomTodoFile.todos`, `withTodo` | `TomTodoFile.items`, `withItem` |
+
+The deprecated names go once the workspace's packages have moved.
+
 ## 3.1.0
 
 - `TomTodo.dueReminded` (`due_reminded`, optional): when the one reminder for

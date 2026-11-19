@@ -92,10 +92,16 @@ TomTodo everyField() => TomTodo(
 
 void main() {
   group('WONETESTA5-A the codec', () {
-    test('WONETESTA5-01: the closed field set is the schema\'s 41 fields, '
-        'emitted in the schema\'s order [1011]', () {
-      expect(TomTodo.fields, hasLength(41));
-      expect(everyField().toMap().keys.toList(), [
+    test('WONETESTA5-01: the closed field set is the schema\'s 59 fields; '
+        'the 3.x fields are emitted in the 3.x order [1011]', () {
+      expect(TomItem.fields, hasLength(59));
+      final threeX = everyField().toMap().keys.toList();
+      expect(
+        TomItem.fields.where(threeX.contains).toList(),
+        threeX,
+        reason: 'the 3.x keys keep their relative order in the 4.0 field list',
+      );
+      expect(threeX, [
         'id',
         'title',
         'description',
@@ -566,10 +572,20 @@ void main() {
       expect(g.isDone, isFalse);
       expect(g.comprisedOf, ['grp2_akpt-build', 'other_quest/its-todo']);
       expect(g.toMap()['status'], 'group');
-      expect(g.toMap()['comprised_of'], ['grp2_akpt-build', 'other_quest/its-todo']);
+      expect(g.toMap()['comprised_of'], [
+        'grp2_akpt-build',
+        'other_quest/its-todo',
+      ]);
       expect(TomTodo.fromMap(g.toMap()), g);
-      expect(TomTodo.fromMap({'id': 'x1', 'title': 'x', 'status': 'not-started'}).toMap(),
-          isNot(contains('comprised_of')), reason: 'an empty list is not written');
+      expect(
+        TomTodo.fromMap({
+          'id': 'x1',
+          'title': 'x',
+          'status': 'not-started',
+        }).toMap(),
+        isNot(contains('comprised_of')),
+        reason: 'an empty list is not written',
+      );
     });
 
     test('TODOGROUP-3: part_of is derived, never a field of the model', () {

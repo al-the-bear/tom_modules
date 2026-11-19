@@ -1,27 +1,58 @@
 # Tom Todo Model
 
-The shared todo model of the Tom workspace and the codec for its `*.todo.yaml`
-files.
+The item model of the Tom workspace and the codec for its `*.todo.yaml`
+files: one record for whatever can have a status, a reminder or a repetition
+— a workspace todo, a reminder, a journal entry, a mindmap node, an email, a
+document section.
 
-- **`TomTodo`** — one todo with the workspace todo schema's field set: `id`,
-  `title`, `description`, `status` (`not-started`, `in-progress`, `blocked`,
-  `decision-needed`, `waiting-for-repeat`, `group` (a todo group, not work itself), `completed`, `cancelled`), `priority`, `due`, `estimate`,
-  `tags`, `scope`, `decisions`, `references`, `dependencies`, `blocked_by`,
-  `blocking` (its reverse: the todos this one blocks), `comprised_of` (a group's members; their `part_of` is derived, not stored), `blocked_until`, `user_action` (the todo is the user's to do), `repeat` (a repeated todo's rule, `TomTodoRepeat`), `next_repeat` and `repeat_count`, `due_reminded` (when the one reminder for `due` was sent; another `due` clears it), `notes`, `last_answer` (the final answer of the queue run that completed the todo), the dates (`created`, `updated`, `completed_date`,
-  `archived`, `deleted`, always `YYYY-MM-DD` — a `DateTime` stands for the
-  calendar day its own fields name, local or UTC) and the orchestration fields
-  (`execution_role`, `qa_role`, `orchestration_role`, `bundle_id`,
-  `derived_from`, `feedback_source`) and the collaboration fields (`on_done`,
-  `TomTodoOnDone`: what happens when the todo is completed; `filed_by`,
-  `TomTodoFiledBy`: who filed it; `resources`, the resources it claims;
-  `claim_hold` / `claim_free`). `TomTodo.fromMap` is the wire boundary:
-  it refuses a value the schema does not allow, with the reason.
+- **`TomItem`** — one item. Its **base fields** are the same for every item:
+  `id`, the stored `itemTypes`, `headline`, `summary`, `description`
+  (Markdown: CommonMark with the GitHub extensions), `categories`, `tags`,
+  the todo fields (`status`, `priority`, `flag`, `start`, `due`, `estimate`,
+  `reminders`, `repeat`, `nextRepeat`, `repeatCount`, `completedDate`,
+  `completedBy`), the dependency fields (`dependencies`, `blockedBy`,
+  `blocking`, `blockedUntil`, `comprisedOf`), `assignees`, `memberships`,
+  `links` (`external`, the todo schema's `references`, and `related`),
+  `source`, `notes`, `created`, `updated`, `author`, `editedBy`, and the body
+  (`bodyType`, a MIME type; `body`; `presentation`; `template`). The four
+  **extensions** are optional facets, present only when used:
+  `container` (`children`: reference slots and inline items), `people`
+  (`from`, `to`, `cc`, `bcc`), `mail` (an item with it is an email) and
+  `workflow` (the quest tooling's fields: `decisions`, `userAction`, `scope`,
+  the roles, `filedBy`, `onDone`, `lastAnswer`, `resources`, `claimHold`,
+  `claimFree`, `dueReminded`, `archived`, `deleted`). `TomItem.recordFields`,
+  `baseFields`, `planningFields`, `dependencyFields` and each extension's
+  `fields` are the field list per group.
+  - **Status.** Every item has one: a todo status (`not-started`,
+    `in-progress`, `blocked`, `decision-needed`, `waiting-for-repeat`,
+    `completed`, `cancelled`), `group` (a todo group, not work itself), or
+    `none` — an item currently not treated as a todo, which stays out of the
+    todo and reminder handling until it gets a todo status.
+  - **Item types.** `todo` and `reminder` are stored (`itemTypes`);
+    `journal-entry`, `mindmap-node` and `email` are computed by
+    `types([TomItemTypeContext])` from the item's memberships, its home and
+    its mail extension, and cannot be set (`addType` refuses them).
+  - **Dates.** `due`, `start` and `completedDate` are date-only; `created`
+    and `updated` keep their time of day (a value without one is a date).
+    `estimate` is a verbatim ISO-8601 duration.
+  - The item is mutable, with `copy()`, `copyWith(...)` and value equality.
+- **The flat form** — `TomItem.toMap` / `fromMap` and `TomItem.fields`: the
+  item as a todo file holds it — `title` for the headline, `references` and
+  `related` for the links, the planning, dependency and workflow fields as
+  top-level keys, `children`, `people` and `mail` as mappings. Every field
+  that is set is written, nothing empty is; an item without `item_types` is
+  a `todo`. `fromMap` is the wire boundary: it refuses a value the schema
+  does not allow, with the reason. The workspace `todo.schema.json` has
+  exactly these properties.
 - **`TomTodoFile`** — parses a todo file and edits it **as splices into its
-  own text**: changing one todo rewrites only the keys that changed, so the
-  rest of the file — other todos, comments between and around todos, key order,
-  block scalars, keys this model does not know — stays byte for byte. (A key
-  that is rewritten is written fresh, together with any comment on its line.)
-  An item the model refuses is listed with its reason and is never rewritten.
+  own text**: changing one item rewrites only the keys that changed, so the
+  rest of the file — other items, comments between and around them, key
+  order, block scalars, keys this model does not know — stays byte for byte.
+  (A key that is rewritten is written fresh, together with any comment on its
+  line.) When an item changes, the keys it holds with an empty value
+  (`null`, `[]`) go with the change. An item the model refuses is listed with
+  its reason and is never rewritten. Every todo file of the workspace reads
+  and writes back unchanged (`test/workspace_round_trip_test.dart`).
 - **File names, ids, relocation, decisions** — `TomTodoFileName` (a todo
   file's `-archived` and `-deleted` siblings), the date-coded ids
   (`<base>_<date code>-<what>`), the id rule (`tomTodoIdPattern`,
@@ -29,6 +60,11 @@ files.
   number names the group and sorts it, `001_cleanup1` is todo 1 of
   `001_cleanup`), moving a todo between files, and the decisions journal an
   archived todo's decisions are copied into.
+- **The 3.x names** — `TomTodo` is a deprecated alias of `TomItem`, and the
+  3.x members are kept deprecated, each naming what replaces it (`title` →
+  `headline`, `references` → `links.external`, the workflow fields →
+  `workflow`, `TomTodoFileEntry.todo` → `item`, `TomTodoFile.todos` →
+  `items`, `withTodo` → `withItem`). See the CHANGELOG for the upgrade.
 
 The package reaches no `dart:io` and no Flutter: it works on the text of a
 file, and reading and writing the file is the application's. A browser build
@@ -49,11 +85,10 @@ todos:
     status: not-started   # first
 ''');
   final entry = file.entryFor('gx1_ajka-plant')!;
-  final done = entry.todo!.copy()
-    ..status = TomTodoStatus.completed
-    ..completedDate = DateTime(2026, 10, 21);
-  // Only the edited keys are rewritten; `# the beds` and the other todo stay.
-  print(file.withTodo(entry.index, done));
+  final done = entry.item!.copy()
+    ..changeStatus(TomTodoStatus.completed, on: DateTime(2026, 10, 21));
+  // Only the edited keys are rewritten; `# the beds` and the other items stay.
+  print(file.withItem(entry.index, done));
 }
 ```
 
@@ -62,8 +97,9 @@ See `example/tom_todo_model_example.dart` for a runnable version.
 ## Where it is used
 
 The VS Code extension's scripting API (`tom_vscode_scripting_api`), Webwork,
-Forge and Worktracker read and write todos through this one model. The schema
-it follows is the workspace's `todo.schema.json`.
+Forge and Worktracker read and write items through this one model; Webwork's
+document section is a `TomItem` with its part. The schema the flat form
+follows is the workspace's `todo.schema.json`.
 
 ## License
 

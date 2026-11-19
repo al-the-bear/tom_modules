@@ -9,7 +9,7 @@
 /// formats is a journal no reader can trust.
 library;
 
-import 'todo.dart';
+import 'item.dart';
 
 const String _continuation = '     ';
 
@@ -31,15 +31,18 @@ String _inline(String text) =>
 
 /// One journal entry for [todo], ending in one newline, or `''` when it has
 /// no decisions.
-String tomDecisionJournalEntry(TomTodo todo, DateTime archivedAt) {
-  if (todo.decisions.isEmpty) return '';
+String tomDecisionJournalEntry(TomItem todo, DateTime archivedAt) {
+  final decisions = todo.workflow?.decisions ?? const [];
+  if (decisions.isEmpty) return '';
   final title =
-      (todo.title.trim().isNotEmpty ? todo.title : (todo.description ?? ''))
+      (todo.headline.trim().isNotEmpty
+              ? todo.headline
+              : (todo.description ?? ''))
           .trim();
   final heading = title.isEmpty ? '`${todo.id}`' : '`${todo.id}` — $title';
   final lines = ['## ${tomDecisionsJournalStamp(archivedAt)} — $heading', ''];
-  for (var i = 0; i < todo.decisions.length; i++) {
-    final d = todo.decisions[i];
+  for (var i = 0; i < decisions.length; i++) {
+    final d = decisions[i];
     lines.add('${i + 1}. **${d.summary}**');
     if (d.decisionNeeded.trim().isNotEmpty) {
       lines.add('   - **Needed:** ${_inline(d.decisionNeeded)}');

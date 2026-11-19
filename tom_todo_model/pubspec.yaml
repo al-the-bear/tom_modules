@@ -1,9 +1,10 @@
 name: tom_todo_model
 description: >-
-  The Tom workspace's shared todo model (TomTodo: the todo schema's field set,
-  statuses and priorities) and the *.todo.yaml file codec, which edits a todo
+  The Tom workspace's item model (TomItem: one record for todos, reminders,
+  journal entries, mindmap nodes, emails and document sections, with item
+  types and extensions) and the *.todo.yaml file codec, which edits a todo
   file as splices into its own text.
-version: 3.1.0
+version: 4.0.0
 repository: https://github.com/al-the-bear/tom_modules
 issue_tracker: https://github.com/al-the-bear/tom_modules/issues
 topics:

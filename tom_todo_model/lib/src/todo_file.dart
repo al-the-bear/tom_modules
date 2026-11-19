@@ -1,5 +1,9 @@
-/// A `*.todo.yaml` file read into the shared todo model, and every change to
-/// it made as a splice into the file's own text.
+/// A `*.todo.yaml` file read into the item model, and every change to it made
+/// as a splice into the file's own text.
+///
+/// Each item of `todos:` is a [TomItem] in its flat form ([TomItem.fromMap]):
+/// `title` is its headline, `references` its external links, every other key
+/// the field of the same name; an item without `item_types` is a `todo`.
 ///
 /// The file is never re-emitted. Each todo's YAML is located by the spans the
 /// parser reports, and an edit rebuilds only the keys that changed, copying
@@ -13,7 +17,7 @@ import 'package:meta/meta.dart';
 import 'yaml_lines.dart';
 import 'package:yaml/yaml.dart';
 
-import 'todo.dart';
+import 'item.dart';
 
 /// The file-level keys of the workspace schema, in the order a new one is
 /// placed among them.
@@ -31,7 +35,7 @@ class TomTodoFileEntry {
   TomTodoFileEntry._({
     required this.index,
     required this.raw,
-    required this.todo,
+    required this.item,
     required this.error,
     required this.unknownKeys,
     required this.lineStart,
@@ -49,10 +53,14 @@ class TomTodoFileEntry {
   /// The item as YAML gave it — unknown keys and nulls included.
   final Map<String, Object?> raw;
 
-  /// The item in the shared model, or null when the model refuses it
-  /// ([error] says why). A refused item is shown and never edited.
-  final TomTodo? todo;
+  /// The item in the item model, or null when the model refuses it ([error]
+  /// says why). A refused item is shown and never edited.
+  final TomItem? item;
   final String? error;
+
+  /// The 3.x name of [item].
+  @Deprecated('Use item')
+  TomItem? get todo => item;
 
   /// Keys the model does not know, kept in the file untouched.
   final Set<String> unknownKeys;
@@ -135,11 +143,15 @@ class TomTodoFile {
 
   final YamlMap _root;
 
-  /// The todos the model can read, in file order.
-  Iterable<TomTodo> get todos => [
+  /// The items the model can read, in file order.
+  Iterable<TomItem> get items => [
     for (final e in entries)
-      if (e.todo != null) e.todo!,
+      if (e.item != null) e.item!,
   ];
+
+  /// The 3.x name of [items].
+  @Deprecated('Use items')
+  Iterable<TomItem> get todos => items;
 
   TomTodoFileEntry? entryFor(String id) {
     for (final e in entries) {
@@ -199,7 +211,7 @@ class TomTodoFile {
         raw['${(e.key as YamlNode).value}'] = _plain(e.value);
       }
     }
-    TomTodo? todo;
+    TomItem? item;
     String? error;
     final unknown = <String>{};
     if (node is! YamlMap) {
@@ -207,18 +219,18 @@ class TomTodoFile {
     } else {
       final known = <String, Object?>{};
       for (final e in raw.entries) {
-        if (!TomTodo.fields.contains(e.key)) {
+        if (!TomItem.fields.contains(e.key)) {
           unknown.add(e.key);
         } else if (e.value != null) {
           known[e.key] = e.value;
         }
       }
       // The schema makes `title` optional and `description` required; the
-      // model is titled. An absent title reads as empty and is written only
-      // when somebody gives it one.
+      // model has a headline. An absent title reads as empty and is written
+      // only when somebody gives it one.
       known.putIfAbsent('title', () => '');
       try {
-        todo = TomTodo.fromMap(known);
+        item = TomItem.fromMap(known);
       } on Object catch (e) {
         error = e is FormatException ? e.message : '$e';
       }
@@ -261,7 +273,7 @@ class TomTodoFile {
     return TomTodoFileEntry._(
       index: index,
       raw: raw,
-      todo: todo,
+      item: item,
       error: error,
       unknownKeys: unknown,
       lineStart: lineStart,
@@ -309,12 +321,15 @@ class TomTodoFile {
 
   /// The text with item [index] changed to [edited].
   ///
-  /// Only keys whose stored form differs are written; a key the model does
-  /// not know, or one whose value merely normalizes differently (a `null`, an
-  /// empty list), is left as it is.
-  String withTodo(int index, TomTodo edited) {
+  /// Every field [edited] holds is written under its key (nothing set is
+  /// lost), but only keys whose stored form differs are rewritten; a key the
+  /// model does not know keeps its text. When the item changes at all, keys
+  /// the file holds with an empty value (`null`, `""`, `[]`, `{}`) that the
+  /// item does not hold are dropped with the change — an old file reads as it
+  /// is and loses its empty keys on the item's next write.
+  String withItem(int index, TomItem edited) {
     final entry = entries[index];
-    final before = entry.todo;
+    final before = entry.item;
     if (before == null) {
       throw StateError('Item $index cannot be edited: ${entry.error}');
     }
@@ -331,8 +346,25 @@ class TomTodoFile {
       }
     }
     if (set.isEmpty && remove.isEmpty) return text;
-    return _rewriteItem(entry, set, remove, TomTodo.fields.toList());
+    for (final e in entry.raw.entries) {
+      if (TomItem.fields.contains(e.key) &&
+          !newMap.containsKey(e.key) &&
+          _isEmpty(e.value)) {
+        remove.add(e.key);
+      }
+    }
+    return _rewriteItem(entry, set, remove, TomItem.fields.toList());
   }
+
+  /// The 3.x name of [withItem].
+  @Deprecated('Use withItem')
+  String withTodo(int index, TomItem edited) => withItem(index, edited);
+
+  static bool _isEmpty(Object? value) =>
+      value == null ||
+      (value is String && value.isEmpty) ||
+      (value is List && value.isEmpty) ||
+      (value is Map && value.isEmpty);
 
   /// The text with file-level [key] set to [value], or removed when [value]
   /// is null.
@@ -385,9 +417,10 @@ class TomTodoFile {
     );
   }
 
-  /// The text with [todo] inserted at [at] (the end when null).
-  String withInserted(TomTodo todo, {int? at}) =>
-      withInsertedBlock(tomYamlListItem(todo.toMap(), 0, newline), at: at);
+  /// The text with [item] inserted at [at] (the end when null), written in
+  /// its flat form: every field it holds, nothing empty.
+  String withInserted(TomItem item, {int? at}) =>
+      withInsertedBlock(tomYamlListItem(item.toMap(), 0, newline), at: at);
 
   /// The text with an already-written item [block] — its own text, dash
   /// included, at any indentation — inserted at [at] (the end when null).
@@ -457,7 +490,7 @@ class TomTodoFile {
       entry,
       {key: value},
       const {},
-      TomTodo.fields.toList(),
+      TomItem.fields.toList(),
     );
     final file = TomTodoFile.parse(rewritten);
     return file.blockOf(index);

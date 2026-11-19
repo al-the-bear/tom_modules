@@ -10,6 +10,7 @@ library;
 import 'yaml_lines.dart';
 
 import 'decisions_journal.dart';
+import 'item.dart';
 import 'todo.dart';
 import 'todo_file.dart';
 import 'todo_file_name.dart';
@@ -48,7 +49,7 @@ String? tomTodoRelocationRefusal(
   if (name != null && name.sibling != TomTodoFileSibling.live) {
     return 'This is an archived or deleted todo file; its todos stay here.';
   }
-  final todo = file.entries[index].todo;
+  final todo = file.entries[index].item;
   final completed = todo?.status == TomTodoStatus.completed;
   return switch (kind) {
     TomTodoRelocationKind.archive when !completed =>
@@ -79,10 +80,10 @@ String? _journalQuest(
   int index,
   TomTodoRelocationKind kind,
 ) {
-  final todo = source.entries[index].todo;
+  final todo = source.entries[index].item;
   if (kind != TomTodoRelocationKind.archive ||
       todo == null ||
-      todo.decisions.isEmpty) {
+      (todo.workflow?.decisions.isEmpty ?? true)) {
     return null;
   }
   final quest = source.quest ?? TomTodoFileName.parse(fileName)?.quest;
@@ -108,7 +109,7 @@ tomPlanTodoRelocation({
   final refused = tomTodoRelocationRefusal(source, fileName, index, kind);
   if (refused != null) throw StateError(refused);
   final entry = source.entries[index];
-  final date = TomTodo.encodeDate(now);
+  final date = TomItem.encodeDate(now);
   final block = source.blockWith(index, kind.stamp, date);
 
   final String targetText;
@@ -131,7 +132,7 @@ tomPlanTodoRelocation({
   if (quest != null) {
     journalText =
         (journal ?? tomDecisionsJournalHeader(quest)) +
-        tomDecisionJournalEntry(entry.todo!, now);
+        tomDecisionJournalEntry(entry.item!, now);
   }
 
   final sourceText = TomTodoFile.parse(
