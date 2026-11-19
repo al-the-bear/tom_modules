@@ -82,4 +82,4 @@ The binaries layer holds the built helper as
 
 Building into the binaries layer, regenerating the bindings and taking in new
 headers:
-[`_copilot_guidelines/build.md`](_copilot_guidelines/build.md).
+`_copilot_guidelines/build.md` in this package.
