@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<!-- Copyright (c) 2026 Peter Nicolai Alexis Kyaw. SPDX-License-Identifier: BSD-3-Clause -->
+<!-- The host page of TomZetaOfficeView: ZetaOffice's full interface on a
+     canvas, the document handed in and the saved bytes sent back. -->
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>ZetaOffice</title>
+    <style>
+      html, body { padding: 0; margin: 0; overflow: hidden; height: 100vh; background: #f0f0f0; }
+    </style>
+  </head>
+  <body onselectstart="event.preventDefault()">
+    <!-- Qt draws on the canvas with the id "qtcanvas"; no border or padding,
+         or mouse coordinates are off. -->
+    <canvas id="qtcanvas" contenteditable="true"
+      oncontextmenu="event.preventDefault()" onkeydown="event.preventDefault()"
+      style="height:100%; width:100%; border:0 none; padding:0;"></canvas>
+    <script src="host.js"></script>
+  </body>
+</html>

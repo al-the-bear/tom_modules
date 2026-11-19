@@ -20,6 +20,7 @@ import 'package:path/path.dart' as p;
 import 'package:tom_file_session/tom_file_session.dart';
 import 'package:tom_office_editor/io.dart';
 import 'package:tom_office_editor/tom_office_editor.dart';
+import 'package:tom_office_editor/zetaoffice.dart';
 import 'package:tom_ui_support/tom_ui_support.dart';
 
 void main() => runApp(const OfficeEditorExampleApp());
@@ -85,11 +86,21 @@ class OfficeEditorExamplePageState extends State<OfficeEditorExamplePage>
     with WidgetsBindingObserver {
   LibreOfficeInstallation? _installation;
   TomOfficeEditorController? _controller;
+  TomZetaOfficeController? _zeta;
+  bool _zetaMode = false;
   _ExampleHost? _host;
   final _scratch = Directory.systemTemp.createTempSync('office-example-');
 
   /// The editor's controller, when a file is open.
   TomOfficeEditorController? get controller => _controller;
+
+  /// The ZetaOffice tab's controller, when a file is open in it.
+  TomZetaOfficeController? get zeta => _zeta;
+
+  /// Whether files open in ZetaOffice (the webview) instead of the native
+  /// editor.
+  bool get zetaMode => _zetaMode;
+  set zetaMode(bool on) => setState(() => _zetaMode = on);
 
   /// The open file.
   String? get filePath => _host?.filePath;
@@ -105,6 +116,7 @@ class OfficeEditorExamplePageState extends State<OfficeEditorExamplePage>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     unawaited(_controller?.close());
+    unawaited(_zeta?.close());
     super.dispose();
   }
 
@@ -113,6 +125,7 @@ class OfficeEditorExamplePageState extends State<OfficeEditorExamplePage>
     // Focus regained: the file may have changed meanwhile.
     if (state == AppLifecycleState.resumed) {
       unawaited(_controller?.checkExternal());
+      unawaited(_zeta?.checkExternal());
     }
   }
 
@@ -141,6 +154,12 @@ class OfficeEditorExamplePageState extends State<OfficeEditorExamplePage>
       await old.close();
       old.dispose();
     }
+    final oldZeta = _zeta;
+    _zeta = null;
+    if (oldZeta != null) {
+      await oldZeta.close();
+      oldZeta.dispose();
+    }
     final installation = _installation;
     if (installation == null) return;
     final helper = TomOfficeProcessLauncher.findHelper();
@@ -156,6 +175,19 @@ class OfficeEditorExamplePageState extends State<OfficeEditorExamplePage>
         if (mounted) setState(() {});
       },
     );
+    if (_zetaMode) {
+      final zeta = TomZetaOfficeController(
+        host: host,
+        files: TomZetaOfficeCache(),
+        serving: TomZetaOfficeServer(files: host.files),
+      );
+      setState(() {
+        _host = host;
+        _zeta = zeta;
+      });
+      await zeta.prepare();
+      return;
+    }
     final controller = TomOfficeEditorController(host: host);
     setState(() {
       _host = host;
@@ -173,7 +205,21 @@ class OfficeEditorExamplePageState extends State<OfficeEditorExamplePage>
   @override
   Widget build(BuildContext context) {
     final c = _controller;
+    final z = _zeta;
     final installation = _installation;
+    final canUndo = z?.canUndo ?? c?.canUndo ?? false;
+    final canRedo = z?.canRedo ?? c?.canRedo ?? false;
+    final dirty = z?.isDirty ?? c?.isDirty ?? false;
+    void save() {
+      if (z != null) {
+        unawaited(z.save());
+      } else if (c != null) {
+        unawaited(c.save());
+      }
+    }
+
+    void undo() => z != null ? unawaited(z.undo()) : c?.undo();
+    void redo() => z != null ? unawaited(z.redo()) : c?.redo();
     return Scaffold(
       appBar: AppBar(
         title: Text(_host?.name ?? 'Office editor'),
@@ -187,50 +233,54 @@ class OfficeEditorExamplePageState extends State<OfficeEditorExamplePage>
               child: Text(sample),
             ),
           const VerticalDivider(),
+          const Center(child: Text('ZetaOffice')),
+          Switch(
+            key: const ValueKey('example-zeta'),
+            value: _zetaMode,
+            onChanged: (on) => zetaMode = on,
+          ),
           IconButton(
             key: const ValueKey('example-undo'),
             tooltip: 'Undo',
-            onPressed: c != null && c.canUndo ? c.undo : null,
+            onPressed: canUndo ? undo : null,
             icon: const Icon(Icons.undo),
           ),
           IconButton(
             key: const ValueKey('example-redo'),
             tooltip: 'Redo',
-            onPressed: c != null && c.canRedo ? c.redo : null,
+            onPressed: canRedo ? redo : null,
             icon: const Icon(Icons.redo),
           ),
           IconButton(
             key: const ValueKey('example-save'),
             tooltip: 'Save (Cmd+S)',
-            onPressed: c == null ? null : () => unawaited(c.save()),
-            icon: Icon(
-              c != null && c.isDirty ? Icons.save : Icons.save_outlined,
-            ),
+            onPressed: c == null && z == null ? null : save,
+            icon: Icon(dirty ? Icons.save : Icons.save_outlined),
           ),
           IconButton(
             key: const ValueKey('example-reopen'),
             tooltip: 'Reopen',
-            onPressed: c == null ? null : () => unawaited(reopen()),
+            onPressed: c == null && z == null
+                ? null
+                : () => unawaited(reopen()),
             icon: const Icon(Icons.refresh),
           ),
         ],
       ),
       body: CallbackShortcuts(
         bindings: {
-          const SingleActivator(LogicalKeyboardKey.keyS, meta: true): () {
-            if (c != null) unawaited(c.save());
-          },
-          const SingleActivator(LogicalKeyboardKey.keyZ, meta: true): () =>
-              c?.undo(),
+          const SingleActivator(LogicalKeyboardKey.keyS, meta: true): save,
+          const SingleActivator(LogicalKeyboardKey.keyZ, meta: true): undo,
           const SingleActivator(
             LogicalKeyboardKey.keyZ,
             meta: true,
             shift: true,
-          ): () =>
-              c?.redo(),
+          ): redo,
         },
         child: installation == null
             ? const Center(child: CircularProgressIndicator())
+            : z != null
+            ? TomZetaOfficeView(key: ValueKey(z), controller: z)
             : c == null
             ? Center(
                 child: Text(

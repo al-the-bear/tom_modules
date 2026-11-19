@@ -12,6 +12,11 @@ the dirty state, external changes.
 License: BSD-3-Clause (see [LICENSE](LICENSE)). LibreOffice is not bundled; the
 user installs it. Not published (`publish_to: none`).
 
+Beside it, `TomZetaOfficeView` shows a document in ZetaOffice — LibreOffice
+compiled to WebAssembly, with its full interface — in a webview, as the
+prototype's comparison route. Its files are downloaded once at run time after
+the user confirms; third-party notices: [THIRD_PARTY.md](THIRD_PARTY.md).
+
 ## Components
 
 | Component | Where | What it does |
@@ -27,6 +32,7 @@ user installs it. Not published (`publish_to: none`).
 | Detection | `lib/src/io/detector.dart`, `lib/src/detection/installation.dart` | `TomLibreOfficeDetector` (macOS): the user's path (its state, no fallback), `/Applications`, `~/Applications`, Spotlight (the newest usable copy); *Auto-detect* (`autoDetect`) adds `PATH`, the installation folders one level down (`LibreOffice*.app`, `LibreOfficeDev*.app`, `Collabora Office*.app`), Homebrew casks and MacPorts. A copy is read from `Info.plist` without starting anything, checked for its parts, the minimum version (26.8.3.1, the version on mbp: DPLD-1), the architecture (`lipo`), the signature (`codesign --verify`), quarantine (`xattr`, `spctl`), and cross-checked with `soffice --headless --version` under a private profile (15 s). States: `found`, `missing`, `tooOld`, `damaged`, `quarantined`. |
 | Launcher | `lib/src/io/process_launcher.dart` | `TomOfficeProcessLauncher`: starts `tom_office_host` (found with `findHelper` in `$TOM_BINARY_PATH/<os>-<arch>/`) with the program folder and a private profile under `<temp>/office-host/<pid>-<n>/`; `close` sends `close`, then SIGTERM after 5 s, SIGKILL after 2 s more. `cleanUp` removes what dead helpers left: profiles, the `.~lock.<name>#` file naming a dead helper's profile, the temporary files of an interrupted save. |
 | Fake helper | `lib/src/testing/fake_helper.dart` | `FakeOfficeHelperChannel` (fixed tiles, scripted callbacks, passwords, saves, a crash or a hang) and `FakeOfficeHelperLauncher`. |
+| ZetaOffice | `lib/src/zetaoffice/` | `TomZetaOfficeView` and `TomZetaOfficeController`: the download prompt naming the size (52.5 MB from cdn.zetaoffice.net, nothing fetched before the user says yes; a damaged cache offered again), the download's progress, the start's progress for up to three minutes (`soffice.js`'s load event, then `Module.uno_main`), ZetaOffice's full interface in an `InAppWebView`. The document is handed in with `FS.writeFile`; *Save* runs `store()` in the file's own format and *Save as copy* `storeToURL`; the page POSTs the bytes back and `TomBinaryFiles` writes them (a changed file is a conflict; a failed or unanswered save is reported and leaves the document dirty). Undo, redo and dirty through the same host as the native editor (`historyChanged`). One ZetaOffice tab at a time; a killed web content process is reported with *Reopen*. `TomZetaOfficeCache`: the files under `~/Library/Caches/tom_office_editor/zetaoffice/`, the Brotli ones kept as `<name>.br`, `zetaoffice.version` with each file's size and SHA-256 (checked at every open). `TomZetaOfficeServer`: the page from `assets/zetaoffice/` and the cache through `TomLocalContentServer`, cross-origin isolated (COOP/COEP), `.br` served with `Content-Encoding: br`, the document and the save routes. Trail `kZetaOfficeDebug`, prefix `[ZO]`. |
 | Debug | `lib/src/office_editor_trail.dart` | `kOfficeEditorDebug` (switchable at run time), prefix `[OE]`: state changes, every message by type and id (tiles summarised once a second), callback types, input as kind and key code (text by its length), save steps and conflicts, the helper's exit and stderr, focus changes; the heartbeat and the `FlutterError` intercept while on. Errors are reported through `FlutterError.reportError` whether it is on or off. |
 
 ## Entry points
@@ -35,7 +41,8 @@ user installs it. Not published (`publish_to: none`).
 | --- | --- | --- |
 | `package:tom_office_editor/tom_office_editor.dart` | the widget, controller, host, tile cache, detection's answer, the helper channel interface | all (no `dart:io`) |
 | `package:tom_office_editor/io.dart` | `TomLibreOfficeDetector`, `TomOfficeProcessLauncher`, `TomBinaryFileAccess` | desktop (`dart:io`) |
-| `package:tom_office_editor/testing.dart` | `FakeOfficeHelperChannel`, `FakeOfficeHelperLauncher` | all |
+| `package:tom_office_editor/zetaoffice.dart` | `TomZetaOfficeView`, `TomZetaOfficeController`, `TomZetaOfficeCache`, `TomZetaOfficeServer`, the files, channel and serving interfaces, `kZetaOfficeDebug` | desktop (macOS: WKWebView) |
+| `package:tom_office_editor/testing.dart` | `FakeOfficeHelperChannel`, `FakeOfficeHelperLauncher`, `FakeZetaOfficeFiles`, `FakeZetaOfficeServing`, `FakeZetaOfficeChannel` | all |
 
 ## Usage
 
@@ -63,8 +70,25 @@ controller.undo();
 await controller.checkExternal(); // when the window regains focus
 ```
 
+ZetaOffice:
+
+```dart
+import 'package:tom_office_editor/zetaoffice.dart';
+
+final zeta = TomZetaOfficeController(
+  host: host, // the same TomOfficeEditorHost
+  files: TomZetaOfficeCache(),
+  serving: TomZetaOfficeServer(files: host.files),
+);
+await zeta.prepare(); // the cache's check; the view asks before downloading
+// In the tree:
+TomZetaOfficeView(controller: zeta);
+await zeta.save();
+```
+
 `example/` is a macOS app that opens the sample DOCX, XLSX and PPTX of the
 tom_forge prototype; its integration test opens, edits, saves and reopens each.
+The *ZetaOffice* switch opens them in `TomZetaOfficeView` instead.
 
 ## Tests
 
@@ -74,7 +98,15 @@ testkit :test --test-args="-x libreoffice"   # without the real helper
 cd example && flutter test integration_test/samples_test.dart -d macos
 cd example && flutter test integration_test/ribbon_test.dart -d macos
 cd example && flutter test integration_test/dialogs_test.dart -d macos
+cd example && flutter test integration_test/zetaoffice_test.dart -d macos
 ```
+
+`zetaoffice_test.dart` opens report.docx, sheet.xlsx and deck.pptx in
+ZetaOffice (downloading it first when the cache is empty), edits each through
+UNO, saves it, checks the saved file and reopens it from the cache with the
+change; letter.docx, which ZetaOffice cannot store as DOCX, must fail to save,
+stay dirty and leave the file as it was. `--dart-define=ZETA_SAMPLES=deck.pptx`
+runs one sample.
 
 `ribbon_test.dart` formats each sample through the ribbon (text: font, size,
 bold, colour, alignment, list, paragraph style; sheet: sort, bold, background,

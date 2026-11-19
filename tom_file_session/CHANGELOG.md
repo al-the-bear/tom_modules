@@ -1,3 +1,10 @@
+## 1.10.0
+
+- `TomContentMount.folder(..., brotliClient: true)`: a precompressed folder
+  serves `<name>.br` to every client, not only to one listing `br` in
+  `Accept-Encoding`. WebKit (a WKWebView) decodes Brotli on any connection
+  but lists it only over HTTPS, so on `http://127.0.0.1` it got `406`.
+
 ## 1.9.0
 
 - The binary save rules use `tom_file_system`'s `TomFileRevision`, which

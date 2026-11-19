@@ -353,6 +353,25 @@ void main() {
       expect(answer.status, 406);
     });
 
+    test('SERVER-BR-5: a mount for a Brotli client (WebKit on http) gets '
+        '<name>.br without listing br', () async {
+      site.mount(
+        'webkit',
+        TomContentMount.folder(
+          '${dir.path}/web',
+          precompressed: true,
+          brotliClient: true,
+        ),
+      );
+      final answer = await _send(
+        site.uriOf('webkit/soffice.data'),
+        headers: {'Accept-Encoding': 'gzip, deflate'},
+      );
+      expect(answer.status, 200);
+      expect(answer.headers.value('content-encoding'), 'br');
+      expect(answer.body, [11, 22, 33]);
+    });
+
     test('SERVER-BR-4: a folder mount without precompressed does not look '
         'for .br', () async {
       site.mount('plain', TomContentMount.folder('${dir.path}/web'));

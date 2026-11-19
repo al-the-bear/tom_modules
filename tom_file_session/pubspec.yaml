@@ -5,7 +5,7 @@ description: >-
   every untouched byte, the tree filter with its presets, and the `.env`
   codec; and, for dart:io hosts, safe binary saves and a local content
   server for webviews.
-version: 1.9.0
+version: 1.10.0
 repository: https://github.com/al-the-bear/tom_modules
 
 environment:

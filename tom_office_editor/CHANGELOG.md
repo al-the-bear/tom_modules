@@ -1,3 +1,19 @@
+## 0.4.0
+
+- ZetaOffice in the webview (`package:tom_office_editor/zetaoffice.dart`):
+  `TomZetaOfficeView` and `TomZetaOfficeController` — the download prompt
+  with the size, the cache with checksums and `zetaoffice.version`
+  (`TomZetaOfficeCache`), the page and the cached files served cross-origin
+  isolated with Brotli (`TomZetaOfficeServer`), the start's progress for up to
+  three minutes, ZetaOffice's full interface, save with `store()` and *Save
+  as copy* with `storeToURL` through the POST route and `TomBinaryFiles`, a
+  failed or unanswered save reported and the document left dirty, undo, redo
+  and dirty through the host, one tab at a time, a killed content process
+  reported; trail `[ZO]`.
+- `testing.dart`: `FakeZetaOfficeFiles`, `FakeZetaOfficeServing`,
+  `FakeZetaOfficeChannel`.
+- Vendors zetajs's `zeta.js` (MIT) in `assets/zetaoffice/`.
+
 ## 0.3.0
 
 - LibreOffice's dialogs as windows (`TomOfficeDialogLayer`): overlays of the

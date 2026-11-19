@@ -71,11 +71,16 @@ sealed class TomContentMount {
   /// A path that leaves the folder (`..`, a symbolic link pointing out) is
   /// refused. With [precompressed], a missing `<name>` is served from
   /// `<name>.br` with `Content-Encoding: br` to a client that accepts it
-  /// (`406` to one that does not), never as a partial answer.
+  /// (`406` to one that does not), never as a partial answer. With
+  /// [brotliClient] as well, it is served to every client: WebKit (a
+  /// WKWebView) decodes Brotli on any connection but lists `br` in
+  /// `Accept-Encoding` only over HTTPS, so on `http://127.0.0.1` it would
+  /// get `406`. Set it only for a mount whose client is known to decode it.
   const factory TomContentMount.folder(
     String directory, {
     bool isolated,
     bool precompressed,
+    bool brotliClient,
   }) = TomFolderMount;
 
   /// One file, at the prefix itself or with any name after it (so a viewer
@@ -109,6 +114,7 @@ final class TomFolderMount extends TomContentMount {
     this.directory, {
     bool isolated = false,
     this.precompressed = false,
+    this.brotliClient = false,
   }) : super._(isolated);
 
   /// The folder served.
@@ -116,6 +122,10 @@ final class TomFolderMount extends TomContentMount {
 
   /// Whether `<name>.br` stands in for a missing `<name>`.
   final bool precompressed;
+
+  /// Whether the client decodes Brotli whatever its `Accept-Encoding` says
+  /// (a WKWebView on plain HTTP).
+  final bool brotliClient;
 }
 
 /// [TomContentMount.file].
@@ -478,7 +488,7 @@ class TomLocalContentServer {
               .map((v) => v.split(';').first.trim().toLowerCase())
               .contains('br') ??
           false;
-      if (!accepts) {
+      if (!accepts && !mount.brotliClient) {
         response.statusCode = HttpStatus.notAcceptable;
         return;
       }
