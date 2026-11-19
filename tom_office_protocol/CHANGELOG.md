@@ -1,3 +1,10 @@
+## 0.4.0
+
+- `windowOpened` gains `x` and `y`, a child window's position in its parent
+  (a combo box's list, say); `windowChanged` gains `width` and `height`
+  (`size_changed`), `title` (`title_changed`) and `visible`
+  (`cursor_visible`). A header without them reads as `null`.
+
 ## 0.3.0
 
 - `open` gains `filterOptions`, the import filter's options (a CSV file's

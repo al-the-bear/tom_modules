@@ -562,6 +562,34 @@ void main() {
       },
     );
 
+    test('HOST-CB-4: a child window\'s position, size, title and cursor '
+        'visibility', () async {
+      await h.open();
+      h.runtime.emit(
+        LokCallbackType.window,
+        '{"id":"7","action":"created","type":"child","size":"120, 200",'
+        '"parentId":"5","position":"300, 54"}',
+      );
+      final w = await h.next<OfficeWindowOpened>();
+      expect((w.kind, w.parentId, w.x, w.y), ('child', 5, 300, 54));
+      h.runtime.emit(
+        LokCallbackType.window,
+        '{"id":"5","action":"size_changed","size":"800, 500"}',
+      );
+      final size = await h.next<OfficeWindowChanged>();
+      expect((size.width, size.height), (800, 500));
+      h.runtime.emit(
+        LokCallbackType.window,
+        '{"id":"5","action":"title_changed","title":"Pick a Color"}',
+      );
+      expect((await h.next<OfficeWindowChanged>()).title, 'Pick a Color');
+      h.runtime.emit(
+        LokCallbackType.window,
+        '{"id":"5","action":"cursor_visible","visible":"false"}',
+      );
+      expect((await h.next<OfficeWindowChanged>()).visible, isFalse);
+    });
+
     test('HOST-CB-3: JSDIALOG is forwarded as jsDialog', () async {
       await h.open();
       h.runtime.emit(LokCallbackType.jsDialog, '{"jsontype":"dialog"}');

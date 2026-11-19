@@ -722,8 +722,9 @@ class OfficeHost {
     }
     final id = int.tryParse('${json['id']}') ?? 0;
     final action = '${json['action'] ?? ''}';
+    final size = _ints(json['size']);
     if (action == 'created') {
-      final size = _ints(json['size']);
+      final position = _ints(json['position']);
       _send(
         OfficeWindowOpened(
           windowId: id,
@@ -732,16 +733,23 @@ class OfficeHost {
           width: size.isNotEmpty ? size[0] : 0,
           height: size.length > 1 ? size[1] : 0,
           parentId: int.tryParse('${json['parentId'] ?? ''}'),
+          x: position.length == 2 ? position[0] : null,
+          y: position.length == 2 ? position[1] : null,
         ),
       );
       return;
     }
     final r = _ints(json['rectangle']);
+    final visible = json['visible'];
     _send(
       OfficeWindowChanged(
         windowId: id,
         action: action,
         rectangle: r.length == 4 ? OfficeRect(r[0], r[1], r[2], r[3]) : null,
+        width: size.length == 2 ? size[0] : null,
+        height: size.length == 2 ? size[1] : null,
+        title: json['title'] is String ? json['title'] as String : null,
+        visible: visible == null ? null : '$visible' == 'true',
       ),
     );
   }

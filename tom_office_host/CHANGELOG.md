@@ -1,3 +1,9 @@
+## 0.3.0
+
+- `WINDOW` callbacks carry what the editor needs to show a dialog: a child
+  window's `position` (`windowOpened.x` / `y`), the size of `size_changed`,
+  the title of `title_changed`, the cursor's visibility (protocol 0.4.0).
+
 ## 0.2.0
 
 - `open` takes `filterOptions` (protocol package 0.3.0): the load options

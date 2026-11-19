@@ -1,0 +1,18 @@
+{
+  "source": "_ai/quests/tom_forge/ideas/office_and_pdf_integration_prototype/spikes/lok_spike/item8_dialog_FormatCells.log and item8_dialog_FindReplace.log (LibreOffice 26.8.3.1, macOS, 2026-11-17): the WINDOW payloads as LibreOfficeKit sent them; the action sequences per step as the spike logged them (window id: action).",
+  "findReplace": {
+    "created": {"id": "1", "action": "created", "type": "dialog", "size": "584, 241", "unique_id": "FindReplaceDialog", "title": "Find and Replace"}
+  },
+  "formatCells": {
+    "created": {"id": "2", "action": "created", "type": "dialog", "size": "789, 489", "unique_id": "FormatCellsDialog", "title": "Format Cells"},
+    "steps": [
+      {"input": "click:60,59", "actions": ["2:size_changed", "2:invalidate", "2:invalidate", "2:invalidate", "2:invalidate", "2:invalidate", "2:invalidate", "2:invalidate", "2:invalidate"]},
+      {"input": "click:343,54", "actions": ["2:invalidate", "2:cursor_invalidate", "2:cursor_visible"]},
+      {"input": "text:Arial", "actions": ["2:cursor_invalidate", "2:invalidate", "2:cursor_invalidate", "2:cursor_invalidate", "2:cursor_invalidate", "2:cursor_invalidate", "2:invalidate"]},
+      {"input": "click:80,219", "actions": ["2:cursor_visible", "2:invalidate", "2:invalidate", "2:invalidate", "2:invalidate"]},
+      {"input": "click:669,278", "actions": ["2:invalidate", "3:created", "3:size_changed", "2:invalidate", "3:cursor_invalidate", "3:cursor_visible", "3:invalidate"]}
+    ],
+    "colourPicker": {"id": "3", "action": "created", "type": "dialog", "size": "522, 416", "unique_id": "ColorPicker", "title": "Pick a Color"},
+    "close": ["2:invalidate", "3:close", "2:hide", "2:close"]
+  }
+}

@@ -236,8 +236,8 @@ void main() {
     await closeEditor(tester, c);
   });
 
-  testWidgets('RIB-7: Cmd+F opens Find & Replace; a dialog shows what the '
-      'helper sends', (tester) async {
+  testWidgets('RIB-7: Cmd+F opens Find & Replace; the dialog it opens is '
+      'shown', (tester) async {
     final host = _host(OfficeDocType.text);
     final c = await openEditor(tester, host);
     final channel = host.helper.last;
@@ -260,11 +260,8 @@ void main() {
       ),
     );
     await settle(tester);
-    expect(
-      host.notices.last.$2,
-      'LibreOffice opened the dialog "Find and Replace" (520 × 310); '
-      'dialogs are not shown yet.',
-    );
+    // The dialog the command opened is shown as its window.
+    expect(find.byKey(const ValueKey('office-window-3')), findsOneWidget);
     expect(c.lastWindow?.title, 'Find and Replace');
     await closeEditor(tester, c);
   });

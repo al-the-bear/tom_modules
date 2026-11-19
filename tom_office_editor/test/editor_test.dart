@@ -110,7 +110,9 @@ void main() {
       );
       await tester.pump();
       final text = channel.sentOf<OfficeTextInput>();
+      // As a composition and its end: LibreOffice inserts at the end.
       expect(text.map((t) => (t.type, t.text)), [
+        (OfficeTextInputType.input, 'Hi'),
         (OfficeTextInputType.end, 'Hi'),
       ]);
       // Composing text is shown by LibreOffice as it is composed.
@@ -493,7 +495,7 @@ void main() {
       await closeEditor(tester, c);
     });
 
-    testWidgets('OE-STOP-3: a dialog is closed until dialogs are shown', (
+    testWidgets('OE-STOP-3: a crash with a dialog open drops the dialog', (
       tester,
     ) async {
       final host = TestHost();
@@ -509,8 +511,12 @@ void main() {
         ),
       );
       await settle(tester);
-      expect(channel.sentOf<OfficeWindowClose>().single.windowId, 7);
-      expect(host.notices.last.$1, 'warning');
+      expect(find.byKey(const ValueKey('office-window-7')), findsOneWidget);
+      channel.crash();
+      await settle(tester);
+      expect(c.state, TomOfficeEditorState.stopped);
+      expect(c.windows, isEmpty);
+      expect(find.byKey(const ValueKey('office-window-7')), findsNothing);
       await closeEditor(tester, c);
     });
   });

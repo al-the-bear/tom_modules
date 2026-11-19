@@ -3,7 +3,7 @@ description: >-
   The LibreOfficeKit helper process of the office editors: holds one office
   document open in LibreOfficeKit and serves the office editor over protocol 1
   (tom_office_protocol) on stdin and stdout.
-version: 0.2.0
+version: 0.3.0
 publish_to: none
 repository: https://github.com/al-the-bear/tom_modules
 

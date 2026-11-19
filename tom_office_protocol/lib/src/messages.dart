@@ -308,6 +308,8 @@ sealed class OfficeMessage {
         width: f.int_('width'),
         height: f.int_('height'),
         parentId: f.intOrNull('parentId'),
+        x: f.intOrNull('x'),
+        y: f.intOrNull('y'),
       ),
       OfficeMessageType.windowChanged => OfficeWindowChanged(
         windowId: f.int_('windowId'),
@@ -315,6 +317,10 @@ sealed class OfficeMessage {
         rectangle: json['rectangle'] == null
             ? null
             : OfficeRect.fromJson(json['rectangle'], 'rectangle'),
+        width: f.intOrNull('width'),
+        height: f.intOrNull('height'),
+        title: f.stringOrNull('title'),
+        visible: json['visible'] == null ? null : f.bool_('visible'),
       ),
       OfficeMessageType.paintWindow => OfficePaintWindow(
         id: f.int_('id'),
@@ -1129,6 +1135,8 @@ final class OfficeWindowOpened extends OfficeHelperEvent {
     required this.width,
     required this.height,
     this.parentId,
+    this.x,
+    this.y,
   });
 
   /// The window's id.
@@ -1149,6 +1157,13 @@ final class OfficeWindowOpened extends OfficeHelperEvent {
   /// The window it belongs to, if any.
   final int? parentId;
 
+  /// A child window's position in its parent, in pixels (`position`);
+  /// `null` for a dialog. Added in 0.4.0.
+  final int? x;
+
+  /// See [x].
+  final int? y;
+
   @override
   OfficeMessageType get messageType => OfficeMessageType.windowOpened;
 
@@ -1160,6 +1175,8 @@ final class OfficeWindowOpened extends OfficeHelperEvent {
     'width': width,
     'height': height,
     'parentId': parentId,
+    if (x != null) 'x': x,
+    if (y != null) 'y': y,
   };
 }
 
@@ -1171,6 +1188,10 @@ final class OfficeWindowChanged extends OfficeHelperEvent {
     required this.windowId,
     required this.action,
     this.rectangle,
+    this.width,
+    this.height,
+    this.title,
+    this.visible,
   });
 
   /// The window's id.
@@ -1182,6 +1203,18 @@ final class OfficeWindowChanged extends OfficeHelperEvent {
   /// The area concerned, in pixels, when the action names one.
   final OfficeRect? rectangle;
 
+  /// The new size of `size_changed` (`size`). Added in 0.4.0.
+  final int? width;
+
+  /// See [width].
+  final int? height;
+
+  /// The new title of `title_changed`. Added in 0.4.0.
+  final String? title;
+
+  /// Whether the cursor shows, with `cursor_visible`. Added in 0.4.0.
+  final bool? visible;
+
   @override
   OfficeMessageType get messageType => OfficeMessageType.windowChanged;
 
@@ -1190,6 +1223,10 @@ final class OfficeWindowChanged extends OfficeHelperEvent {
     'windowId': windowId,
     'action': action,
     'rectangle': rectangle?.toJson(),
+    if (width != null) 'width': width,
+    if (height != null) 'height': height,
+    if (title != null) 'title': title,
+    if (visible != null) 'visible': visible,
   };
 }
 

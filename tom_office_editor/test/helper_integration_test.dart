@@ -200,4 +200,47 @@ void main() {
       });
     }, timeout: const Timeout(Duration(minutes: 5)));
   }
+
+  testWidgets('OE-IT-IME: text committed by the input method is inserted', (
+    tester,
+  ) async {
+    final reason = skip();
+    if (reason != null) {
+      markTestSkipped(reason);
+      return;
+    }
+    if (!installation.isUsable) {
+      markTestSkipped('LibreOffice: $installation');
+      return;
+    }
+    await tester.runAsync(() async {
+      final path = File(
+        '$_samples/letter.docx',
+      ).copySync(p.join(scratch.path, 'letter.docx')).path;
+      final host = _Host(
+        path,
+        TomOfficeProcessLauncher(
+          installation: installation,
+          helperExecutable: helper!,
+          workRoot: p.join(scratch.path, 'office-host'),
+        ),
+      );
+      final c = TomOfficeEditorController(host: host);
+      await c.open();
+      await _until(() => c.state == TomOfficeEditorState.open, 'open');
+      c.key(VclKey.home | VclKey.mod1);
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+      // A plain commit, and a composition committed.
+      c.commitText('OEIMEPLAIN ');
+      c.compose('OEIME');
+      c.commitText('OEIMECOMPOSED ');
+      await _until(() => c.isDirty, 'ModifiedStatus=true');
+      expect(await c.save(), TomOfficeSaveOutcome.saved);
+      final body = _contents(path);
+      expect(body, contains('OEIMEPLAIN'));
+      expect(body, contains('OEIMECOMPOSED'));
+      await c.close();
+      c.dispose();
+    });
+  }, timeout: const Timeout(Duration(minutes: 3)));
 }

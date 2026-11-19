@@ -35,6 +35,8 @@ class FakeOfficeHelperChannel implements TomOfficeHelperChannel {
     this.answerPings = true,
     this.answerTiles = true,
     this.values = const {},
+    this.jsonDialogs = false,
+    this.windowColour = const [0xF0, 0xF0, 0xF0, 0xFF],
   }) {
     // `hello` goes to the first listener, as a real helper's stdout waits
     // for its reader.
@@ -85,6 +87,13 @@ class FakeOfficeHelperChannel implements TomOfficeHelperChannel {
 
   /// What `getCommandValues` answers, by command (`{}` for others).
   final Map<String, String> values;
+
+  /// Whether `dialogMode json` is taken (false: refused as LibreOffice's
+  /// desktop build does, `jsonDialogsUnavailable`).
+  final bool jsonDialogs;
+
+  /// One pixel of a painted window.
+  final List<int> windowColour;
 
   /// Every command sent, in order.
   final List<OfficeHelperCommand> sent = [];
@@ -205,6 +214,41 @@ class FakeOfficeHelperChannel implements TomOfficeHelperChannel {
         emit(OfficeClipboard(id: id, data: clipboard));
       case OfficeCommandValues(:final id, :final command):
         emit(OfficeValues(id: id, json: values[command] ?? '{}'));
+      case OfficePaintWindow(
+        :final id,
+        :final windowId,
+        :final x,
+        :final y,
+        :final w,
+        :final h,
+      ):
+        final pixels = Uint8List(w * h * 4);
+        for (var i = 0; i < pixels.length; i += 4) {
+          pixels.setRange(i, i + 4, windowColour);
+        }
+        emit(
+          OfficeWindowPixels(
+            id: id,
+            windowId: windowId,
+            x: x,
+            y: y,
+            w: w,
+            h: h,
+            format: opened.tileMode,
+            pixels: pixels,
+          ),
+        );
+      case OfficeWindowClose(:final windowId):
+        emit(OfficeWindowChanged(windowId: windowId, action: 'close'));
+      case OfficeDialogModeMessage(:final mode):
+        if (mode == OfficeDialogMode.json && !jsonDialogs) {
+          emit(
+            const OfficeError(
+              code: 'jsonDialogsUnavailable',
+              message: 'this LibreOffice has no JSON dialogs',
+            ),
+          );
+        }
       case OfficePing(:final id):
         if (answerPings) emit(OfficePong(id: id));
       case OfficeClose():

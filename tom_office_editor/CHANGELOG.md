@@ -1,3 +1,18 @@
+## 0.3.0
+
+- LibreOffice's dialogs as windows (`TomOfficeDialogLayer`): overlays of the
+  reported size, painted by `paintWindow`, modal, draggable, a combo box's
+  list at its position; mouse, keys and typed characters back to the
+  window; the controller's `windows`, `windowMouse`, `windowKey`,
+  `windowText`, `closeWindow`. The core's closing of every dialog is gone.
+- The dialog switch: `dialogMode`, `setDialogMode`, `jsonDialogsAvailable`
+  (the helper's refusal keeps the tab with windows); *Dialogs: LibreOffice
+  windows / Forge forms* in the status line.
+- Fix: text committed by the input method is sent as the composition and its
+  end; `end` alone inserted nothing in LibreOffice 26.8.3.1, so typing in the
+  document was lost (a new `libreoffice`-tagged test guards it).
+- Takes protocol 0.4.0 (window position, size, title, cursor visibility).
+
 ## 0.2.0
 
 - The ribbon (`TomOfficeRibbon`, shown by `TomOfficeEditor` unless

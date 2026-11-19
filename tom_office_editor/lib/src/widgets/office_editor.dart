@@ -14,6 +14,7 @@ import '../detection/installation.dart';
 import '../office_editor_trail.dart';
 import '../ribbon/ribbon.dart';
 import '../ribbon/ribbon_model.dart';
+import 'dialog_layer.dart';
 import 'document_view.dart';
 import 'panels.dart';
 
@@ -305,6 +306,31 @@ class TomOfficeEditorWidgetState extends State<TomOfficeEditor> {
         ),
       ),
     );
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: _documentColumn(
+            context,
+            view,
+            conflict,
+            readOnly,
+            sheet,
+            slides,
+          ),
+        ),
+        Positioned.fill(child: TomOfficeDialogLayer(controller: _c)),
+      ],
+    );
+  }
+
+  Widget _documentColumn(
+    BuildContext context,
+    Widget view,
+    TomOfficeConflict? conflict,
+    TomOfficeReadOnlyReason? readOnly,
+    bool sheet,
+    bool slides,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -553,6 +579,37 @@ class _StatusLine extends StatelessWidget {
                 ),
               ),
             const Spacer(),
+            PopupMenuButton<TomOfficeDialogMode>(
+              key: const ValueKey('office-dialog-mode'),
+              tooltip: 'Dialogs',
+              initialValue: c.dialogMode,
+              onSelected: c.setDialogMode,
+              itemBuilder: (context) => [
+                CheckedPopupMenuItem(
+                  key: const ValueKey('office-dialog-mode-window'),
+                  value: TomOfficeDialogMode.window,
+                  checked: c.dialogMode == TomOfficeDialogMode.window,
+                  child: const Text('Dialogs: LibreOffice windows'),
+                ),
+                CheckedPopupMenuItem(
+                  key: const ValueKey('office-dialog-mode-json'),
+                  value: TomOfficeDialogMode.json,
+                  checked: c.dialogMode == TomOfficeDialogMode.json,
+                  // LibreOffice's desktop build has no JSON dialogs: the
+                  // helper refuses, and the tab stays with windows.
+                  enabled: c.jsonDialogsAvailable != false,
+                  child: const Text('Dialogs: Forge forms'),
+                ),
+              ],
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  c.dialogMode == TomOfficeDialogMode.window
+                      ? 'Dialogs: windows'
+                      : 'Dialogs: forms',
+                ),
+              ),
+            ),
             PopupMenuButton<int?>(
               key: const ValueKey('office-zoom'),
               tooltip: 'Zoom',

@@ -27,6 +27,7 @@ export 'src/ribbon/ribbon_model.dart';
 export 'src/office_editor_trail.dart'
     show kOfficeEditorDebug, officeTrail, officeReport;
 export 'src/tiles/tile_cache.dart';
+export 'src/widgets/dialog_layer.dart';
 export 'src/widgets/document_view.dart';
 export 'src/widgets/office_editor.dart';
 export 'src/widgets/panels.dart';

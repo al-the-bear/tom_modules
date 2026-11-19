@@ -3,7 +3,7 @@ description: >-
   Protocol 1 between the office editor and its LibreOfficeKit helper process:
   the message types, the frame codec of the stdio transport and the protocol
   number. Pure Dart, no Flutter, no dart:io.
-version: 0.3.0
+version: 0.4.0
 publish_to: none
 repository: https://github.com/al-the-bear/tom_modules
 

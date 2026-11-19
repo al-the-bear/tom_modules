@@ -125,6 +125,32 @@ final List<OfficeMessage> samples = [
     rectangle: OfficeRect(1, 2, 3, 4),
   ),
   const OfficeWindowChanged(windowId: 5, action: 'close'),
+  const OfficeWindowOpened(
+    windowId: 7,
+    kind: 'child',
+    title: '',
+    width: 120,
+    height: 200,
+    parentId: 5,
+    x: 300,
+    y: 54,
+  ),
+  const OfficeWindowChanged(
+    windowId: 5,
+    action: 'size_changed',
+    width: 800,
+    height: 500,
+  ),
+  const OfficeWindowChanged(
+    windowId: 5,
+    action: 'title_changed',
+    title: 'Format Cells',
+  ),
+  const OfficeWindowChanged(
+    windowId: 5,
+    action: 'cursor_visible',
+    visible: false,
+  ),
   const OfficePaintWindow(
     id: 12,
     windowId: 5,

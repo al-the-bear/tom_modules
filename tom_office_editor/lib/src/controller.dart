@@ -458,6 +458,11 @@ class TomOfficeEditorController extends ChangeNotifier {
     _fonts = null;
     _styleFamilies = null;
     _lastWindow = null;
+    for (final w in _windows.values) {
+      w.image?.dispose();
+    }
+    _windows.clear();
+    _windowPaints.clear();
     _dirty = _canUndo = _canRedo = false;
   }
 
@@ -551,28 +556,20 @@ class TomOfficeEditorController extends ChangeNotifier {
         _valueWaiters.remove(id)?.complete(json);
       case OfficePong(:final id):
         if (id == _pingId) _pingOpen = false;
-      case OfficeWindowOpened(
-        :final windowId,
-        :final kind,
-        :final title,
-        :final width,
-        :final height,
-      ):
-        // Dialogs are shown by a later part (dialog modes); until then a
-        // dialog would stay invisible and modal, so it is closed at once,
-        // and the notice says what the helper sent.
-        _lastWindow = event;
-        _send(OfficeWindowClose(windowId: windowId));
-        _notice(
-          'LibreOffice opened the $kind "$title" ($width × $height); '
-          'dialogs are not shown yet.',
-          kind: 'warning',
-        );
+      case OfficeWindowOpened():
+        _onWindowOpened(event);
+      case OfficeWindowChanged():
+        _onWindowChanged(event);
+      case OfficeWindowPixels():
+        unawaited(_onWindowPixels(event));
+      case OfficeJsDialog(:final json):
+        // Only a LibreOffice with JSON dialogs sends it; this one shows
+        // its dialogs as windows (no form builder: spike item 8).
+        _jsDialogs++;
+        officeTrail('jsDialog ${json.length} bytes not shown ($_jsDialogs)');
       case OfficeError(:final id, :final code, :final message):
         _onError(id, code, message);
       case OfficeClosed():
-        break;
-      default:
         break;
     }
   }
@@ -648,6 +645,15 @@ class TomOfficeEditorController extends ChangeNotifier {
       if (key != null) _pendingTiles.remove(key);
     }
     switch (code) {
+      case 'jsonDialogsUnavailable':
+        _jsonDialogs = false;
+        _dialogMode = TomOfficeDialogMode.window;
+        officeTrail('JSON dialogs refused: windows');
+        _notice(
+          'This LibreOffice shows its dialogs only as windows.',
+          kind: 'warning',
+        );
+        notifyListeners();
       case 'passwordCancelled':
         _fail('${host.name} could not be opened: no password was given.');
       case 'loadFailed':
@@ -700,6 +706,14 @@ class TomOfficeEditorController extends ChangeNotifier {
       w.completeError('LibreOffice stopped');
     }
     _valueWaiters.clear();
+    for (final w in _windows.values) {
+      w.image?.dispose();
+    }
+    _windows.clear();
+    _windowPaints.clear();
+    _windowPainting.clear();
+    _windowDirty.clear();
+    windowRevision.value++;
     if (wasClosing) return;
     switch (_state) {
       case TomOfficeEditorState.failed:
@@ -1132,9 +1146,15 @@ class TomOfficeEditorController extends ChangeNotifier {
     _markInput();
   }
 
-  /// Commits an input method's [text].
+  /// Commits an input method's [text]: as the composition, then its end.
+  /// LibreOffice 26.8.3.1 inserts the composition at `end` and ignores the
+  /// text sent with `end` itself, so text committed without a composition
+  /// first would be lost.
   void commitText(String text) {
     if (!_editable) return;
+    if (text.isNotEmpty) {
+      _send(OfficeTextInput(type: OfficeTextInputType.input, text: text));
+    }
     _send(OfficeTextInput(type: OfficeTextInputType.end, text: text));
     _markInput();
   }
@@ -1259,6 +1279,211 @@ class TomOfficeEditorController extends ChangeNotifier {
   }
 
   // ------------------------------------------------------------- history
+
+  // ------------------------------------------------------------ dialogs
+
+  final _windows = <int, TomOfficeWindow>{};
+  final _windowPaints = <int, int>{}; // paint id → window id
+  final _windowPainting = <int>{};
+  final _windowDirty = <int>{};
+  int _jsDialogs = 0;
+
+  /// LibreOffice's open windows (dialogs, a combo box's list, tooltips),
+  /// in the order they opened.
+  List<TomOfficeWindow> get windows => List.unmodifiable(_windows.values);
+
+  /// Counts window changes and paints: the dialog layer repaints on it.
+  final ValueNotifier<int> windowRevision = ValueNotifier(0);
+
+  /// How dialogs are shown (DPLH-4); a tab starts with windows.
+  TomOfficeDialogMode get dialogMode => _dialogMode;
+  TomOfficeDialogMode _dialogMode = TomOfficeDialogMode.window;
+
+  /// Whether this LibreOffice offers JSON dialogs: `null` until asked,
+  /// `false` once the helper refused them (LibreOffice's desktop build has
+  /// none, spike item 8).
+  bool? get jsonDialogsAvailable => _jsonDialogs;
+  bool? _jsonDialogs;
+
+  /// The `JSDIALOG` messages received (none from the desktop build).
+  int get jsDialogCount => _jsDialogs;
+
+  /// *Dialogs: LibreOffice windows / Forge forms*: sends `dialogMode`. The
+  /// helper refuses JSON where LibreOffice has none; the tab then stays with
+  /// windows and says so.
+  void setDialogMode(TomOfficeDialogMode mode) {
+    if (mode == _dialogMode) return;
+    officeTrail('dialog mode ${mode.name}');
+    _dialogMode = mode;
+    _send(
+      OfficeDialogModeMessage(
+        mode: mode == TomOfficeDialogMode.json
+            ? OfficeDialogMode.json
+            : OfficeDialogMode.window,
+      ),
+    );
+    notifyListeners();
+  }
+
+  void _onWindowOpened(OfficeWindowOpened w) {
+    _lastWindow = w;
+    if (_dialogMode == TomOfficeDialogMode.json) {
+      officeTrail('dialog ${w.windowId} came as a window in JSON mode');
+    }
+    officeTrail('window ${w.windowId} ${w.kind} ${w.width}x${w.height}');
+    _windows[w.windowId] = TomOfficeWindow._(
+      id: w.windowId,
+      kind: w.kind,
+      title: w.title,
+      width: w.width,
+      height: w.height,
+      parentId: w.parentId,
+      x: w.x ?? 0,
+      y: w.y ?? 0,
+    );
+    _paintWindow(w.windowId);
+    windowRevision.value++;
+    notifyListeners();
+  }
+
+  void _onWindowChanged(OfficeWindowChanged c) {
+    final w = _windows[c.windowId];
+    if (w == null) return;
+    w.changes++;
+    switch (c.action) {
+      case 'invalidate':
+        _paintWindow(w.id);
+      case 'size_changed':
+        if (c.width != null && c.height != null) {
+          w.width = c.width!;
+          w.height = c.height!;
+        }
+        _paintWindow(w.id);
+      case 'title_changed':
+        w.title = c.title ?? w.title;
+      case 'cursor_invalidate':
+        final r = c.rectangle;
+        w.cursor = r == null ? null : OfficeTwipRect(r.x, r.y, r.w, r.h);
+      case 'cursor_visible':
+        w.cursorVisible = c.visible ?? w.cursorVisible;
+      case 'show':
+        w.visible = true;
+        _paintWindow(w.id);
+      case 'hide':
+        w.visible = false;
+      case 'close':
+        officeTrail('window ${w.id} closed');
+        _windows.remove(w.id)?.image?.dispose();
+        notifyListeners();
+      default:
+        break;
+    }
+    windowRevision.value++;
+  }
+
+  /// Asks for [windowId]'s pixels; a paint asked while one runs is made
+  /// once that one has arrived.
+  void _paintWindow(int windowId) {
+    final w = _windows[windowId];
+    if (w == null || w.width <= 0 || w.height <= 0) return;
+    if (_windowPainting.contains(windowId)) {
+      _windowDirty.add(windowId);
+      return;
+    }
+    _windowPainting.add(windowId);
+    final id = _nextId++;
+    _windowPaints[id] = windowId;
+    // At scale 1: the helper's buffer is width × height pixels.
+    _send(
+      OfficePaintWindow(
+        id: id,
+        windowId: windowId,
+        x: 0,
+        y: 0,
+        w: w.width,
+        h: w.height,
+        dpiScale: 1,
+      ),
+    );
+  }
+
+  Future<void> _onWindowPixels(OfficeWindowPixels p) async {
+    final windowId = _windowPaints.remove(p.id) ?? p.windowId;
+    _windowPainting.remove(windowId);
+    final w = _windows[windowId];
+    if (w != null && p.pixels.length >= p.w * p.h * 4) {
+      try {
+        final image = await _decoder(p.pixels, p.w, p.h, p.format);
+        final current = _windows[windowId];
+        if (current == null) {
+          image.dispose();
+        } else {
+          current.image?.dispose();
+          current.image = image;
+          windowRevision.value++;
+        }
+      } catch (e, s) {
+        officeReport(e, s, 'decoding window $windowId');
+      }
+    }
+    if (_windowDirty.remove(windowId)) _paintWindow(windowId);
+  }
+
+  /// A mouse event at [x], [y] pixels in window [windowId].
+  void windowMouse(
+    int windowId,
+    OfficeMouseEventType type,
+    int x,
+    int y, {
+    int count = 1,
+    int buttons = 1,
+    int modifiers = 0,
+  }) {
+    if (!_windows.containsKey(windowId)) return;
+    _send(
+      OfficeWindowMouse(
+        windowId: windowId,
+        type: type,
+        x: x,
+        y: y,
+        count: count,
+        buttons: buttons,
+        modifiers: modifiers,
+      ),
+    );
+  }
+
+  /// A key without text ([keyCode] with its VCL modifier bits) in window
+  /// [windowId], down and up.
+  void windowKey(int windowId, int keyCode, {int charCode = 0}) {
+    if (!_windows.containsKey(windowId)) return;
+    for (final type in OfficeKeyEventType.values) {
+      _send(
+        OfficeWindowKey(
+          windowId: windowId,
+          type: type,
+          charCode: charCode,
+          keyCode: keyCode,
+        ),
+      );
+    }
+  }
+
+  /// Text typed into window [windowId]: a key event per character, as
+  /// the first spike typed into dialogs (a dialog's field takes no
+  /// `windowTextInput` in LibreOffice 26.8.3.1).
+  void windowText(int windowId, String text) {
+    if (!_windows.containsKey(windowId) || text.isEmpty) return;
+    for (final rune in text.runes) {
+      windowKey(windowId, 0, charCode: rune);
+    }
+  }
+
+  /// Closes window [windowId] (its title bar's close button).
+  void closeWindow(int windowId) {
+    if (!_windows.containsKey(windowId)) return;
+    _send(OfficeWindowClose(windowId: windowId));
+  }
 
   // ------------------------------------------------------------ ribbon
 
@@ -1577,6 +1802,10 @@ class TomOfficeEditorController extends ChangeNotifier {
     _setState(TomOfficeEditorState.closed);
     if (channel != null) await channel.close();
     tiles.clear();
+    for (final w in _windows.values) {
+      w.image?.dispose();
+    }
+    _windows.clear();
   }
 
   @override
@@ -1586,6 +1815,7 @@ class TomOfficeEditorController extends ChangeNotifier {
     _stopPing();
     unawaited(_notices.close());
     tileRevision.dispose();
+    windowRevision.dispose();
     super.dispose();
   }
 
@@ -1684,4 +1914,71 @@ final class TomOfficeSheetHeaders {
       columnStart: start(columns, columnTwipsPerPixel),
     );
   }
+}
+
+/// How the editor shows LibreOffice's dialogs (DPLH-4).
+enum TomOfficeDialogMode {
+  /// LibreOffice's own windows, painted (`paintWindow`).
+  window,
+
+  /// Flutter forms built from `JSDIALOG` (where LibreOffice offers them).
+  json,
+}
+
+/// One LibreOffice window: a dialog, a combo box's list (`child`), a
+/// tooltip.
+final class TomOfficeWindow {
+  TomOfficeWindow._({
+    required this.id,
+    required this.kind,
+    required this.title,
+    required this.width,
+    required this.height,
+    required this.parentId,
+    required this.x,
+    required this.y,
+  });
+
+  /// Its id.
+  final int id;
+
+  /// `dialog`, `child`, `tooltip`, ….
+  final String kind;
+
+  /// Its title.
+  String title;
+
+  /// Its width in pixels.
+  int width;
+
+  /// Its height in pixels.
+  int height;
+
+  /// The window it belongs to (a child's parent).
+  final int? parentId;
+
+  /// A child's position in its parent.
+  final int x;
+
+  /// See [x].
+  final int y;
+
+  /// The last painted pixels.
+  ui.Image? image;
+
+  /// Whether it is shown (`hide` / `show`).
+  bool visible = true;
+
+  /// The text cursor in it, in pixels (`cursor_invalidate`).
+  OfficeTwipRect? cursor;
+
+  /// Whether the cursor shows (`cursor_visible`).
+  bool cursorVisible = false;
+
+  /// How many `windowChanged` messages it had: LibreOffice's answers to
+  /// the input it took.
+  int changes = 0;
+
+  /// Whether it is a dialog (modal: the document waits behind it).
+  bool get isDialog => kind == 'dialog';
 }
