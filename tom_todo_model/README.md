@@ -53,6 +53,26 @@ document section.
   (`null`, `[]`) go with the change. An item the model refuses is listed with
   its reason and is never rewritten. Every todo file of the workspace reads
   and writes back unchanged (`test/workspace_round_trip_test.dart`).
+- **The stores** — every item has one home, a store and the container in
+  it, and every store answers `TomItemStore`: `read` (the item with its
+  `TomItemHome`), `readAll`, `write` (refused, nothing written, when the item
+  holds a field outside the store's `heldFields` — `TomFieldsNotHeldException`
+  naming them — or the store is `readOnly`), `delete` and `watch`
+  (`TomItemChange`: added, changed, removed, by id). `TomFieldSet` declares
+  what a store holds (`all`, `base`, `withExtensions`, `lacking`).
+  - `TomTodoFileStore` — a `*.todo.yaml` file over `TomTodoFile`: every
+    field held, every edit a splice, the text read again before each edit
+    so a change made outside is taken in and reported, never written over;
+    the file's text comes through `TomTodoFileText` (the application binds
+    the file; `TomMemoryTodoFileText` holds it in memory).
+  - `TomInMemoryMailStore` — emails in memory (the base fields, `mail`,
+    `people`), for tests: nothing here reads real mail.
+  - `TomItemIndexEntry` — what the item index gathers per item: id, store,
+    home, types, headline, description, the todo fields, tags, dependencies,
+    memberships; `valueOf(facet)` in wire form.
+  - `TomItemMove` — moves an item between stores, id kept: `lostFields`
+    names what the target cannot hold, `run` refuses until exactly those are
+    confirmed, and refuses an item with a body for a store without one.
 - **File names, ids, relocation, decisions** — `TomTodoFileName` (a todo
   file's `-archived` and `-deleted` siblings), the date-coded ids
   (`<base>_<date code>-<what>`), the id rule (`tomTodoIdPattern`,

@@ -13,8 +13,11 @@ library;
 
 export 'src/decisions_journal.dart';
 export 'src/item.dart';
+export 'src/item_store.dart';
+export 'src/mail_store.dart';
 export 'src/todo.dart';
 export 'src/todo_file.dart';
+export 'src/todo_file_store.dart';
 export 'src/todo_file_name.dart';
 export 'src/todo_ids.dart';
 export 'src/todo_relocation.dart';

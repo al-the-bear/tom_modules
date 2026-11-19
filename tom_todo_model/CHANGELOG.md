@@ -27,6 +27,15 @@ reminder or a repetition (Webwork D1 §3, D2 §2.1).
 - `created` and `updated` keep their time of day: a value without one is
   still written `YYYY-MM-DD`, any other as a UTC timestamp, and both forms
   are read. `recordCreation` and `changeStatus` still record the day.
+- The stores (Webwork D2 §2.4): `TomItemStore` (`read`, `readAll`, `write`,
+  `delete`, `watch`, `heldFields`, `readOnly`) with `TomItemHome`,
+  `TomStoredItem`, `TomItemChange`, and the refusals
+  `TomFieldsNotHeldException` and `TomStoreReadOnlyException`; `TomFieldSet`
+  and `TomItemExtension`. `TomTodoFileStore` over a `TomTodoFileText`
+  (`TomMemoryTodoFileText`), holding every field; `TomInMemoryMailStore` for
+  tests. `TomItemIndexEntry`, the item index's entry. `TomItemMove`: a move
+  between stores that names the fields lost and runs only once exactly those
+  are confirmed, the id kept.
 - `TomTodoFile`: `TomTodoFileEntry.item`, `TomTodoFile.items`, `withItem`.
   When an item changes, the keys it holds with an empty value (`null`,
   `[]`, `""`) are dropped with the change; an unchanged item is never
