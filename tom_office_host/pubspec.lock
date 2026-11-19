@@ -670,7 +670,7 @@ packages:
       path: "../tom_office_protocol"
       relative: true
     source: path
-    version: "0.3.0"
+    version: "0.4.0"
   typed_data:
     dependency: transitive
     description:
