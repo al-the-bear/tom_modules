@@ -90,4 +90,4 @@ final controller = TomPdfJsController(MyPdfHost('/path/to/file.pdf'),
 The example app (`example/`) is a complete desktop host
 (`TOM_PDF_VIEW=pdfjs-components|pdfjs-integrated|pdfjs-full` shows the
 pdf.js view). Building, taking in
-a PDFium release and the tests: `_copilot_guidelines/build.md` in this package.
+a PDFium release and the tests: `_agent_guidelines/build.md` in this package.
