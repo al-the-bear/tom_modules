@@ -148,6 +148,16 @@ class TomPdfJsViewState extends State<TomPdfJsView> {
     return result?.value;
   }
 
+  /// The page as the webview shows it (PNG), or null without a webview:
+  /// pdf.js's own dialogs are part of the page, so the evaluation's dialog
+  /// checklist takes its screenshots through it.
+  @visibleForTesting
+  Future<Uint8List?> snapshot() async {
+    final channel = _channel;
+    if (channel is! _WebViewChannel) return null;
+    return channel.web.takeScreenshot();
+  }
+
   /// The host's find bar when it gives one, else the view's own.
   void _requestFind() {
     final onFind = widget.onFind;
