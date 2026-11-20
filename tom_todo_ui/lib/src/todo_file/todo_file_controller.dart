@@ -112,21 +112,21 @@ class TomTodoFileController extends ChangeNotifier {
 
   /// Writes [edited] over todo [index] as one history entry. The todo's
   /// `updated` date is stamped when anything else changed.
-  void write(int index, TomTodo edited, String label) {
+  void write(int index, TomItem edited, String label) {
     final file = _file!;
-    final before = file.entries[index].todo!;
+    final before = file.entries[index].item!;
     if (before == edited) return;
     final stamped = edited.copy()..updated = today;
-    session.edit(file.withTodo(index, stamped), label);
+    session.edit(file.withItem(index, stamped), label);
   }
 
   /// Checks or unchecks todo [index].
   /// Completing records the date and [author] as the completer; reopening
   /// clears both.
   void toggleDone(int index) {
-    final todo = _file!.entries[index].todo!.copy()
+    final todo = _file!.entries[index].item!.copy()
       ..changeStatus(
-        _file!.entries[index].todo!.isDone
+        _file!.entries[index].item!.isDone
             ? TomTodoStatus.notStarted
             : TomTodoStatus.completed,
         on: today,
@@ -137,12 +137,12 @@ class TomTodoFileController extends ChangeNotifier {
 
   /// Retitles todo [index].
   void retitle(int index, String title) {
-    final todo = _file!.entries[index].todo!.copy()..title = title.trim();
+    final todo = _file!.entries[index].item!.copy()..headline = title.trim();
     write(index, todo, 'Retitle `${todo.id}`');
   }
 
   /// Appends [todo]. Its id must be new to the file.
-  void add(TomTodo todo) {
+  void add(TomItem todo) {
     final file = _file!;
     if (file.entryFor(todo.id) != null) {
       throw StateError('The id "${todo.id}" is already in this file.');
@@ -160,7 +160,7 @@ class TomTodoFileController extends ChangeNotifier {
   /// Inserts [todos] after the todo [after] (the end when null or absent),
   /// as one history entry labelled [label] — a paste or a drop.
   /// Their ids must be new to the file.
-  void insertMany(List<TomTodo> todos, String label, {String? after}) {
+  void insertMany(List<TomItem> todos, String label, {String? after}) {
     var file = _file!;
     for (final todo in todos) {
       if (file.entryFor(todo.id) != null) {

@@ -35,20 +35,16 @@ class TomTodoCandidate {
 
 /// Copies every editable field of [from] onto [to] — the one place that knows
 /// what "the details" are, so the three hosts cannot apply a different subset.
-void tomCopyTodoDetails(TomTodo from, TomTodo to) {
+void tomCopyTodoDetails(TomItem from, TomItem to) {
   final copy = from.copy();
   to
-    ..title = copy.title
+    ..headline = copy.headline
     ..description = copy.description
-    ..userAction = copy.userAction
     ..status = copy.status
     ..priority = copy.priority
     ..due = copy.due
     ..estimate = copy.estimate
     ..tags = copy.tags
-    ..scope = copy.scope
-    ..decisions = copy.decisions
-    ..references = copy.references
     ..dependencies = copy.dependencies
     ..blockedBy = copy.blockedBy
     ..blockedUntil = copy.blockedUntil
@@ -57,9 +53,14 @@ void tomCopyTodoDetails(TomTodo from, TomTodo to) {
     ..updated = copy.updated
     ..completedDate = copy.completedDate
     ..author = copy.author
-    ..completedBy = copy.completedBy
-    ..archived = copy.archived
-    ..deleted = copy.deleted;
+    ..completedBy = copy.completedBy;
+  to.links.external = copy.links.external;
+  (to.workflow ??= TomItemWorkflow())
+    ..userAction = copy.workflow?.userAction ?? false
+    ..scope = copy.workflow?.scope
+    ..decisions = copy.workflow?.decisions ?? []
+    ..archived = copy.workflow?.archived
+    ..deleted = copy.workflow?.deleted;
 }
 
 /// One decision's three fields in the editor.
@@ -141,13 +142,13 @@ class _ReferenceFields {
 /// [author] is the identity the edit is made as (`TomIdentity.
 /// attributionOf`): a status moved to `completed` here records it as
 /// `completed_by`, null when no identity is set.
-Future<TomTodo?> showTomTodoDetails(
+Future<TomItem?> showTomTodoDetails(
   BuildContext context, {
-  required TomTodo todo,
+  required TomItem todo,
   required List<TomTodoCandidate> candidates,
   String? author,
 }) =>
-    showDialog<TomTodo>(
+    showDialog<TomItem>(
       context: context,
       builder: (context) {
         final editor = _TodoDetailsEditor(
@@ -176,7 +177,7 @@ class _TodoDetailsEditor extends StatefulWidget {
     required this.author,
   });
 
-  final TomTodo todo;
+  final TomItem todo;
   final List<TomTodoCandidate> candidates;
   final String? author;
 
@@ -185,9 +186,9 @@ class _TodoDetailsEditor extends StatefulWidget {
 }
 
 class _TodoDetailsEditorState extends State<_TodoDetailsEditor> {
-  late final TomTodo _draft = widget.todo.copy();
+  late final TomItem _draft = widget.todo.copy();
   late final TextEditingController _title =
-      TextEditingController(text: _draft.title);
+      TextEditingController(text: _draft.headline);
   late final TextEditingController _description =
       TextEditingController(text: _draft.description ?? '');
   late final TextEditingController _estimate =
@@ -198,22 +199,22 @@ class _TodoDetailsEditorState extends State<_TodoDetailsEditor> {
   late final TextEditingController _blockedUntil =
       TextEditingController(text: _draft.blockedUntil.join('\n'));
   late final TextEditingController _scopeProject =
-      TextEditingController(text: _draft.scope?.project ?? '');
+      TextEditingController(text: _draft.workflow?.scope?.project ?? '');
   late final TextEditingController _scopeProjects =
-      TextEditingController(text: (_draft.scope?.projects ?? []).join(', '));
+      TextEditingController(text: (_draft.workflow?.scope?.projects ?? []).join(', '));
   late final TextEditingController _scopeModule =
-      TextEditingController(text: _draft.scope?.module ?? '');
+      TextEditingController(text: _draft.workflow?.scope?.module ?? '');
   late final TextEditingController _scopeArea =
-      TextEditingController(text: _draft.scope?.area ?? '');
+      TextEditingController(text: _draft.workflow?.scope?.area ?? '');
   late final TextEditingController _scopePath =
-      TextEditingController(text: _draft.scope?.path ?? '');
+      TextEditingController(text: _draft.workflow?.scope?.path ?? '');
   late final TextEditingController _scopeFiles =
-      TextEditingController(text: (_draft.scope?.files ?? []).join('\n'));
+      TextEditingController(text: (_draft.workflow?.scope?.files ?? []).join('\n'));
   late final List<_DecisionFields> _decisions = [
-    for (final d in _draft.decisions) _DecisionFields(d),
+    for (final d in _draft.workflow?.decisions ?? const <TomTodoDecision>[]) _DecisionFields(d),
   ];
   late final List<_ReferenceFields> _references = [
-    for (final r in _draft.references) _ReferenceFields(r),
+    for (final r in _draft.links.external) _ReferenceFields(r),
   ];
   String? _estimateError;
   String? _blockedUntilError;
@@ -254,7 +255,7 @@ class _TodoDetailsEditorState extends State<_TodoDetailsEditor> {
   String? _checkBlockedUntil(String text) {
     for (final line in _lines(text)) {
       try {
-        TomTodo.checkBlockedUntil(line);
+        TomItem.checkBlockedUntil(line);
       } on FormatException {
         return '"$line" — one condition per line, like '
             '"tom_basics >= 1.2.0"';
@@ -270,7 +271,7 @@ class _TodoDetailsEditorState extends State<_TodoDetailsEditor> {
   String? _checkEstimate(String text) {
     if (text.trim().isEmpty) return null;
     try {
-      TomTodo(id: 'check', title: 'check', estimate: text.trim());
+      TomItem(id: 'check', headline: 'check', estimate: text.trim());
       return null;
     } on Object {
       return 'An ISO-8601 duration, such as PT2H, PT30M or P1D';
@@ -309,17 +310,18 @@ class _TodoDetailsEditorState extends State<_TodoDetailsEditor> {
       files: _lines(_scopeFiles.text),
     );
     _draft
-      ..title = _title.text.trim()
+      ..headline = _title.text.trim()
       ..description =
           _description.text.trim().isEmpty ? null : _description.text
       ..estimate = _estimate.text.trim().isEmpty ? null : _estimate.text.trim()
       ..notes = _notes.text.trim().isEmpty ? null : _notes.text
-      ..blockedUntil = _lines(_blockedUntil.text)
+      ..blockedUntil = _lines(_blockedUntil.text);
+    _draft.links.external = [
+      for (final r in _references) ?r.toReference(),
+    ];
+    (_draft.workflow ??= TomItemWorkflow())
       ..scope = scope.isEmpty ? null : scope
-      ..decisions = [for (final d in _decisions) d.toDecision()]
-      ..references = [
-        for (final r in _references) ?r.toReference(),
-      ];
+      ..decisions = [for (final d in _decisions) d.toDecision()];
     // The schema's decision rule, applied in the same edit: an open question
     // makes the todo decision-needed, answering the last one moves it back to
     // not-started — so the answer and the status are one undo entry.
@@ -414,7 +416,7 @@ class _TodoDetailsEditorState extends State<_TodoDetailsEditor> {
                       avatar: const Icon(Icons.event, size: 18),
                       label: Text(_draft.due == null
                           ? 'No due date'
-                          : 'Due ${TomTodo.encodeDate(_draft.due!)}'),
+                          : 'Due ${TomItem.encodeDate(_draft.due!)}'),
                       onPressed: _pickDue,
                       onDeleted: _draft.due == null
                           ? null
@@ -447,8 +449,8 @@ class _TodoDetailsEditorState extends State<_TodoDetailsEditor> {
                     'An agent only prepares and reports; a queue walk passes '
                     'it by',
                   ),
-                  value: _draft.userAction,
-                  onChanged: (v) => setState(() => _draft.userAction = v),
+                  value: _draft.workflow?.userAction ?? false,
+                  onChanged: (v) => setState(() => (_draft.workflow ??= TomItemWorkflow()).userAction = v),
                 ),
                 const SizedBox(height: 8),
                 Text('Tags', style: theme.textTheme.labelLarge),
@@ -557,7 +559,7 @@ class _TodoDetailsEditorState extends State<_TodoDetailsEditor> {
                     border: OutlineInputBorder(),
                   ),
                 ),
-                if (_draft.lastAnswer case final answer?
+                if (_draft.workflow?.lastAnswer case final answer?
                     when answer.trim().isNotEmpty) ...[
                   const SizedBox(height: 16),
                   _lastAnswer(theme, answer),
@@ -781,7 +783,7 @@ class _TodoDetailsEditorState extends State<_TodoDetailsEditor> {
       key: const Key('tom-todo-details-scope'),
       title: const Text('Scope'),
       tilePadding: EdgeInsets.zero,
-      initiallyExpanded: !(_draft.scope?.isEmpty ?? true),
+      initiallyExpanded: !(_draft.workflow?.scope?.isEmpty ?? true),
       children: [
         field('Project', _scopeProject),
         field('Projects (comma-separated)', _scopeProjects),
@@ -878,7 +880,7 @@ class _TodoDetailsEditorState extends State<_TodoDetailsEditor> {
   /// here. A save stamps `updated`, and `completed_date` when this save
   /// completes it.
   Widget _record(ThemeData theme) {
-    String date(DateTime? d) => d == null ? '—' : TomTodo.encodeDate(d);
+    String date(DateTime? d) => d == null ? '—' : TomItem.encodeDate(d);
     final rows = <(String, String)>[
       ('Author', _draft.author ?? '—'),
       ('Created', date(_draft.created)),

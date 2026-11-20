@@ -19,7 +19,7 @@ class TomTodoBadges extends StatelessWidget {
     required this.item,
   });
 
-  final TomTodo item;
+  final TomItem item;
 
   /// Whether [status] wears a badge: every status the checkbox cannot
   /// express. `not-started` and `completed` are already visible as the
@@ -35,7 +35,9 @@ class TomTodoBadges extends StatelessWidget {
     TomTodoStatus.waitingForRepeat ||
     TomTodoStatus.cancelled ||
     // A group of todos is no work itself: the checkbox cannot say that.
-    TomTodoStatus.group => true,
+    TomTodoStatus.group ||
+    // An item not treated as a todo now: neither open work nor done.
+    TomTodoStatus.none => true,
   };
 
   static Color _priorityColor(TomTodoPriority priority) =>
@@ -48,7 +50,7 @@ class TomTodoBadges extends StatelessWidget {
 
   /// Whether [item] wears any badge — what a row asks before giving the
   /// badges a line of their own.
-  static bool hasAny(TomTodo item) => _badgesOf(item).isNotEmpty;
+  static bool hasAny(TomItem item) => _badgesOf(item).isNotEmpty;
 
   @override
   Widget build(BuildContext context) {
@@ -57,11 +59,11 @@ class TomTodoBadges extends StatelessWidget {
     return Wrap(spacing: 4, runSpacing: 2, children: badges);
   }
 
-  static List<Widget> _badgesOf(TomTodo item) => <Widget>[
+  static List<Widget> _badgesOf(TomItem item) => <Widget>[
       // The user's to do: an agent only prepares and reports, and a queue
       // walk passes it by (`user_action`). The VS Code extension marks it 👤;
       // the same mark here, so a todo reads the same in every host.
-      if (item.userAction)
+      if (item.workflow?.userAction ?? false)
         Tooltip(
           key: Key('tom-todo-user-action-${item.id}'),
           message: 'Yours to do',
@@ -73,7 +75,7 @@ class TomTodoBadges extends StatelessWidget {
         _Badge(text: item.priority!.wire, color: _priorityColor(item.priority!)),
       if (item.due != null)
         _Badge(
-          text: TomTodo.encodeDate(item.due!),
+          text: TomItem.encodeDate(item.due!),
           color: Colors.teal,
           icon: Icons.event,
         ),
@@ -107,11 +109,11 @@ class TomTodoBadges extends StatelessWidget {
         Tooltip(
           key: Key('tom-todo-has-open-decisions-${item.id}'),
           message: [
-            for (final d in item.decisions)
+            for (final d in item.workflow?.decisions ?? const <TomTodoDecision>[])
               if (d.isOpen) d.summary,
           ].join('\n'),
           child: _Badge(
-            text: '${item.decisions.where((d) => d.isOpen).length}',
+            text: '${(item.workflow?.decisions ?? const <TomTodoDecision>[]).where((d) => d.isOpen).length}',
             color: Colors.purple,
             icon: Icons.help_outline,
           ),

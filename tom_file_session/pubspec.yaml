@@ -24,7 +24,7 @@ dependencies:
   # Text decoding that keeps the encoding, and globs.
   tom_basics: ^3.3.0
   # The todo file names the filter's todo-siblings rule reads.
-  tom_todo_model: ^3.0.0
+  tom_todo_model: ^4.1.0
 
 dev_dependencies:
   lints: ^6.0.0

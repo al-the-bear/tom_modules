@@ -25,7 +25,7 @@ dependencies:
   tom_file_system:
     path: ../../basics/tom_file_system
   # The shared todo model and the *.todo.yaml codec.
-  tom_todo_model: ^3.0.0
+  tom_todo_model: ^4.1.0
   tom_ui_support:
     path: ../tom_ui_support
 

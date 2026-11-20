@@ -89,7 +89,7 @@ abstract interface class TomTodoFileTransfer {
 
   /// Lands what the clipboard holds in [controller]'s file after [after],
   /// once the user confirmed it; the todos that landed, or null.
-  Future<List<TomTodo>?> paste(
+  Future<List<TomItem>?> paste(
     BuildContext context,
     TomTodoFileController controller, {
     String? after,
@@ -110,7 +110,7 @@ abstract interface class TomTodoFileTransfer {
     required TomTodoFileController controller,
     required Widget child,
     required String? Function() after,
-    required void Function(List<TomTodo> todos) landed,
+    required void Function(List<TomItem> todos) landed,
   });
 }
 
@@ -396,13 +396,13 @@ class _TodoFileEditorState extends State<TomTodoFileEditor> {
   bool get _filtered =>
       _status != null || _hideDone || _query.text.trim().isNotEmpty;
 
-  bool _matches(TomTodo todo) {
+  bool _matches(TomItem todo) {
     if (_status != null && todo.status != _status) return false;
     if (_hideDone && todo.isDone) return false;
     final q = _query.text.trim().toLowerCase();
     if (q.isEmpty) return true;
     return todo.id.toLowerCase().contains(q) ||
-        todo.title.toLowerCase().contains(q) ||
+        todo.headline.toLowerCase().contains(q) ||
         (todo.description ?? '').toLowerCase().contains(q) ||
         todo.tags.any((t) => t.toLowerCase().contains(q));
   }
@@ -414,7 +414,7 @@ class _TodoFileEditorState extends State<TomTodoFileEditor> {
   ) {
     final entries = [
       for (final e in file.entries)
-        if (e.todo == null || _matches(e.todo!)) e,
+        if (e.item == null || _matches(e.item!)) e,
     ];
     // A wrap rather than a row: in a pane half a window wide the filters and
     // the transfer bar do not fit one line.
@@ -528,7 +528,7 @@ class _TodoFileEditorState extends State<TomTodoFileEditor> {
     final key = _rowKeys.putIfAbsent(entry.id, GlobalKey.new);
     final scheme = Theme.of(context).colorScheme;
     final issues = controller.validation?.forTodo(entry.index) ?? const [];
-    final todo = entry.todo;
+    final todo = entry.item;
     final Widget body;
     if (todo == null) {
       body = ListTile(
@@ -539,9 +539,9 @@ class _TodoFileEditorState extends State<TomTodoFileEditor> {
       );
     } else {
       final title = _titles.putIfAbsent(
-          entry.id, () => TextEditingController(text: todo.title));
+          entry.id, () => TextEditingController(text: todo.headline));
       final focus = _focus.putIfAbsent(entry.id, FocusNode.new);
-      if (!focus.hasFocus && title.text != todo.title) title.text = todo.title;
+      if (!focus.hasFocus && title.text != todo.headline) title.text = todo.headline;
       final editable = controller.editable;
       body = TomTodoRow(
         index: index,
@@ -551,7 +551,7 @@ class _TodoFileEditorState extends State<TomTodoFileEditor> {
         focusNode: focus,
         onToggleDone: () => controller.toggleDone(entry.index),
         onCommitTitle: (text) {
-          if (text.trim() != todo.title) controller.retitle(entry.index, text);
+          if (text.trim() != todo.headline) controller.retitle(entry.index, text);
         },
         onDetails: () => unawaited(_details(context, controller, file, entry)),
         onArchive: controller.relocationRefusal(
@@ -587,7 +587,7 @@ class _TodoFileEditorState extends State<TomTodoFileEditor> {
             controller: controller,
             ids: _idsFor(file, entry.id),
             label: _idsFor(file, entry.id).length == 1
-                ? todo.title
+                ? todo.headline
                 : '${_idsFor(file, entry.id).length} todos',
             movedOut: () => _movedOut(controller, _idsFor(file, entry.id)),
           ),
@@ -638,7 +638,7 @@ class _TodoFileEditorState extends State<TomTodoFileEditor> {
   /// it, the todo alone otherwise; the selection with no todo named.
   List<String> _idsFor(TomTodoFile file, String? id) {
     if (id == null || _selection.contains(id)) {
-      return [for (final t in file.todos) if (_selection.contains(t.id)) t.id];
+      return [for (final t in file.items) if (_selection.contains(t.id)) t.id];
     }
     return [id];
   }
@@ -683,7 +683,7 @@ class _TodoFileEditorState extends State<TomTodoFileEditor> {
   }
 
   /// Todos landed in this file: the last is selected, the filters cleared.
-  void _landed(List<TomTodo> todos) {
+  void _landed(List<TomItem> todos) {
     if (todos.isEmpty || !mounted) return;
     setState(() {
       _selected = todos.last.id;
@@ -699,13 +699,13 @@ class _TodoFileEditorState extends State<TomTodoFileEditor> {
   ) async {
     final edited = await showTomTodoDetails(
       context,
-      todo: entry.todo!.copy(),
+      todo: entry.item!.copy(),
       candidates: [
-        for (final other in file.todos)
+        for (final other in file.items)
           if (other.id != entry.id)
             TomTodoCandidate(
               id: other.id,
-              title: other.title,
+              title: other.headline,
               where: controller.fileName,
             ),
       ],
@@ -731,7 +731,7 @@ class _TodoFileEditorState extends State<TomTodoFileEditor> {
         title: Text('${kind.verb} `${entry.id}`?'),
         content: Text(
           '${kind == TomTodoRelocationKind.archive ? 'The todo moves to' : 'The todo moves to'} '
-          '$sibling, stamped "${kind.stamp}: ${TomTodo.encodeDate(controller.today)}". '
+          '$sibling, stamped "${kind.stamp}: ${TomItem.encodeDate(controller.today)}". '
           '${controller.session.dirty ? 'Your other unsaved changes to this file are saved first. ' : ''}'
           'This writes the files now; Undo moves it back.',
         ),
@@ -775,7 +775,7 @@ class _TodoFileEditorState extends State<TomTodoFileEditor> {
   ) async {
     final ids = await controller.folderIds();
     if (!context.mounted) return;
-    final todo = await showDialog<TomTodo>(
+    final todo = await showDialog<TomItem>(
       context: context,
       builder: (context) => _AddTodoDialog(
         controller: controller,
@@ -1167,9 +1167,9 @@ class _AddTodoDialogState extends State<_AddTodoDialog> {
               ? null
               : () => Navigator.pop(
                     context,
-                    TomTodo(
+                    TomItem(
                       id: id,
-                      title: _title.text.trim(),
+                      headline: _title.text.trim(),
                       description: _description.text.trim(),
                     ),
                   ),

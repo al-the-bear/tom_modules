@@ -1,5 +1,9 @@
 ## 1.10.0
 
+- On `tom_todo_model` 4.1.0 (the item model; every 3.x name is kept, so
+  nothing else changes here): a todo file with the 4.x fields — `remind`,
+  `reminders`, the item fields — is read instead of refused.
+
 - `TomContentMount.folder(..., brotliClient: true)`: a precompressed folder
   serves `<name>.br` to every client, not only to one listing `br` in
   `Accept-Encoding`. WebKit (a WKWebView) decodes Brotli on any connection

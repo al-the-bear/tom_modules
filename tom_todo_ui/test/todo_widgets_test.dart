@@ -17,10 +17,10 @@ void main() {
   group('the row', () {
     testWidgets('the checkbox reports a toggle and the title a commit, and '
         'the row changes nothing itself', (tester) async {
-      final item = TomTodo(id: 't1', title: 'Plan');
+      final item = TomItem(id: 't1', headline: 'Plan');
       var toggled = 0;
       final committed = <String>[];
-      final controller = TextEditingController(text: item.title);
+      final controller = TextEditingController(text: item.headline);
       final focus = FocusNode();
       addTearDown(controller.dispose);
       addTearDown(focus.dispose);
@@ -45,7 +45,7 @@ void main() {
       await tester.testTextInput.receiveAction(TextInputAction.done);
       await tester.pump();
       expect(committed, ['Plan the launch']);
-      expect(item.title, 'Plan');
+      expect(item.headline, 'Plan');
     });
 
     testWidgets('read-only shows the title and offers no control', (
@@ -58,7 +58,7 @@ void main() {
       await tester.pumpWidget(
         _host(
           TomTodoRow(
-            item: TomTodo(id: 't1', title: 'Plan'),
+            item: TomItem(id: 't1', headline: 'Plan'),
             readOnly: true,
             controller: controller,
             focusNode: focus,
@@ -76,16 +76,16 @@ void main() {
   group('the badges', () {
     testWidgets('a status the checkbox cannot express, blockers, open '
         'decisions and dependencies each wear a badge', (tester) async {
-      final item = TomTodo(
+      final item = TomItem(
         id: 'p1',
-        title: 'Plan',
+        headline: 'Plan',
         status: TomTodoStatus.blocked,
         priority: TomTodoPriority.high,
         blockedBy: ['legal'],
         dependencies: ['budget'],
-        decisions: [
+        workflow: TomItemWorkflow(decisions: [
           TomTodoDecision(summary: 'Venue?', decisionNeeded: 'A or B'),
-        ],
+        ]),
       );
       expect(TomTodoBadges.hasAny(item), isTrue);
       await tester.pumpWidget(_host(TomTodoBadges(item: item)));
@@ -101,16 +101,16 @@ void main() {
     });
 
     test('a plain not-started todo wears none', () {
-      expect(TomTodoBadges.hasAny(TomTodo(id: 'x', title: 'x')), isFalse);
+      expect(TomTodoBadges.hasAny(TomItem(id: 'x', headline: 'x')), isFalse);
     });
 
     testWidgets('a repeated todo waiting for its next repetition wears '
         'waiting-for-repeat, and the aggregate shows it as a repeat', (
       tester,
     ) async {
-      final item = TomTodo(
+      final item = TomItem(
         id: 'w',
-        title: 'Water the plants',
+        headline: 'Water the plants',
         status: TomTodoStatus.waitingForRepeat,
       );
       expect(TomTodoBadges.hasAny(item), isTrue);
@@ -124,9 +124,9 @@ void main() {
 
     testWidgets('a todo group wears group, its own icon, and its box does not '
         'complete it (it completes when its members do)', (tester) async {
-      final item = TomTodo(
+      final item = TomItem(
         id: 'g',
-        title: 'The release',
+        headline: 'The release',
         status: TomTodoStatus.group,
         comprisedOf: ['a', 'b'],
       );
@@ -134,7 +134,7 @@ void main() {
       expect(item.isDone, isFalse, reason: 'a group is not in the done group');
       expect(TomTodoBadges.hasAny(item), isTrue);
       var toggled = 0;
-      final controller = TextEditingController(text: item.title);
+      final controller = TextEditingController(text: item.headline);
       final focus = FocusNode();
       addTearDown(controller.dispose);
       addTearDown(focus.dispose);
@@ -164,8 +164,8 @@ void main() {
     testWidgets('saving returns an edited copy and leaves the original', (
       tester,
     ) async {
-      final todo = TomTodo(id: 'd1', title: 'Draft');
-      TomTodo? result;
+      final todo = TomItem(id: 'd1', headline: 'Draft');
+      TomItem? result;
       await tester.pumpWidget(
         MaterialApp(
           home: Builder(
@@ -188,15 +188,15 @@ void main() {
       );
       await tester.tap(find.byKey(const Key('tom-todo-details-save')));
       await tester.pumpAndSettle();
-      expect(result?.title, 'Final');
+      expect(result?.headline, 'Final');
       expect(result, isNot(same(todo)));
-      expect(todo.title, 'Draft');
+      expect(todo.headline, 'Draft');
     });
   });
 
   group('what the extension shows (qim_none-2)', () {
-    Widget row(TomTodo item, {bool readOnly = false}) {
-      final controller = TextEditingController(text: item.title);
+    Widget row(TomItem item, {bool readOnly = false}) {
+      final controller = TextEditingController(text: item.headline);
       final focus = FocusNode();
       addTearDown(controller.dispose);
       addTearDown(focus.dispose);
@@ -212,7 +212,7 @@ void main() {
 
     testWidgets('a user_action todo wears 👤 and a purple title, editable '
         'and read-only alike', (tester) async {
-      final item = TomTodo(id: 'u1', title: 'Look at it', userAction: true);
+      final item = TomItem(id: 'u1', headline: 'Look at it', workflow: TomItemWorkflow(userAction: true));
       await tester.pumpWidget(row(item));
       expect(find.byKey(const Key('tom-todo-user-action-u1')), findsOneWidget);
       expect(find.text('👤'), findsOneWidget);
@@ -228,7 +228,7 @@ void main() {
 
     testWidgets('a todo nobody has to do keeps the default title colour and no '
         'mark', (tester) async {
-      await tester.pumpWidget(row(TomTodo(id: 'a1', title: 'Agent work')));
+      await tester.pumpWidget(row(TomItem(id: 'a1', headline: 'Agent work')));
       expect(find.byKey(const Key('tom-todo-user-action-a1')), findsNothing);
       expect(tester.widget<TextField>(find.byType(TextField)).style?.color,
           isNull);
@@ -236,8 +236,8 @@ void main() {
 
     testWidgets('a todo that blocks others wears ⛓️ with their number, and '
         'its tooltip names them', (tester) async {
-      final item = TomTodo(
-          id: 'b1', title: 'Publish', blocking: ['c1', 'other/c2']);
+      final item = TomItem(
+          id: 'b1', headline: 'Publish', blocking: ['c1', 'other/c2']);
       await tester.pumpWidget(_host(TomTodoBadges(item: item)));
       expect(find.text('⛓️ 2'), findsOneWidget);
       final tip = tester.widget<Tooltip>(
@@ -246,9 +246,9 @@ void main() {
       expect(TomTodoBadges.hasAny(item), isTrue);
     });
 
-    Future<TomTodo?> openDetails(WidgetTester tester, TomTodo todo,
+    Future<TomItem?> openDetails(WidgetTester tester, TomItem todo,
         Future<void> Function() inDialog) async {
-      TomTodo? result;
+      TomItem? result;
       tester.view.physicalSize = const Size(1200, 2400);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
@@ -275,24 +275,24 @@ void main() {
     }
 
     testWidgets('the details edit user_action', (tester) async {
-      final todo = TomTodo(id: 'd1', title: 'Decide');
+      final todo = TomItem(id: 'd1', headline: 'Decide');
       final result = await openDetails(tester, todo, () async {
         final toggle = find.byKey(const Key('tom-todo-details-user-action'));
         await tester.ensureVisible(toggle);
         await tester.tap(toggle);
         await tester.pumpAndSettle();
       });
-      expect(result?.userAction, isTrue);
-      expect(todo.userAction, isFalse);
+      expect(result?.workflow?.userAction, isTrue);
+      expect(todo.workflow?.userAction ?? false, isFalse);
     });
 
     testWidgets('the details show what the todo blocks, read-only, and the '
         'last answer as Markdown under its label', (tester) async {
-      final todo = TomTodo(
+      final todo = TomItem(
         id: 'd2',
-        title: 'Publish',
+        headline: 'Publish',
         blocking: ['c1', 'other/c9'],
-        lastAnswer: '## Published\n\nVersion **1.3.0** is on pub.dev.',
+        workflow: TomItemWorkflow(lastAnswer: '## Published\n\nVersion **1.3.0** is on pub.dev.'),
       );
       final result = await openDetails(tester, todo, () async {
         final known = find.byKey(const Key('tom-todo-details-blocks-c1'));
@@ -312,13 +312,13 @@ void main() {
         expect(find.textContaining('##'), findsNothing);
       });
       expect(result?.blocking, ['c1', 'other/c9']);
-      expect(result?.lastAnswer, todo.lastAnswer);
+      expect(result?.workflow?.lastAnswer, todo.workflow?.lastAnswer);
     });
 
     testWidgets('a todo with neither shows no blocks list and no answer', (
       tester,
     ) async {
-      await openDetails(tester, TomTodo(id: 'd3', title: 'Plain'), () async {
+      await openDetails(tester, TomItem(id: 'd3', headline: 'Plain'), () async {
         expect(find.text('Blocks'), findsNothing);
         expect(find.byKey(const Key('tom-todo-details-last-answer')),
             findsNothing);
@@ -326,9 +326,9 @@ void main() {
     });
 
     test('tomCopyTodoDetails carries user_action', () {
-      final to = TomTodo(id: 'x', title: 'x');
-      tomCopyTodoDetails(TomTodo(id: 'x', title: 'x', userAction: true), to);
-      expect(to.userAction, isTrue);
+      final to = TomItem(id: 'x', headline: 'x');
+      tomCopyTodoDetails(TomItem(id: 'x', headline: 'x', workflow: TomItemWorkflow(userAction: true)), to);
+      expect(to.workflow?.userAction, isTrue);
     });
   });
 

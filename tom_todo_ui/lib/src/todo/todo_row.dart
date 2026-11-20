@@ -67,7 +67,7 @@ class TomTodoRow extends StatefulWidget {
   /// none.
   final int? index;
 
-  final TomTodo item;
+  final TomItem item;
 
   /// A merge view renders base, ours and theirs through this same row. Read-only means no
   /// checkbox, no editable title, no menu and no handle — not a greyed-out copy
@@ -174,7 +174,7 @@ class _TomTodoRowState extends State<TomTodoRow> {
     final dragHandle = widget.dragHandle;
     // A todo that is the user's to do has a purple title, as in the VS Code
     // extension, moved until it reads on the surface in either theme.
-    final titleColor = item.userAction
+    final titleColor = (item.workflow?.userAction ?? false)
         ? tomReadableOn(Colors.purple, Theme.of(context).colorScheme.surface)
         : null;
     final titleStyle = item.isDone || titleColor != null
@@ -183,7 +183,7 @@ class _TomTodoRowState extends State<TomTodoRow> {
             color: titleColor,
           )
         : null;
-    final title = Text(item.title, style: titleStyle);
+    final title = Text(item.headline, style: titleStyle);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),

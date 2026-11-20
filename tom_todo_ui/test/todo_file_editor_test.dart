@@ -179,7 +179,7 @@ void main() {
     await tester.pump();
     expect(host.session.dirty, isTrue);
     final edited = TomTodoFile.parse(host.session.text);
-    expect(edited.entries[0].todo!.status, TomTodoStatus.completed);
+    expect(edited.entries[0].item!.status, TomTodoStatus.completed);
     expect(edited.blockOf(1), TomTodoFile.parse(todoFile).blockOf(1));
     await tester.runAsync(host.session.undo);
     await tester.pump();

@@ -36,7 +36,7 @@ class TomAggregateTodo {
     required this.quest,
   });
 
-  final TomTodo todo;
+  final TomItem todo;
 
   /// The file's path under the root.
   final String path;
@@ -86,7 +86,7 @@ Stream<List<TomAggregateTodo>> tomScanTodoFiles(
         final content = await tree.read(tree.uriOf(entry.path));
         final file =
             TomTodoFile.parse(tomDecodeTextBytes(content.bytes).text);
-        for (final todo in file.todos) {
+        for (final todo in file.items) {
           found.add(TomAggregateTodo(
             todo: todo,
             path: entry.path,
@@ -265,7 +265,7 @@ class _AggregateState extends State<TomTodoAggregateView> {
                 key: Key('tom-todo-aggregate-row-${t.id}'),
                 dense: true,
                 leading: TomTodoStatusIcon(status: t.status),
-                title: Text(t.title.isEmpty ? (t.description ?? '') : t.title,
+                title: Text(t.headline.isEmpty ? (t.description ?? '') : t.headline,
                     maxLines: 1, overflow: TextOverflow.ellipsis),
                 subtitle: Text(
                   [
@@ -324,6 +324,8 @@ class TomTodoStatusIcon extends StatelessWidget {
       TomTodoStatus.cancelled => (Icons.cancel_outlined, scheme.outline),
       // A group of todos (its members in `comprised_of`), not work itself.
       TomTodoStatus.group => (Icons.account_tree_outlined, scheme.secondary),
+      // An item currently not treated as a todo: neither open work nor done.
+      TomTodoStatus.none => (Icons.remove_circle_outline, scheme.outline),
     };
     return Tooltip(
       message: status.wire,
