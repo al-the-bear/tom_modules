@@ -1,6 +1,8 @@
 // Copyright (c) 2026 Peter Nicolai Alexis Kyaw
 // SPDX-License-Identifier: BSD-3-Clause
 
+import 'dart:ui' as ui;
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -149,6 +151,61 @@ void main() {
       c.typeText('y');
       await tester.pump(const Duration(milliseconds: 150));
       expect(channel.sentOf<OfficeRenderTile>().length, greaterThan(again));
+      await closeEditor(tester, c);
+    });
+
+    testWidgets('OE-TILE-2: repaint after repaint, the cache stays within '
+        'its bound and every superseded tile is disposed', (tester) async {
+      final host = TestHost();
+      final made = <ui.Image>[];
+      // Room for 40 tiles of 256 × 256 (the view shows about 20 with its
+      // ring at 1000 × 800).
+      const bound = 40 * 256 * 256 * 4;
+      final c = TomOfficeEditorController(
+        host: host,
+        pingInterval: const Duration(seconds: 1),
+        hangTimeout: const Duration(seconds: 3),
+        cache: TileCache(maxBytes: bound),
+        decoder: (pixels, w, h, format) async {
+          final image = await decodeOfficeTile(pixels, w, h, format);
+          made.add(image);
+          return image;
+        },
+      );
+      await pumpEditor(tester, c);
+      await c.open();
+      await settle(tester);
+      final channel = host.helper.last;
+      for (var i = 0; i < 30; i++) {
+        // LibreOffice repaints everything (as typing in a long paragraph
+        // makes it repaint the visible tiles again and again).
+        channel.callback('INVALIDATE_TILES', 'EMPTY');
+        await settle(tester);
+      }
+      expect(made.length, greaterThan(30 * 4), reason: 'tiles repainted');
+      expect(c.tiles.bytes, lessThanOrEqualTo(bound));
+      final cached = c.tiles.keys.map((k) => c.tiles.peek(k)!.image).toSet();
+      final leaked = made.where((i) => !cached.contains(i) && !i.debugDisposed);
+      expect(leaked, isEmpty, reason: 'superseded tiles are disposed');
+      await closeEditor(tester, c);
+      expect(made.every((i) => i.debugDisposed), isTrue);
+    });
+
+    testWidgets('OE-TILE-4: own input repaints the tile under the cursor '
+        'first', (tester) async {
+      final host = TestHost();
+      final c = await openEditor(tester, host);
+      final channel = host.helper.last;
+      final before = channel.sentOf<OfficeRenderTile>().length;
+      c.typeText('x');
+      // The cursor in the third tile row and second column (3840 twips a
+      // tile at 100 %).
+      channel.callback('INVALIDATE_VISIBLE_CURSOR', '4000, 8000, 0, 276');
+      await tester.pump();
+      final repaint = channel.sentOf<OfficeRenderTile>().skip(before).toList();
+      expect(repaint.length, greaterThan(1), reason: 'the visible tiles');
+      expect((repaint.first.x, repaint.first.y), (3840, 7680));
+      await settle(tester);
       await closeEditor(tester, c);
     });
 

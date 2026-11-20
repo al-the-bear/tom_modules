@@ -156,4 +156,41 @@ void main() {
     expect(cache.keys, [const TileKey(0, 200, 0, 0)]);
     cache.clear();
   });
+
+  testWidgets('OE-TILE-3: replaced and evicted tiles are disposed; visible '
+      'ones are kept over the bound', (tester) async {
+    final images = await tester.runAsync(() async {
+      final list = <ui.Image>[];
+      for (var i = 0; i < 5; i++) {
+        final recorder = ui.PictureRecorder();
+        ui.Canvas(
+          recorder,
+        ).drawRect(const ui.Rect.fromLTWH(0, 0, 16, 16), ui.Paint());
+        list.add(await recorder.endRecording().toImage(16, 16));
+      }
+      return list;
+    });
+    // Room for two 16 × 16 tiles.
+    final cache = TileCache(maxBytes: 2 * 16 * 16 * 4);
+    const a = TileKey(0, 100, 0, 0), b = TileKey(0, 100, 1, 0);
+    const c = TileKey(0, 100, 2, 0);
+    cache.put(a, images![0]);
+    // A repaint of the same tile replaces it and disposes the old image.
+    cache.put(a, images[1]);
+    expect(images[0].debugDisposed, isTrue);
+    expect(cache.length, 1);
+    cache.put(b, images[2]);
+    // Over the bound: the least recently used tile goes, unless it is kept.
+    cache.put(c, images[3], keep: {a, b, c});
+    expect(cache.length, 3, reason: 'visible tiles stay over the bound');
+    expect(images[1].debugDisposed, isFalse);
+    cache.put(const TileKey(0, 100, 3, 0), images[4], keep: {c});
+    expect(cache.contains(a), isFalse);
+    expect(cache.contains(b), isFalse);
+    expect(images[1].debugDisposed, isTrue);
+    expect(images[2].debugDisposed, isTrue);
+    expect(cache.bytes, 2 * 16 * 16 * 4);
+    cache.clear();
+    expect(images[3].debugDisposed && images[4].debugDisposed, isTrue);
+  });
 }

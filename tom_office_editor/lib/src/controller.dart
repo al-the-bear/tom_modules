@@ -804,8 +804,27 @@ class TomOfficeEditorController extends ChangeNotifier {
       tileTwips,
     );
     if (marked.isEmpty) return;
-    _requestTiles(_visible.where(marked.contains));
+    _requestTiles(_nearestCursorFirst(_visible.where(marked.contains)));
     tileRevision.value++;
+  }
+
+  /// [keys] ordered by their distance from the cursor's tile (rows first,
+  /// then columns), so that the tile being typed into is rendered, sent and
+  /// decoded first and does not wait behind the rest of a repaint. Without
+  /// a cursor, in their own order.
+  List<TileKey> _nearestCursorFirst(Iterable<TileKey> keys) {
+    final list = keys.toList();
+    final cursor = _cursor;
+    if (cursor == null || list.length < 2) return list;
+    int distance(TileKey k) {
+      final size = tileTwips(k.zoom);
+      final row = (cursor.y / size).floor();
+      final column = (cursor.x / size).floor();
+      return (k.row - row).abs() * 1000 + (k.column - column).abs();
+    }
+
+    list.sort((a, b) => distance(a).compareTo(distance(b)));
+    return list;
   }
 
   void _onCallback(OfficeCallback callback) {
