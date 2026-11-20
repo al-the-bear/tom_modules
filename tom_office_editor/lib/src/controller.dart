@@ -444,6 +444,8 @@ class TomOfficeEditorController extends ChangeNotifier {
     tiles.clear();
     _pendingTiles.clear();
     _tileIds.clear();
+    _staleSince.clear();
+    _askedAt.clear();
     _visible = const {};
     _cursor = null;
     _selection = const [];
@@ -804,6 +806,10 @@ class TomOfficeEditorController extends ChangeNotifier {
       tileTwips,
     );
     if (marked.isEmpty) return;
+    _invalidation++;
+    for (final key in marked) {
+      _staleSince[key] = _invalidation;
+    }
     _requestTiles(_nearestCursorFirst(_visible.where(marked.contains)));
     tileRevision.value++;
   }
@@ -935,6 +941,15 @@ class TomOfficeEditorController extends ChangeNotifier {
   final _pendingTiles = <TileKey, int>{};
   final _tileIds = <int, TileKey>{};
   final _tileSent = <int, DateTime>{};
+
+  /// Counts the invalidations; [_staleSince] holds the one a stale tile
+  /// dates from, [_askedAt] the one its pending request was sent after. A
+  /// request sent after a tile's last invalidation renders it as it is now,
+  /// so asking again would only throw that answer away (the view asks for
+  /// its tiles on every rebuild).
+  int _invalidation = 0;
+  final _staleSince = <TileKey, int>{};
+  final _askedAt = <TileKey, int>{};
   int _tilesRequested = 0;
   int _tilesReceived = 0;
   Duration _tileLatency = Duration.zero;
@@ -973,13 +988,20 @@ class TomOfficeEditorController extends ChangeNotifier {
     for (final key in keys) {
       final cached = tiles.peek(key);
       if (cached != null && !cached.stale) continue;
-      if (_pendingTiles.containsKey(key) && cached == null) continue;
-      // A stale tile asked again replaces the pending request.
       final old = _pendingTiles[key];
+      // A pending request answers a missing tile, and a stale one when it
+      // was sent after the tile's last invalidation.
+      if (old != null &&
+          (cached == null ||
+              (_askedAt[key] ?? -1) >= (_staleSince[key] ?? 0))) {
+        continue;
+      }
+      // Invalidated again since: the newer request replaces the pending one.
       if (old != null) _tileIds.remove(old);
       final id = _nextId++;
       _pendingTiles[key] = id;
       _tileIds[id] = key;
+      _askedAt[key] = _invalidation;
       _tileSent[id] = DateTime.now();
       final size = tileTwips(key.zoom);
       final px = (kOfficeTileSize * _dpr).round();
@@ -1004,7 +1026,11 @@ class TomOfficeEditorController extends ChangeNotifier {
     if (sent != null) _tileLatency += DateTime.now().difference(sent);
     _summariseTiles();
     if (key == null) return; // superseded
-    if (_pendingTiles[key] == tile.id) _pendingTiles.remove(key);
+    if (_pendingTiles[key] == tile.id) {
+      _pendingTiles.remove(key);
+      _askedAt.remove(key);
+      _staleSince.remove(key);
+    }
     try {
       final image = await _decoder(
         tile.pixels,

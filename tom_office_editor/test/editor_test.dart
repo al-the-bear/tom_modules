@@ -209,6 +209,43 @@ void main() {
       await closeEditor(tester, c);
     });
 
+    testWidgets('OE-TILE-5: a stale tile is asked for once per '
+        'invalidation; the view asking again keeps the pending request', (
+      tester,
+    ) async {
+      final host = TestHost();
+      final c = await openEditor(tester, host);
+      final channel = host.helper.last;
+      final keys = c.tiles.keys.toSet();
+      expect(keys, isNotEmpty);
+      final zoom = keys.first.zoom;
+      // From here the requests stay pending.
+      channel.answerTiles = false;
+      final before = channel.sentOf<OfficeRenderTile>().length;
+      channel.callback('INVALIDATE_TILES', 'EMPTY');
+      await tester.pump();
+      final asked = channel.sentOf<OfficeRenderTile>().length;
+      expect(asked, greaterThan(before), reason: 'the stale tiles asked for');
+      // The view asks for all its tiles (the ring's too, not visible, so not
+      // asked for by the invalidation), then again and again (rebuilds): the
+      // pending requests were sent after the invalidation, so nothing more
+      // is asked.
+      c.showTiles(keys, zoom: zoom, devicePixelRatio: c.devicePixelRatio);
+      await tester.pump();
+      final all = channel.sentOf<OfficeRenderTile>().length;
+      c.showTiles(keys, zoom: zoom, devicePixelRatio: c.devicePixelRatio);
+      c.showTiles(keys, zoom: zoom, devicePixelRatio: c.devicePixelRatio);
+      await tester.pump();
+      expect(channel.sentOf<OfficeRenderTile>().length, all);
+      // Invalidated again: the tiles are asked for again.
+      channel.callback('INVALIDATE_TILES', 'EMPTY');
+      await tester.pump();
+      expect(channel.sentOf<OfficeRenderTile>().length, greaterThan(all));
+      channel.answerTiles = true;
+      await settle(tester);
+      await closeEditor(tester, c);
+    });
+
     testWidgets('OE-INPUT-3: the context menu runs its UNO command', (
       tester,
     ) async {

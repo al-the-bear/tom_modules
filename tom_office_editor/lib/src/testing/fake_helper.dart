@@ -82,8 +82,9 @@ class FakeOfficeHelperChannel implements TomOfficeHelperChannel {
   /// Whether `ping` is answered (false: the helper hangs).
   final bool answerPings;
 
-  /// Whether tiles are answered.
-  final bool answerTiles;
+  /// Whether tiles are answered (a test may switch it, to keep requests
+  /// pending).
+  bool answerTiles;
 
   /// What `getCommandValues` answers, by command (`{}` for others).
   final Map<String, String> values;
