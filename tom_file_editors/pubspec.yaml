@@ -4,7 +4,7 @@ description: >-
   interface, the source editor, the text and .env editors, YAML and Markdown
   highlighting, the schema cache, and a Markdown renderer for reading files
   and short texts. License: BSD-3-Clause.
-version: 0.1.0
+version: 0.2.0
 repository: https://github.com/al-the-bear/tom_modules
 
 environment:
