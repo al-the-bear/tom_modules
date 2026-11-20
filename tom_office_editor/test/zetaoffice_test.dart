@@ -445,4 +445,48 @@ void main() {
     expect(tab.controller.isDirty, isFalse, reason: 'the old channel is gone');
     await tab.close(tester);
   });
+
+  testWidgets('ZO-15: a save ZetaOffice fails says why in plain words and '
+      'leaves the document dirty; a stack overflow is named', (tester) async {
+    final tab = _Tab(cache: TomZetaOfficeCacheState.ready);
+    await tab.pump(tester);
+    await tab.loaded(tester);
+    tab.channel.emit({'type': 'modified', 'value': true});
+    await tester.pump();
+    tab.channel.onCall = (function, args) {
+      if (function != 'save') return;
+      tab.channel.emit({
+        'type': 'saved',
+        'ok': false,
+        'copy': false,
+        'error': 'RangeError: Maximum call stack size exceeded.',
+      });
+    };
+    expect(
+      await _drive(tester, tab.controller.save()),
+      TomOfficeSaveOutcome.failed,
+    );
+    await tester.pump();
+    expect(tab.controller.isDirty, isTrue);
+    final message = tab.host.notices.last.$2;
+    expect(message, contains('report.docx could not be saved'));
+    expect(message, contains('ran out of stack space'));
+    expect(message, contains('The LibreOffice editor (Open With) handles it'));
+    expect(message, contains('The file on disk is unchanged'));
+    expect(message, isNot(contains('RangeError')));
+    await tab.close(tester);
+  });
+
+  test('ZO-16: ZetaOffice\'s reasons in words: the stack overflow named, '
+      'others quoted, none said so', () {
+    expect(
+      zetaOfficeReason('RangeError: Maximum call stack size exceeded.'),
+      startsWith('ZetaOffice ran out of stack space'),
+    );
+    expect(
+      zetaOfficeReason('com.sun.star.task.ErrorCodeIOException'),
+      'ZetaOffice reported: com.sun.star.task.ErrorCodeIOException.',
+    );
+    expect(zetaOfficeReason('  '), 'ZetaOffice gave no reason.');
+  });
 }

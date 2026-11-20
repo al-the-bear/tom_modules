@@ -11,6 +11,20 @@ import '../host.dart';
 import 'files.dart';
 import 'trail.dart';
 
+/// ZetaOffice's error [message] in words a user understands: the known
+/// failures named, anything else as ZetaOffice said it.
+String zetaOfficeReason(String message) {
+  if (message.contains('Maximum call stack size exceeded')) {
+    return 'ZetaOffice ran out of stack space on this document, a limit of '
+        'the web engine it runs in. The LibreOffice editor (Open With) '
+        'handles it.';
+  }
+  final text = message.trim();
+  return text.isEmpty
+      ? 'ZetaOffice gave no reason.'
+      : 'ZetaOffice reported: ${text.endsWith('.') ? text : '$text.'}';
+}
+
 /// Where a ZetaOffice tab is.
 enum TomZetaOfficeState {
   /// The cache is being checked.
@@ -357,7 +371,11 @@ class TomZetaOfficeController extends ChangeNotifier {
             'notIsolated' =>
               'ZetaOffice needs a cross-origin isolated page: $message',
             // The document itself: as the LibreOfficeKit route says it.
-            'loadFailed' => '${host.name} could not be opened: $message',
+            // The page's own reasons are readable; ZetaOffice's stack
+            // failure is put in words.
+            'loadFailed' =>
+              '${host.name} could not be opened: '
+                  '${message.contains('Maximum call stack size exceeded') ? zetaOfficeReason(message) : message}',
             _ => 'ZetaOffice could not start: $message',
           });
         } else {
@@ -438,7 +456,11 @@ class TomZetaOfficeController extends ChangeNotifier {
       final waiting = _copying;
       _copying = null;
       if (!ok) {
-        _notice('The copy could not be written: ${m['error']}', kind: 'error');
+        _notice(
+          'The copy could not be written: '
+          '${zetaOfficeReason('${m['error']}')}',
+          kind: 'error',
+        );
       }
       waiting?.complete(ok ? _copyPath : null);
       return;
@@ -447,7 +469,12 @@ class TomZetaOfficeController extends ChangeNotifier {
     if (waiting == null || waiting.isCompleted) return;
     if (!ok) {
       zetaTrail('save failed in ZetaOffice');
-      _notice('${host.name} could not be saved: ${m['error']}', kind: 'error');
+      _notice(
+        '${host.name} could not be saved: '
+        '${zetaOfficeReason('${m['error']}')} The file on disk is unchanged '
+        'and your changes are still in this tab.',
+        kind: 'error',
+      );
       waiting.complete(TomOfficeSaveOutcome.failed);
       return;
     }
