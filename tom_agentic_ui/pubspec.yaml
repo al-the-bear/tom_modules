@@ -1,0 +1,35 @@
+name: tom_agentic_ui
+description: >-
+  The agent and chat UI over tom_core_agentic: the chat composer with its live
+  placeholder preview, the send controller and reconnect banner, the prompt
+  queue and prompt trail with their controllers, the agent connection picker,
+  and the change log with its review panel. License: BSD-3-Clause.
+version: 0.1.0
+repository: https://github.com/al-the-bear/tom_modules
+
+environment:
+  sdk: ^3.10.8
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # The agent layer: provider and model API, prompt queue, trail and profile
+  # models, the placeholder engine, the bridge connection scan and store.
+  tom_core_agentic:
+    path: ../../core_extension/tom_core_agentic
+  # The cooperative cancellation the send controller hands the send engine.
+  tom_basics: ^3.3.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  # The in-memory workspace the tests' sidecar stores write to.
+  tom_file_system:
+    path: ../../basics/tom_file_system
+  # The send tests fake the Agent SDK transport to run the whole pipeline
+  # without opening a socket.
+  tom_vscode_scripting_api: ^6.0.0
+
+flutter:
+  uses-material-design: true

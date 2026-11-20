@@ -29,6 +29,7 @@ applications share, each package one purpose:
 | [`tom_file_editors`](tom_file_editors/) | Byte-preserving file editors over `tom_file_session` (text, `.env`, YAML and Markdown highlighting), the schema cache, the Markdown renderer. |
 | [`tom_pdf_editor`](tom_pdf_editor/) | The PDF viewer over PDFium (FFI on an engine isolate): scroll, zoom, page list, search, selection and copy, links; the controller and host interface. Not published. |
 | [`tom_todo_ui`](tom_todo_ui/) | The todo row, badges and details editor, and the `*.todo.yaml` file editor. |
+| [`tom_agentic_ui`](tom_agentic_ui/) | The agent and chat UI over `tom_core_agentic`: the composer with its placeholder preview, the send controller and reconnect banner, the prompt queue and trail, the agent connection picker, the change log and its review. |
 | [`tom_ai_trail_ui`](tom_ai_trail_ui/) | The live trails of AI sessions over `tom_llm`, as a panel, a chip or a phone sheet. |
 
 Each package has its own README and changelog, and each is published on

@@ -1,0 +1,28 @@
+name: tom_agentic_ui_example
+description: >-
+  The chat composer and the agent connection picker over a fake agent
+  connection, from tom_agentic_ui.
+publish_to: none
+version: 0.1.0
+
+environment:
+  sdk: ^3.10.8
+
+dependencies:
+  flutter:
+    sdk: flutter
+  tom_agentic_ui:
+    path: ..
+  tom_core_agentic:
+    path: ../../../core_extension/tom_core_agentic
+  # The in-memory workspace the example's connection and session stores use.
+  tom_file_system:
+    path: ../../../basics/tom_file_system
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
