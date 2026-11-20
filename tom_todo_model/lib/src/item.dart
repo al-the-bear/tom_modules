@@ -499,6 +499,8 @@ class TomItemWorkflow {
     this.qaRole,
     this.orchestrationRole,
     this.bundleId,
+    this.role,
+    Map<String, String> guidelines = const {},
     this.derivedFrom,
     this.feedbackSource,
     this.filedBy,
@@ -511,6 +513,7 @@ class TomItemWorkflow {
     DateTime? archived,
     DateTime? deleted,
   }) : decisions = [for (final d in decisions) d.copy()],
+       guidelines = Map.of(guidelines),
        resources = resources == null ? null : List.of(resources),
        _archived = tomCanonicalDate(archived),
        _deleted = tomCanonicalDate(deleted) {
@@ -535,6 +538,20 @@ class TomItemWorkflow {
 
   /// The execution bundle the todo is grouped into.
   String? bundleId;
+
+  /// The role the todo runs in: a folder name under `_ai/roles/`. A queued
+  /// prompt for the todo runs as this role, before its queue item's role,
+  /// the queuing process step's role and the chat variable `role`.
+  String? role;
+
+  /// The guideline aspects the todo chooses: an aspect section (a folder
+  /// name under `_ai/aspect_guidelines/`) to an option's short name, or to
+  /// [removeGuideline] (nothing for that section, whatever a higher level
+  /// chose). A section the todo does not choose has no entry and inherits.
+  Map<String, String> guidelines;
+
+  /// The value of a [guidelines] entry that sends nothing for its section.
+  static const String removeGuideline = 'remove';
 
   /// The todo this one was derived from, and the feedback that raised it.
   String? derivedFrom;
@@ -582,6 +599,8 @@ class TomItemWorkflow {
     'qa_role',
     'orchestration_role',
     'bundle_id',
+    'role',
+    'guidelines',
     'derived_from',
     'feedback_source',
     'filed_by',
@@ -596,8 +615,21 @@ class TomItemWorkflow {
   ];
 
   /// Rejects a [dueReminded] that is not `yyyy-MM-ddTHH:MM` with an offset,
-  /// and a [filedBy] with a malformed `at`.
+  /// a [filedBy] with a malformed `at`, a [role] that is no role folder name
+  /// (`[A-Za-z0-9][A-Za-z0-9_-]*`) and a [guidelines] section or option that
+  /// cannot be a folder or file name (empty, a `/`, a line break, or space
+  /// at either end).
   void check() {
+    if (role != null && !_roleRe.hasMatch(role!)) {
+      throw FormatException('Todo "role" must be a role folder name: "$role"');
+    }
+    for (final MapEntry(:key, :value) in guidelines.entries) {
+      if (!_nameOk(key) || !_nameOk(value)) {
+        throw FormatException(
+          'Todo "guidelines" entry must map a section name to an option name: "$key": "$value"',
+        );
+      }
+    }
     if (dueReminded != null &&
         !TomTodoRepeat.nextRepeatRe.hasMatch(dueReminded!)) {
       throw FormatException(
@@ -606,6 +638,15 @@ class TomItemWorkflow {
     }
     filedBy?.check();
   }
+
+  static final RegExp _roleRe = RegExp(r'^[A-Za-z0-9][A-Za-z0-9_-]*$');
+
+  static bool _nameOk(String name) =>
+      name.isNotEmpty &&
+      name.trim() == name &&
+      !name.contains('/') &&
+      !name.contains('\n') &&
+      !name.contains('\r');
 
   /// True when no field holds anything: the extension is then absent.
   bool get isEmpty => toMap().isEmpty;
@@ -618,6 +659,8 @@ class TomItemWorkflow {
     qaRole: qaRole,
     orchestrationRole: orchestrationRole,
     bundleId: bundleId,
+    role: role,
+    guidelines: guidelines,
     derivedFrom: derivedFrom,
     feedbackSource: feedbackSource,
     filedBy: filedBy?.copy(),
@@ -641,6 +684,8 @@ class TomItemWorkflow {
     'qa_role': ?qaRole,
     'orchestration_role': ?orchestrationRole,
     'bundle_id': ?bundleId,
+    'role': ?role,
+    if (guidelines.isNotEmpty) 'guidelines': Map.of(guidelines),
     'derived_from': ?derivedFrom,
     'feedback_source': ?feedbackSource,
     if (filedBy != null) 'filed_by': filedBy!.toMap(),
@@ -671,6 +716,8 @@ class TomItemWorkflow {
       qaRole: map['qa_role'] as String?,
       orchestrationRole: map['orchestration_role'] as String?,
       bundleId: map['bundle_id'] as String?,
+      role: map['role'] as String?,
+      guidelines: _guidelineMap(map['guidelines']),
       derivedFrom: map['derived_from'] as String?,
       feedbackSource: map['feedback_source'] as String?,
       filedBy: filedBy == null ? null : TomTodoFiledBy.fromMap(filedBy as Map),
@@ -683,6 +730,24 @@ class TomItemWorkflow {
       archived: TomItem._date(map, 'archived'),
       deleted: TomItem._date(map, 'deleted'),
     );
+  }
+
+  /// The `guidelines` mapping: section names to option names, both strings.
+  static Map<String, String> _guidelineMap(Object? value) {
+    if (value == null) return const {};
+    if (value is! Map) {
+      throw FormatException('Todo "guidelines" must be a mapping: $value');
+    }
+    final out = <String, String>{};
+    for (final MapEntry(:key, :value) in value.entries) {
+      if (key is! String || value is! String) {
+        throw FormatException(
+          'Todo "guidelines" entry must map a section name to an option name: $key: $value',
+        );
+      }
+      out[key] = value;
+    }
+    return out;
   }
 }
 
@@ -1501,6 +1566,8 @@ class TomItem {
     'qa_role',
     'orchestration_role',
     'bundle_id',
+    'role',
+    'guidelines',
     'derived_from',
     'feedback_source',
     'on_done',
@@ -1590,6 +1657,8 @@ class TomItem {
       'qa_role',
       'orchestration_role',
       'bundle_id',
+      'role',
+      'guidelines',
       'derived_from',
       'feedback_source',
       'on_done',

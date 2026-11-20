@@ -99,9 +99,9 @@ TomTodo everyField() => TomTodo(
 
 void main() {
   group('WONETESTA5-A the codec', () {
-    test('WONETESTA5-01: the closed field set is the schema\'s 62 fields; '
+    test('WONETESTA5-01: the closed field set is the schema\'s 64 fields; '
         'the 3.x fields are emitted in the 3.x order [1011]', () {
-      expect(TomItem.fields, hasLength(62));
+      expect(TomItem.fields, hasLength(64));
       final threeX = everyField().toMap().keys.toList();
       expect(
         TomItem.fields.where(threeX.contains).toList(),
@@ -642,6 +642,114 @@ void main() {
       expect(todo.dueReminded, '2026-12-01T09:00Z');
       todo.due = DateTime(2026, 12, 8);
       expect(todo.dueReminded, isNull);
+    });
+  });
+
+  group('role and guidelines (4.2.0)', () {
+    TomItem item({String? role, Map<String, String> guidelines = const {}}) =>
+        TomItem(
+          id: 'g1',
+          headline: 'Tune it',
+          workflow: TomItemWorkflow(
+            executionRole: 'software_engineer',
+            bundleId: 'b1',
+            role: role,
+            guidelines: guidelines,
+            derivedFrom: 'g0',
+          ),
+        );
+
+    test('ROLEGL-1: both round-trip, written after bundle_id and before '
+        'derived_from, in the flat field set and the workflow fields', () {
+      final original = item(
+        role: 'idea_author',
+        guidelines: {'answer_mode': 'answer tool', 'night': 'remove'},
+      );
+      final map = original.toMap();
+      final keys = map.keys.toList();
+      expect(
+        keys.sublist(keys.indexOf('bundle_id'), keys.indexOf('derived_from') + 1),
+        ['bundle_id', 'role', 'guidelines', 'derived_from'],
+      );
+      expect(map['role'], 'idea_author');
+      expect(map['guidelines'], {'answer_mode': 'answer tool', 'night': 'remove'});
+      final read = TomItem.fromMap(map);
+      expect(read, original);
+      expect(read.workflow!.role, 'idea_author');
+      expect(read.workflow!.guidelines['night'], TomItemWorkflow.removeGuideline);
+      final flat = TomItem.fields.toList();
+      expect(flat.sublist(flat.indexOf('bundle_id'), flat.indexOf('bundle_id') + 4),
+          ['bundle_id', 'role', 'guidelines', 'derived_from']);
+      expect(TomItemWorkflow.fields, containsAllInOrder(['bundle_id', 'role', 'guidelines', 'derived_from']));
+    });
+
+    test('ROLEGL-2: neither is written when unset; an empty guidelines map '
+        'is not written either', () {
+      final map = item().toMap();
+      expect(map.containsKey('role'), isFalse);
+      expect(map.containsKey('guidelines'), isFalse);
+      final read = TomItem.fromMap({'id': 'x', 'title': 'X', 'guidelines': <String, String>{}});
+      expect(read.workflow?.guidelines ?? const {}, isEmpty);
+      expect(read.toMap().containsKey('guidelines'), isFalse);
+    });
+
+    test('ROLEGL-3: a role alone makes the workflow extension present', () {
+      final read = TomItem.fromMap({'id': 'x', 'title': 'X', 'role': 'reviewer'});
+      expect(read.workflow, isNotNull);
+      expect(read.workflow!.role, 'reviewer');
+    });
+
+    test('ROLEGL-4: copy() is detached', () {
+      final original = item(role: 'a', guidelines: {'s': 'o'});
+      final copy = original.copy();
+      copy.workflow!.guidelines['s'] = 'other';
+      copy.workflow!.role = 'b';
+      expect(original.workflow!.guidelines['s'], 'o');
+      expect(original.workflow!.role, 'a');
+    });
+
+    test('ROLEGL-5: what is no role folder name or no section / option name '
+        'is a format error', () {
+      Map<String, Object?> with_(String key, Object? value) =>
+          {'id': 'x', 'title': 'X', key: value};
+      for (final bad in ['', ' reviewer', 'a/b', '_hidden', 'two words']) {
+        expect(() => TomItem.fromMap(with_('role', bad)), throwsFormatException,
+            reason: 'role "$bad"');
+      }
+      for (final bad in <Object>[
+        'answer tool',
+        ['a'],
+        {'': 'o'},
+        {'s': ''},
+        {'s/t': 'o'},
+        {'s': ' o'},
+        {'s': 'o\n'},
+        {'s': 1},
+      ]) {
+        expect(() => TomItem.fromMap(with_('guidelines', bad)),
+            throwsFormatException,
+            reason: 'guidelines $bad');
+      }
+      expect(TomItem.fromMap(with_('guidelines', {'answer_mode': 'trail only'}))
+          .workflow!.guidelines, {'answer_mode': 'trail only'});
+    });
+
+    test('ROLEGL-6: a todo file writes and reads both, keeping the rest', () {
+      const text =
+          'todos:\n  - id: a\n    title: A\n    status: not-started\n    bundle_id: b1\n    derived_from: z\n';
+      final file = TomTodoFile.parse(text);
+      final todo = file.entries.single.item!.copy();
+      (todo.workflow ??= TomItemWorkflow())
+        ..role = 'idea_author'
+        ..guidelines = {'answer_mode': 'answer tool'};
+      final written = file.withItem(0, todo);
+      expect(
+        written,
+        contains('    bundle_id: b1\n    role: idea_author\n    guidelines:\n'),
+      );
+      final read = TomTodoFile.parse(written).entries.single.item!;
+      expect(read, todo);
+      expect(read.workflow!.derivedFrom, 'z');
     });
   });
 }

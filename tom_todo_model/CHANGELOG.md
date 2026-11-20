@@ -1,3 +1,23 @@
+## 4.2.0
+
+The role a todo runs in and the guideline aspects it chooses.
+
+- `TomItemWorkflow.role`: the role the todo runs in, a folder name under
+  `_ai/roles/` (`[A-Za-z0-9][A-Za-z0-9_-]*`). A queued prompt for the todo
+  runs as this role, before its queue item's role, the queuing process
+  step's role and the chat variable `role`.
+- `TomItemWorkflow.guidelines`: the guideline aspects the todo chooses, an
+  aspect section (a folder name under `_ai/aspect_guidelines/`) mapped to an
+  option's short name, or to `remove` (`TomItemWorkflow.removeGuideline`:
+  nothing for that section, whatever a higher level chose). A section the
+  todo does not choose has no entry and inherits; an empty map is not
+  written. `check` refuses a section or option that cannot be a folder or
+  file name.
+- Both are workflow fields, written after `bundle_id` in the flat todo-file
+  form, which now has 64 keys.
+- A 4.1 reader refuses a todo carrying either field (an unknown key),
+  leaving the rest of its file readable: move every reader's lock to 4.2.0.
+
 ## 4.1.0
 
 The reminder schedule: a todo can keep reminding while it is open.
