@@ -114,7 +114,16 @@ function edit(text) {
   const kind = kindOf(xModel);
   const t = target(kind);
   if (kind === 'text') {
-    t.insertString(t.getStart(), text, false);
+    // At the view cursor, where Writer puts it after loading: past hidden
+    // and protected sections. The body's own start may lie in one (a letter
+    // template's hidden protected section), where an insert is refused.
+    let into = t, at = t.getStart();
+    try {
+      const cursor = xModel.getCurrentController().getViewCursor();
+      into = cursor.getText();
+      at = cursor.getStart();
+    } catch (e) { /* no view cursor: the body's start */ }
+    into.insertString(at, text, false);
   } else {
     t.setString(text + t.getString());
   }
