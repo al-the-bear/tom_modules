@@ -1,0 +1,31 @@
+name: tom_mermaid_view
+description: >-
+  A Flutter widget that renders Mermaid diagrams with the official mermaid.js
+  (11.13.0, MIT) in a webview. It bundles mermaid.min.js (2.9 MB) as an asset,
+  so only applications that render diagrams depend on it.
+  License: BSD-3-Clause; mermaid.js MIT (assets/js/LICENSE, THIRD_PARTY.md).
+publish_to: none
+version: 0.1.0
+repository: https://github.com/al-the-bear/tom_modules
+
+environment:
+  sdk: ^3.0.0
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # The webview the diagram renders in (the tom_flutter_inappwebview fork).
+  flutter_inappwebview:
+    path: ../../xternal/tom_flutter_inappwebview/flutter_inappwebview
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  assets:
+    # mermaid.js 11.13.0, unmodified (cdn.jsdelivr.net/npm/mermaid@11.13.0/
+    # dist/mermaid.min.js); its MIT licence is assets/js/LICENSE.
+    - assets/js/mermaid.min.js
