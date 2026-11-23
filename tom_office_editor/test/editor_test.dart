@@ -483,10 +483,12 @@ void main() {
     });
 
     testWidgets('OE-PW-1: a wrong password asks again; the right one opens '
-        'read-only (DPOE-3)', (tester) async {
+        'read-only; Save as copy keeps the password (DPOE-3)', (tester) async {
+      late FakeOfficeHelperChannel channel;
       final host = TestHost(
         helper: FakeOfficeHelperLauncher(
-          channelFor: () => FakeOfficeHelperChannel(password: 'secret'),
+          channelFor: () =>
+              channel = FakeOfficeHelperChannel(password: 'secret'),
         ),
       );
       final c = await openEditor(tester, host);
@@ -512,8 +514,46 @@ void main() {
       // Save as copy after the warning.
       await tester.tap(find.byKey(const ValueKey('office-save-copy')));
       await settle(tester);
+      expect(find.text('Save without password'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('office-copy-confirm')));
       await settle(tester);
+      expect(
+        await host.fs.exists(host.fs.uriOf('/docs/report (copy).docx')),
+        isTrue,
+      );
+      expect(channel.sentOf<OfficeSave>().single.keepPassword, isTrue);
+      await closeEditor(tester, c);
+    });
+
+    testWidgets('OE-PW-3: the warning offers an unencrypted copy; Cancel '
+        'writes nothing (DPOE-3)', (tester) async {
+      late FakeOfficeHelperChannel channel;
+      final host = TestHost(
+        helper: FakeOfficeHelperLauncher(
+          channelFor: () =>
+              channel = FakeOfficeHelperChannel(password: 'secret'),
+        ),
+      );
+      final c = await openEditor(tester, host);
+      await tester.enterText(
+        find.byKey(const ValueKey('office-password-field')),
+        'secret',
+      );
+      await tester.tap(find.byKey(const ValueKey('office-password-ok')));
+      await settle(tester);
+      expect(c.isPasswordProtected, isTrue);
+
+      await tester.tap(find.byKey(const ValueKey('office-save-copy')));
+      await settle(tester);
+      await tester.tap(find.text('Cancel'));
+      await settle(tester);
+      expect(channel.sentOf<OfficeSave>(), isEmpty);
+
+      await tester.tap(find.byKey(const ValueKey('office-save-copy')));
+      await settle(tester);
+      await tester.tap(find.byKey(const ValueKey('office-copy-unencrypted')));
+      await settle(tester);
+      expect(channel.sentOf<OfficeSave>().single.keepPassword, isFalse);
       expect(
         await host.fs.exists(host.fs.uriOf('/docs/report (copy).docx')),
         isTrue,

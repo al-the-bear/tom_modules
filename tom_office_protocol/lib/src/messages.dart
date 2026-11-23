@@ -295,6 +295,7 @@ sealed class OfficeMessage {
         targetPath: f.string('targetPath'),
         format: f.string('format'),
         filterOptions: f.string('filterOptions'),
+        keepPassword: f.boolOr('keepPassword', true),
       ),
       OfficeMessageType.saved => OfficeSaved(
         id: f.int_('id'),
@@ -1074,6 +1075,7 @@ final class OfficeSave extends OfficeHelperCommand implements OfficeRequest {
     required this.targetPath,
     this.format = '',
     this.filterOptions = '',
+    this.keepPassword = true,
   });
 
   @override
@@ -1081,6 +1083,12 @@ final class OfficeSave extends OfficeHelperCommand implements OfficeRequest {
 
   /// Where the helper writes.
   final String targetPath;
+
+  /// For a document opened with a password: whether the file written keeps
+  /// it (the default). `false` writes it unencrypted, as the user chose for
+  /// a copy. A document opened without a password ignores it. Added in
+  /// 0.5.0; a header without it reads as true.
+  final bool keepPassword;
 
   /// The format (`docx`, `odt`, `pdf`, …), empty for the document's own.
   final String format;
@@ -1097,6 +1105,7 @@ final class OfficeSave extends OfficeHelperCommand implements OfficeRequest {
     'targetPath': targetPath,
     'format': format,
     'filterOptions': filterOptions,
+    'keepPassword': keepPassword,
   };
 }
 

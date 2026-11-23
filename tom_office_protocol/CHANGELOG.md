@@ -1,3 +1,9 @@
+## 0.5.0
+
+- `save` gains `keepPassword` (default `true`): for a document opened with a
+  password, `false` writes the file unencrypted. A header without it keeps
+  the password.
+
 ## 0.4.0
 
 - `windowOpened` gains `x` and `y`, a child window's position in its parent

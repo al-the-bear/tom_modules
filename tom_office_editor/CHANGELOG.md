@@ -1,3 +1,9 @@
+## 0.5.0
+
+- *Save as copy* of a password-protected document: the warning offers
+  *Save with password* (the default) and *Save without password*;
+  `TomOfficeEditorController.saveAsCopy` takes `keepPassword` (DPOE-3).
+
 ## 0.4.1
 
 - ZetaOffice: a bridge call the page does not answer (its event loop

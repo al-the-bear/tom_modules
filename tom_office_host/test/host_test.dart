@@ -284,33 +284,58 @@ void main() {
       await h2.exit;
     });
 
-    test('HOST-PASSWORD-4: a document opened with a password saves with '
-        '.uno:SaveAs and its password', () async {
-      h.runtime.openPassword = 'sesame';
-      unawaited(h.exit);
-      await h.next<OfficeHello>();
-      h.send(const OfficeOpen(path: '/docs/p.docx', language: 'en-US'));
-      await h.next<OfficePasswordNeeded>();
-      h.send(const OfficePassword(password: 'sesame'));
-      await h.next<OfficeOpened>();
-      h.doc.onUno = (command, args) async {
-        h.runtime.emit(
-          LokCallbackType.unoCommandResult,
-          '{"commandName":"$command","success":true}',
+    test(
+      'HOST-PASSWORD-4: a document opened with a password saves with '
+      '.uno:SaveAs and its password; keepPassword false saves without',
+      () async {
+        h.runtime.openPassword = 'sesame';
+        unawaited(h.exit);
+        await h.next<OfficeHello>();
+        h.send(const OfficeOpen(path: '/docs/p.docx', language: 'en-US'));
+        await h.next<OfficePasswordNeeded>();
+        h.send(const OfficePassword(password: 'sesame'));
+        await h.next<OfficeOpened>();
+        h.doc.onUno = (command, args) async {
+          h.runtime.emit(
+            LokCallbackType.unoCommandResult,
+            '{"commandName":"$command","success":true}',
+          );
+        };
+        h.send(const OfficeSave(id: 3, targetPath: '/docs/.p.docx.tom-save-1'));
+        final saved = await h.next<OfficeSaved>();
+        expect((saved.id, saved.ok), (3, true));
+        final uno = h.doc.calls.singleWhere(
+          (c) => c.startsWith('uno .uno:SaveAs'),
         );
-      };
-      h.send(const OfficeSave(id: 3, targetPath: '/docs/.p.docx.tom-save-1'));
-      final saved = await h.next<OfficeSaved>();
-      expect((saved.id, saved.ok), (3, true));
-      final uno = h.doc.calls.singleWhere(
-        (c) => c.startsWith('uno .uno:SaveAs'),
-      );
-      final args = jsonDecode(uno.substring('uno .uno:SaveAs '.length)) as Map;
-      expect(args['FilterName']['value'], 'MS Word 2007 XML');
-      expect(args['Password']['value'], 'sesame');
-      expect(args['URL']['value'], 'file:///docs/.p.docx.tom-save-1');
-      expect(h.doc.calls.where((c) => c.startsWith('saveAs')), isEmpty);
-    });
+        final args =
+            jsonDecode(uno.substring('uno .uno:SaveAs '.length)) as Map;
+        expect(args['FilterName']['value'], 'MS Word 2007 XML');
+        expect(args['Password']['value'], 'sesame');
+        expect(args['URL']['value'], 'file:///docs/.p.docx.tom-save-1');
+        expect(h.doc.calls.where((c) => c.startsWith('saveAs')), isEmpty);
+
+        // The user chose an unencrypted copy: saveAs, no password.
+        h.send(
+          const OfficeSave(
+            id: 4,
+            targetPath: '/docs/.p.docx.tom-save-2',
+            keepPassword: false,
+          ),
+        );
+        final copy = await h.next<OfficeSaved>();
+        expect((copy.id, copy.ok), (4, true));
+        expect(
+          h.doc.calls,
+          contains('saveAs /docs/.p.docx.tom-save-2 docx TakeOwnership'),
+        );
+        expect(
+          h.doc.calls.where((c) => c.startsWith('uno .uno:SaveAs')),
+          hasLength(1),
+        );
+        expect(h.logLines.join('\n'), contains('without the password'));
+        expect(h.logLines.join('\n'), isNot(contains('sesame')));
+      },
+    );
   });
 
   group('HOST-TILE tiles', () {

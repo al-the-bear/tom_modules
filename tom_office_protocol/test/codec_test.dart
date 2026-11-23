@@ -102,6 +102,11 @@ final List<OfficeMessage> samples = [
     format: 'docx',
     filterOptions: 'TakeOwnership',
   ),
+  const OfficeSave(
+    id: 12,
+    targetPath: '/docs/.report.docx.tom-save-2',
+    keepPassword: false,
+  ),
   const OfficeSaved(id: 10, ok: false, error: 'disk full'),
   const OfficeSaved(id: 11, ok: true),
   const OfficeWindowOpened(
@@ -491,6 +496,19 @@ void main() {
               as OfficeOpened;
       expect(m.readOnly, isFalse);
       expect(m.lockedBy, isNull);
+    });
+
+    test('OFFICE-PROTO-REFUSE-8: a save header without keepPassword keeps '
+        'the password', () {
+      final m =
+          codec.decode(
+                frame(
+                  OfficeMessageType.save.code,
+                  '{"id":1,"targetPath":"/t","format":"","filterOptions":""}',
+                ),
+              )
+              as OfficeSave;
+      expect(m.keepPassword, isTrue);
     });
 
     test('OFFICE-PROTO-REFUSE-6: unknown fields are ignored (fields are only '

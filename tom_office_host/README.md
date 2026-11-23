@@ -40,7 +40,7 @@ password or typed text.
 | Commands | `uno`, `commandValues` → `values`, `view`, `setPart` | `postUnoCommand` from a second isolate (a modal dialog blocks the call until it closes), `getCommandValues`, `setClientZoom` / `setClientVisibleArea`, `setPart` |
 | Callbacks | `callback` (name and payload, uninterpreted) | every `LOK_CALLBACK_*` except the password ones |
 | Dialogs | `windowOpened`, `windowChanged`, `paintWindow` → `windowPixels`, `windowMouse`, `windowKey`, `windowTextInput`, `windowClose`, `jsDialog`; `dialogMode json` and `dialogEvent` answered with `jsonDialogsUnavailable` | `WINDOW` callbacks, `paintWindow(DPI)`, `postWindow*Event`, `postWindow` (close) |
-| Save | `save` → `saved` | `saveAs` to the temporary target in the file's own format with `TakeOwnership` (so the modified flag clears); a document opened with a password is saved with `.uno:SaveAs` and its password, because `saveAs` drops the encryption |
+| Save | `save` → `saved` | `saveAs` to the temporary target in the file's own format with `TakeOwnership` (so the modified flag clears); a document opened with a password is saved with `.uno:SaveAs` and its password, because `saveAs` drops the encryption; with `keepPassword: false` (an unencrypted copy the user chose) it goes through `saveAs` without it |
 | Liveness, end | `ping` → `pong`, `close` → `closed` | `destroy`; the end of stdin closes the same way |
 
 Every refused or failed request is an `error` message with the request's

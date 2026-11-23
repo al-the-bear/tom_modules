@@ -1627,17 +1627,21 @@ class TomOfficeEditorController extends ChangeNotifier {
 
   final _saveWaiters = <int, Completer<OfficeSaved>>{};
 
-  Future<OfficeSaved> _saveTo(String target) {
+  Future<OfficeSaved> _saveTo(String target, {bool keepPassword = true}) {
     final id = _nextId++;
     final completer = Completer<OfficeSaved>();
     _saveWaiters[id] = completer;
-    officeTrail('save #$id: writing the temporary file');
+    officeTrail(
+      'save #$id: writing the temporary file'
+      '${keepPassword ? '' : ' (without the password)'}',
+    );
     _send(
       OfficeSave(
         id: id,
         targetPath: target,
         format: '',
         filterOptions: isCsv ? kCsvExportOptions : '',
+        keepPassword: keepPassword,
       ),
     );
     return completer.future;
@@ -1757,14 +1761,15 @@ class TomOfficeEditorController extends ChangeNotifier {
   /// *Save as copy*: writes the document to `<name> (copy).<ext>` beside
   /// the file and returns the copy's path (`null` when it failed). After a
   /// conflict the kept temporary file becomes the copy. A password-protected
-  /// document's copy is written by LibreOffice with its password.
-  Future<String?> saveAsCopy() async {
+  /// document's copy keeps its password (DPOE-3); [keepPassword] `false`
+  /// writes it unencrypted, when the user chose so in the warning.
+  Future<String?> saveAsCopy({bool keepPassword = true}) async {
     if (!_live) return null;
     try {
       var temporary = _conflict?.temporary;
       if (temporary == null) {
         temporary = await host.files.temporaryTarget(host.filePath);
-        final saved = await _saveTo(temporary);
+        final saved = await _saveTo(temporary, keepPassword: keepPassword);
         if (!saved.ok) {
           _notice(
             'The copy could not be written: ${saved.error ?? 'unknown error'}',

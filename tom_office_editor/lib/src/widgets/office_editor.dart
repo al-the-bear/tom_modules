@@ -154,31 +154,39 @@ class TomOfficeEditorWidgetState extends State<TomOfficeEditor> {
   }
 
   Future<void> _saveAsCopy() async {
+    var keepPassword = true;
     if (_c.isPasswordProtected) {
-      final ok = await showDialog<bool>(
+      final choice = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('Save a copy?'),
           content: Text(
             '${_c.host.name} is password-protected. The copy is written '
-            'beside it as LibreOffice saves it, with the same password.',
+            'beside it with the same password. Without the password, anyone '
+            'who has the copy can open it.',
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context, false),
+              onPressed: () => Navigator.pop(context),
               child: const Text('Cancel'),
+            ),
+            TextButton(
+              key: const ValueKey('office-copy-unencrypted'),
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Save without password'),
             ),
             FilledButton(
               key: const ValueKey('office-copy-confirm'),
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Save copy'),
+              child: const Text('Save with password'),
             ),
           ],
         ),
       );
-      if (ok != true) return;
+      if (choice == null) return;
+      keepPassword = choice;
     }
-    await _c.saveAsCopy();
+    await _c.saveAsCopy(keepPassword: keepPassword);
   }
 
   // ------------------------------------------------------------ ribbon

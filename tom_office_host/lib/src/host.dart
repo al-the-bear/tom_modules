@@ -603,7 +603,9 @@ class OfficeHost {
     if (format.isEmpty) {
       throw _Refused('noFormat', 'no format given and $_path has no extension');
     }
-    final password = _password;
+    // A document opened with a password is saved with it unless the user
+    // chose an unencrypted copy (keepPassword false).
+    final password = save.keepPassword ? _password : null;
     bool ok;
     String? error;
     if (password == null) {
@@ -643,7 +645,12 @@ class OfficeHost {
       ok = _unoSucceeded(payload);
       if (!ok) error = '.uno:SaveAs failed: $payload';
     }
-    log('save ${save.id}: ${ok ? 'written' : 'failed'} ($format)');
+    final encryption = _password == null
+        ? ''
+        : password == null
+        ? ', without the password'
+        : ', with the password';
+    log('save ${save.id}: ${ok ? 'written' : 'failed'} ($format$encryption)');
     _send(OfficeSaved(id: save.id, ok: ok, error: error));
   }
 

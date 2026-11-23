@@ -1,3 +1,10 @@
+## 0.4.0
+
+- A `save` with `keepPassword: false` of a document opened with a password
+  goes through `saveAs`, without the password: the file is written
+  unencrypted. The default still saves through `.uno:SaveAs` with the
+  password. The log says which, never the password.
+
 ## 0.3.1
 
 - A PDF export (`saveAs` to `pdf`) no longer passes `TakeOwnership`:

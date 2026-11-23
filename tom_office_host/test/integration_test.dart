@@ -148,9 +148,20 @@ class Helper {
     );
   }
 
-  Future<OfficeSaved> save(String target, {String format = ''}) async {
+  Future<OfficeSaved> save(
+    String target, {
+    String format = '',
+    bool keepPassword = true,
+  }) async {
     final id = nextId;
-    send(OfficeSave(id: id, targetPath: target, format: format));
+    send(
+      OfficeSave(
+        id: id,
+        targetPath: target,
+        format: format,
+        keepPassword: keepPassword,
+      ),
+    );
     return next<OfficeSaved>(where: (s) => s.id == id);
   }
 
@@ -313,55 +324,53 @@ void main() {
     expect(await h.close(), 0);
   }, skip: _skip);
 
-  test(
-    'OFFICE-HOST-LO-3: a password-protected DOCX asks, refuses a wrong '
-    'password, opens with the right one and stays encrypted on save',
-    () async {
-      // Make the protected copy with LibreOffice's own Save As.
-      final maker = await start();
-      await maker.open(copy('letter.docx'));
-      final protected = '${scratch.path}/protected.docx';
-      maker.send(
-        OfficeUno(
-          id: maker.nextId,
-          command: '.uno:SaveAs',
-          args: jsonEncode({
-            'URL': {'type': 'string', 'value': Uri.file(protected).toString()},
-            'FilterName': {'type': 'string', 'value': 'MS Word 2007 XML'},
-            'Password': {'type': 'string', 'value': 'tomsecret'},
-          }),
-        ),
-      );
-      await maker.next<OfficeCallback>(
-        where: (c) =>
-            c.type == 'UNO_COMMAND_RESULT' && c.payload.contains('.uno:SaveAs'),
-      );
-      expect(await maker.close(), 0);
-      expect(
-        _encrypted(protected),
-        isTrue,
-        reason: 'the copy is not encrypted',
-      );
+  test('OFFICE-HOST-LO-3: a password-protected DOCX asks, refuses a wrong '
+      'password, opens with the right one and stays encrypted on save; '
+      'keepPassword false writes it unencrypted', () async {
+    // Make the protected copy with LibreOffice's own Save As.
+    final maker = await start();
+    await maker.open(copy('letter.docx'));
+    final protected = '${scratch.path}/protected.docx';
+    maker.send(
+      OfficeUno(
+        id: maker.nextId,
+        command: '.uno:SaveAs',
+        args: jsonEncode({
+          'URL': {'type': 'string', 'value': Uri.file(protected).toString()},
+          'FilterName': {'type': 'string', 'value': 'MS Word 2007 XML'},
+          'Password': {'type': 'string', 'value': 'tomsecret'},
+        }),
+      ),
+    );
+    await maker.next<OfficeCallback>(
+      where: (c) =>
+          c.type == 'UNO_COMMAND_RESULT' && c.payload.contains('.uno:SaveAs'),
+    );
+    expect(await maker.close(), 0);
+    expect(_encrypted(protected), isTrue, reason: 'the copy is not encrypted');
 
-      final h = await start();
-      await h.next<OfficeHello>(timeout: const Duration(minutes: 2));
-      h.send(OfficeOpen(path: protected, language: 'en-US'));
-      expect((await h.next<OfficePasswordNeeded>()).toModify, isFalse);
-      h.send(const OfficePassword(password: 'wrong'));
-      expect((await h.next<OfficePasswordNeeded>()).toModify, isFalse);
-      h.send(const OfficePassword(password: 'tomsecret'));
-      expect((await h.next<OfficeOpened>()).docType, OfficeDocType.text);
+    final h = await start();
+    await h.next<OfficeHello>(timeout: const Duration(minutes: 2));
+    h.send(OfficeOpen(path: protected, language: 'en-US'));
+    expect((await h.next<OfficePasswordNeeded>()).toModify, isFalse);
+    h.send(const OfficePassword(password: 'wrong'));
+    expect((await h.next<OfficePasswordNeeded>()).toModify, isFalse);
+    h.send(const OfficePassword(password: 'tomsecret'));
+    expect((await h.next<OfficeOpened>()).docType, OfficeDocType.text);
 
-      await h.typeText('ENCRYPTEDEDIT ');
-      final target = '${scratch.path}/.protected.docx.tom-save-1';
-      final saved = await h.save(target);
-      expect(saved.ok, isTrue, reason: '${saved.error}');
-      expect(_encrypted(target), isTrue, reason: 'the save dropped encryption');
-      expect(h.log.join('\n'), isNot(contains('tomsecret')));
-      expect(await h.close(), 0);
-    },
-    skip: _skip,
-  );
+    await h.typeText('ENCRYPTEDEDIT ');
+    final target = '${scratch.path}/.protected.docx.tom-save-1';
+    final saved = await h.save(target);
+    expect(saved.ok, isTrue, reason: '${saved.error}');
+    expect(_encrypted(target), isTrue, reason: 'the save dropped encryption');
+    // The unencrypted copy the user may choose instead.
+    final plain = '${scratch.path}/.protected.docx.tom-save-2';
+    final copied = await h.save(plain, keepPassword: false);
+    expect(copied.ok, isTrue, reason: '${copied.error}');
+    expect(_encrypted(plain), isFalse, reason: 'the copy is still encrypted');
+    expect(h.log.join('\n'), isNot(contains('tomsecret')));
+    expect(await h.close(), 0);
+  }, skip: _skip);
 
   test('OFFICE-HOST-LO-4: a CSV file opens with its filter options and saves '
       'with others', () async {
