@@ -103,8 +103,10 @@ final class TomPdfJsConflict {
 /// both PDF views alike.
 ///
 /// pdf.js keeps its own history; [canUndo] / [canRedo] follow what the page
-/// reports, and [isDirty] follows pdf.js's annotation storage (which has no
-/// saved marker: undoing back to the saved state can still read dirty).
+/// reports, and [isDirty] follows pdf.js's annotation storage: an edit sets
+/// it, and undoing every edit since the open reads clean again (the storage
+/// resets its modified state when its last value is removed). A save
+/// reopens the document, so the storage and the history start again there.
 class TomPdfJsController extends ChangeNotifier {
   /// A controller over [host] in [mode]; [server] defaults to the process's
   /// shared server, [bundle] to the root asset bundle.

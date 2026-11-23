@@ -136,6 +136,10 @@ export function installBridge(adapter) {
     return false;
   }
 
+  // The open document's modified state, as its storage's hooks last
+  // reported it: pdf.js keeps the state in a private field (no getter).
+  let modified = false;
+
   // The storage's modified hooks report to Dart. The generic viewer sets
   // its own hooks after the document has opened, so whatever is assigned
   // later is chained, not replaced.
@@ -146,6 +150,7 @@ export function installBridge(adapter) {
       get() {
         return () => {
           inner?.();
+          if (storage === doc?.annotationStorage) modified = value;
           send({ type: "modified", value });
         };
       },
@@ -156,6 +161,7 @@ export function installBridge(adapter) {
   }
 
   function watch(pdf) {
+    modified = false;
     chain(pdf.annotationStorage, "onSetModified", true);
     chain(pdf.annotationStorage, "onResetModified", false);
   }
@@ -235,7 +241,7 @@ export function installBridge(adapter) {
 
     /** Reports `modified` as it is now. */
     checkModified() {
-      send({ type: "modified", value: !!doc?.annotationStorage.modified });
+      send({ type: "modified", value: !!doc && modified });
     },
 
     undo() {
