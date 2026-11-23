@@ -1194,7 +1194,9 @@ class TomTodoFileSource extends StatelessWidget {
           final session = host.session;
           return TomTextSource(
             key: const Key('tom-todo-file-source'),
-            highlighter: tomYamlHighlight,
+            highlighter: tomYamlSourceHighlighter(
+              Theme.of(context).colorScheme,
+            ),
             text: session.text,
             readOnly: session.readOnlyReason != null,
             onChanged: (text) =>

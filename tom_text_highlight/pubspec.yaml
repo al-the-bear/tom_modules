@@ -1,0 +1,21 @@
+name: tom_text_highlight
+description: >-
+  The one syntax-highlighting interface of the Tom editors (SyntaxHighlighter,
+  HighlightSpan), the themes that style its token classes, and light
+  highlighters of our own for YAML, Markdown, JSON, shell and .env. Flutter
+  only, so every source view and renderer takes it. License: BSD-3-Clause.
+version: 0.1.0
+repository: https://github.com/al-the-bear/tom_modules
+
+environment:
+  sdk: ^3.10.8
+  flutter: ">=1.17.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0

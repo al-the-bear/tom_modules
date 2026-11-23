@@ -26,6 +26,7 @@ applications share, each package one purpose:
 | [`tom_credentials_ui`](tom_credentials_ui/) | Key and token prompts, the sign-in item, the platform keychain as a secret store. |
 | [`tom_sync_ui`](tom_sync_ui/) | The sync status and its indicator, the three-way merge view. |
 | [`tom_calendar_ui`](tom_calendar_ui/) | Date, time and repeat fields over `tom_calendar_model`, the appointment editor. |
+| [`tom_text_highlight`](tom_text_highlight/) | The one syntax-highlighting interface (`SyntaxHighlighter`, `HighlightSpan`), token themes, and light highlighters for YAML, Markdown, JSON, shell and `.env`; Flutter only. |
 | [`tom_file_editors`](tom_file_editors/) | Byte-preserving file editors over `tom_file_session` (text, `.env`, YAML and Markdown highlighting), the schema cache, the Markdown renderer. |
 | [`tom_mermaid_view`](tom_mermaid_view/) | Mermaid diagrams in a webview with the bundled mermaid.js (11.13.0, MIT); the webview is the Tom fork, taken by path. Not published. |
 | [`tom_pdf_editor`](tom_pdf_editor/) | The PDF viewer over PDFium (FFI on an engine isolate): scroll, zoom, page list, search, selection and copy, links; the controller and host interface. Not published. |

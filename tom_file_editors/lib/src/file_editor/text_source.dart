@@ -15,15 +15,12 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:tom_text_highlight/tom_text_highlight.dart';
 
 /// The source editor's line height, as a multiple of its font size; the
 /// gutter is laid out on the same lines.
 const double _lineHeight = 1.45;
 const double _fontSize = 13;
-
-/// Spans covering the whole of [text], styled for its kind of file.
-typedef TomSourceHighlighter =
-    List<InlineSpan> Function(String text, ColorScheme colors);
 
 /// A source editor.
 class TomTextSource extends StatefulWidget {
@@ -52,8 +49,10 @@ class TomTextSource extends StatefulWidget {
   /// The vertical scroll position, for a split view to follow.
   final ScrollController? verticalController;
 
-  /// The kind's highlighting; none for plain text.
-  final TomSourceHighlighter? highlighter;
+  /// The kind's highlighting, through the one highlighter interface; none
+  /// for plain text. A kind styled from the Material colours builds it from
+  /// the context's colour scheme (e.g. `tomYamlSourceHighlighter`).
+  final SyntaxHighlighter? highlighter;
 
   @override
   State<TomTextSource> createState() => TomTextSourceState();
@@ -398,7 +397,7 @@ class _HighlightController extends TextEditingController {
   _HighlightController({super.text});
 
   ColorScheme? scheme;
-  TomSourceHighlighter? highlighter;
+  SyntaxHighlighter? highlighter;
   String query = '';
 
   @override
@@ -418,8 +417,10 @@ class _HighlightController extends TextEditingController {
         withComposing: withComposing,
       );
     }
-    final spans =
-        highlighter?.call(text, colors) ?? <InlineSpan>[TextSpan(text: text)];
+    final h = highlighter;
+    final spans = h == null
+        ? <InlineSpan>[TextSpan(text: text)]
+        : highlightedInlineSpans(text, h.highlight(text));
     final base = TextSpan(style: style, children: spans);
     if (query.isEmpty) return base;
     return _markMatches(base, style, colors);

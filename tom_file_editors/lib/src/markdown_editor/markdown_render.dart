@@ -18,8 +18,8 @@ import 'dart:typed_data';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:highlight/highlight.dart' as hl;
 import 'package:markdown/markdown.dart' as md;
+import 'package:tom_text_highlight/tom_text_highlight.dart';
 
 import 'package:tom_ui_support/tom_ui_support.dart';
 import 'markdown_outline.dart';
@@ -434,33 +434,20 @@ class _Painter {
     );
   }
 
-  /// [source] highlighted as [language], or as plain text when the language
-  /// is unknown or absent.
+  /// [source] highlighted as [language] by `tom_text_highlight`, or as
+  /// plain text when the language is absent or one it does not highlight
+  /// (YAML, Markdown, JSON, shell and `.env` are highlighted).
   List<InlineSpan> _highlight(String source, String? language) {
-    hl.Result result;
-    try {
-      if (language == null || language.isEmpty) {
-        return [TextSpan(text: source)];
-      }
-      result = hl.highlight.parse(source, language: language);
-    } on Object {
-      return [TextSpan(text: source)];
-    }
     final palette = _palette();
-    List<InlineSpan> spans(List<hl.Node>? nodes, String? inherited) => [
-          for (final n in nodes ?? const <hl.Node>[])
-            if (n.value != null)
-              TextSpan(
-                text: n.value,
-                style: _styleFor(n.className ?? inherited, palette),
-              )
-            else
-              TextSpan(
-                style: _styleFor(n.className ?? inherited, palette),
-                children: spans(n.children, n.className ?? inherited),
-              ),
-        ];
-    return spans(result.nodes, null);
+    final highlighter = highlighterForLanguage(
+      language,
+      theme: HighlightTheme({
+        for (final entry in palette.entries)
+          entry.key: _styleFor(entry.key, palette)!,
+      }),
+    );
+    if (highlighter == null) return [TextSpan(text: source)];
+    return highlightedInlineSpans(source, highlighter.highlight(source));
   }
 
   /// The code-block palette: the usual syntax hues, each moved in lightness

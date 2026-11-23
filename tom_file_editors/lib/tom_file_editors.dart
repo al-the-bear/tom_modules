@@ -5,6 +5,8 @@
 library;
 
 export 'src/file_editor/file_editor_host.dart';
+// The highlighter interface and the shared highlighters.
+export 'package:tom_text_highlight/tom_text_highlight.dart';
 export 'package:tom_file_session_ui/tom_file_session_ui.dart';
 export 'src/file_editor/schema_cache.dart';
 export 'src/file_editor/session_listenable.dart';

@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- Highlighting goes through the one highlighter interface of the new
+  package `tom_text_highlight` (re-exported): `TomTextSource.highlighter` is
+  a `SyntaxHighlighter` (the `TomSourceHighlighter` function type is gone);
+  `tomYamlSourceHighlighter` / `tomMarkdownSourceHighlighter` give the
+  source editor's YAML and Markdown highlighters in the Material colours
+  (`tomYamlSourceTheme`, `tomMarkdownSourceTheme`), and `tomYamlHighlight` /
+  `tomMarkdownHighlight` still answer spans, styled as before. The YAML
+  tokenizer is the one Tom Forge's YAML editor uses.
+- Fenced code in the Markdown renderer is highlighted by
+  `tom_text_highlight` (YAML, Markdown, JSON, shell, `.env`) in the same
+  palette; code in another language is plain. The `highlight` package is no
+  longer a dependency.
 - `ForgeSessionFile` and `ForgeSessionFileFrame` moved to the new package
   `tom_file_session_ui` (Flutter and `tom_file_session` only), which this
   package depends on and re-exports, so its users are unchanged. Tom Forge's
