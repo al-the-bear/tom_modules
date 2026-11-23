@@ -12,3 +12,5 @@
 - Highlighters for YAML (`YamlHighlighter`, the merge of the YAML editor's
   and `tom_file_editors`' two), Markdown, JSON, shell and `.env`, and
   `highlighterForLanguage` for a fenced code block's language name.
+- Published on pub.dev; `tom_file_editors` takes it as a version from its
+  staged copy.
