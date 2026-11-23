@@ -10,6 +10,8 @@ export 'package:tom_text_highlight/tom_text_highlight.dart';
 export 'package:tom_file_session_ui/tom_file_session_ui.dart';
 export 'src/file_editor/schema_cache.dart';
 export 'src/file_editor/session_listenable.dart';
+export 'src/file_editor/line_edits.dart';
+export 'src/file_editor/text_marker.dart';
 export 'src/file_editor/text_source.dart';
 export 'src/text_editor/text_file_editor.dart';
 export 'src/env_editor/env_file_editor.dart';

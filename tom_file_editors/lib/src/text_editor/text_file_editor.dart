@@ -4,14 +4,22 @@
 /// line endings the file had are written back, so the header says
 /// what they are, and a file over the session's size limit opens read-only with the
 /// reason. No highlighting is invented for an extension the editor does not
-/// know.
+/// know: a host that knows one passes its highlighter.
+///
+/// An application that hosts the editor in a shell of its own reaches what
+/// it needs through the editor's arguments: the selection the user leaves
+/// ([TomTextFileEditor.onSelectionChanged]), selections it asks for
+/// ([TomTextFileEditor.selectionRequest]), and the history keys routed
+/// through its own key map ([TomTextFileEditor.handleHistoryKeys]).
 library;
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:tom_basics/utilities.dart';
 import 'package:tom_file_session/tom_file_session.dart';
+import 'package:tom_text_highlight/tom_text_highlight.dart';
 
 import '../file_editor/file_editor_host.dart';
 import '../file_editor/session_listenable.dart';
@@ -41,9 +49,34 @@ class TomTextFileEditor extends StatefulWidget {
   const TomTextFileEditor({
     super.key,
     required this.host,
+    this.highlighter,
+    this.onSelectionChanged,
+    this.selectionRequest,
+    this.handleHistoryKeys = true,
+    this.showReadOnlyReason = true,
   });
 
   final TomFileEditorHost host;
+
+  /// The file kind's highlighting; none for plain text.
+  final SyntaxHighlighter? highlighter;
+
+  /// The selection the user left, after every change of it or of the text
+  /// ([TomTextSource.onSelectionChanged]).
+  final ValueChanged<TextSelection>? onSelectionChanged;
+
+  /// Selections the application asks the source to show
+  /// ([TomTextSource.selectionRequest]).
+  final ValueListenable<TextSelection?>? selectionRequest;
+
+  /// Whether the source answers the undo and redo keys itself through the
+  /// host (the default); false for an application that routes them through
+  /// its own key map ([TomTextSource.handleHistoryKeys]).
+  final bool handleHistoryKeys;
+
+  /// Whether the header names why the file is read-only (the default);
+  /// false for an application whose frame says it already.
+  final bool showReadOnlyReason;
 
   @override
   State<TomTextFileEditor> createState() => _TextFileEditorState();
@@ -54,9 +87,9 @@ class _TextFileEditorState extends State<TomTextFileEditor> {
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-        listenable: TomFileSessionListenable(widget.host.session),
-        builder: (context, _) => _build(context),
-      );
+    listenable: TomFileSessionListenable(widget.host.session),
+    builder: (context, _) => _build(context),
+  );
 
   Widget _build(BuildContext context) {
     final ForgeFileSession session = widget.host.session;
@@ -76,7 +109,7 @@ class _TextFileEditorState extends State<TomTextFileEditor> {
                 key: const Key('tom-text-format'),
                 style: theme.textTheme.labelSmall,
               ),
-              if (readOnly != null) ...[
+              if (readOnly != null && widget.showReadOnlyReason) ...[
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
@@ -107,6 +140,11 @@ class _TextFileEditorState extends State<TomTextFileEditor> {
             onUndo: () => unawaited(widget.host.undo(context)),
             onRedo: () => unawaited(widget.host.redo(context)),
             onSelectionMoved: session.endGesture,
+            onFocusLost: session.endGesture,
+            onSelectionChanged: widget.onSelectionChanged,
+            selectionRequest: widget.selectionRequest,
+            handleHistoryKeys: widget.handleHistoryKeys,
+            highlighter: widget.highlighter,
           ),
         ),
       ],

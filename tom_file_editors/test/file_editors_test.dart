@@ -7,9 +7,9 @@
 library;
 
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_basics/utilities.dart';
 import 'package:tom_file_system/tom_file_system.dart';
@@ -201,6 +201,88 @@ void main() {
       await _open(tester, 'big.log', (host) => TomTextFileEditor(host: host));
       expect(_field(tester).readOnly, isTrue);
       expect(find.textContaining('read-only'), findsWidgets);
+    });
+
+    testWidgets('FILE-ED-T4: a host that frames the file itself leaves the '
+        'read-only reason out of the header; the format stays', (tester) async {
+      await tester.runAsync(() => _fs.writeText(
+          _fs.uriOf('big.log'), 'x' * (forgeReadOnlyAbove + 1)));
+      final host = await _open(tester, 'big.log',
+          (host) => TomTextFileEditor(host: host, showReadOnlyReason: false));
+      expect(_field(tester).readOnly, isTrue);
+      expect(find.text(host.session.readOnlyReason!), findsNothing);
+      expect(find.byKey(const Key('tom-text-format')), findsOneWidget);
+    });
+
+    testWidgets('FILE-ED-T5: the host\'s highlighter colours the source, and '
+        'the selection it asks for is shown and the one the user leaves '
+        'reported', (tester) async {
+      final request = ValueNotifier<TextSelection?>(null);
+      addTearDown(request.dispose);
+      final selections = <TextSelection>[];
+      await _open(
+        tester,
+        'service.yaml',
+        (host) => Builder(
+          builder: (context) => TomTextFileEditor(
+            host: host,
+            highlighter:
+                tomYamlSourceHighlighter(Theme.of(context).colorScheme),
+            selectionRequest: request,
+            onSelectionChanged: selections.add,
+          ),
+        ),
+      );
+      final controller = tester
+          .widget<EditableText>(find.byType(EditableText))
+          .controller;
+      final span = controller.buildTextSpan(
+        context: tester.element(find.byType(EditableText)),
+        withComposing: false,
+      );
+      expect(span.children, isNotNull);
+      expect(span.children!.length, greaterThan(1), reason: 'highlighted');
+      request.value = const TextSelection(baseOffset: 54, extentOffset: 58);
+      await tester.pump();
+      expect(controller.selection,
+          const TextSelection(baseOffset: 54, extentOffset: 58));
+      expect(selections.last, controller.selection);
+    });
+
+    testWidgets('FILE-ED-T6: a host routing the history keys itself gets '
+        'them passed by; by default they reach the host', (tester) async {
+      final routed = await _open(tester, 'notes/crlf.txt',
+          (host) => TomTextFileEditor(host: host, handleHistoryKeys: false));
+      await tester.enterText(find.byKey(const Key('tom-text-source')), 'x');
+      await tester.pump();
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyZ);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.pump();
+      expect(routed.undos, 0);
+
+      final direct = await _open(tester, 'app.env',
+          (host) => TomTextFileEditor(key: const ValueKey('direct'), host: host));
+      await tester.enterText(find.byKey(const Key('tom-text-source')), 'A=1');
+      await tester.pump();
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyZ);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await _settle(tester);
+      expect(direct.undos, 1);
+    });
+
+    testWidgets('FILE-ED-T7: leaving the source ends the typing burst', (
+        tester) async {
+      final host = await _open(tester, 'notes/crlf.txt',
+          (host) => TomTextFileEditor(host: host));
+      await tester.enterText(find.byKey(const Key('tom-text-source')), 'a');
+      await tester.pump();
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pump();
+      await tester.enterText(find.byKey(const Key('tom-text-source')), 'ab');
+      await tester.pump();
+      expect(host.session.history, hasLength(2), reason: 'two bursts');
     });
   });
 

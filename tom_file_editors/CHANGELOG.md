@@ -2,6 +2,35 @@
 
 ## Unreleased
 
+- The source editor takes over Tom Forge's `TextEditorCore` (removed
+  there), so the YAML editor's text mode and subtree inspector draw through
+  it:
+  - markers (`TomTextMarker`, `TomTextMarkerSeverity`, `tomTextMarkerColor`;
+    `TomTextSource.markers`): a wavy underline in the severity's colour over
+    the highlighting. Neutral types — an editor maps its own findings onto
+    them;
+  - the line edits as functions (`TomLineEdits`: delete, duplicate, move up
+    and down, toggle the line comment) and, through `TomTextSourceState`,
+    the line edits, cut, copy, paste, select all, `select` and `selection`
+    for a host to bind to its own keys and menus;
+  - a look (`TomTextSource.style`, `TomTextSourceStyle`): text and line
+    number styles, background, gutter background, a gutter border, the caret
+    colour and the caret's line number drawn brighter;
+  - `selection` (text from outside shown with the host's selection),
+    `selectionRequest`, `onSelectionChanged`, `onValueChanged`,
+    `onFocusLost`; `hostOwnsUndo: false` keeps the text field's own undo for
+    a scratch draft, `handleHistoryKeys: false` lets the undo and redo keys
+    pass to a host with its own key map.
+- `TomTextFileEditor` takes a `highlighter`, `onSelectionChanged`,
+  `selectionRequest`, `handleHistoryKeys` and `showReadOnlyReason`; leaving
+  the source ends the typing burst. The header still shows the encoding and
+  line endings.
+- `TomTextSource` gained parameters only; `onChanged` is optional now (null
+  for a source nobody edits), so the field `TomTextSource.onChanged` is
+  nullable — breaking only for code that reads it from the widget.
+- The undo and redo keys reach `onUndo` / `onRedo` when the host gives
+  them; a source without them lets the keys pass to its ancestors instead
+  of swallowing them.
 - Highlighting goes through the one highlighter interface of the new
   package `tom_text_highlight` (re-exported): `TomTextSource.highlighter` is
   a `SyntaxHighlighter` (the `TomSourceHighlighter` function type is gone);
