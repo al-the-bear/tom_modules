@@ -10,7 +10,9 @@
 /// it needs through the editor's arguments: the selection the user leaves
 /// ([TomTextFileEditor.onSelectionChanged]), selections it asks for
 /// ([TomTextFileEditor.selectionRequest]), and the history keys routed
-/// through its own key map ([TomTextFileEditor.handleHistoryKeys]).
+/// through its own key map ([TomTextFileEditor.handleHistoryKeys]), the find
+/// key left to its own find ([TomTextFileEditor.handleFindKey]), and a typing
+/// burst that also ends after a pause ([TomTextFileEditor.typingPause]).
 library;
 
 import 'dart:async';
@@ -53,7 +55,9 @@ class TomTextFileEditor extends StatefulWidget {
     this.onSelectionChanged,
     this.selectionRequest,
     this.handleHistoryKeys = true,
+    this.handleFindKey = true,
     this.showReadOnlyReason = true,
+    this.typingPause,
   });
 
   final TomFileEditorHost host;
@@ -74,6 +78,18 @@ class TomTextFileEditor extends StatefulWidget {
   /// its own key map ([TomTextSource.handleHistoryKeys]).
   final bool handleHistoryKeys;
 
+  /// Whether the find key opens the source's own find bar (the default);
+  /// false for an application with a find of its own on that key
+  /// ([TomTextSource.handleFindKey]). The header's find button opens the
+  /// source's either way.
+  final bool handleFindKey;
+
+  /// How long typing may pause before the burst in progress ends; null (the
+  /// default): only a caret move or leaving the source ends it. An
+  /// application whose other editors end a burst after a pause passes theirs,
+  /// so typing, pausing and typing again is two history entries everywhere.
+  final Duration? typingPause;
+
   /// Whether the header names why the file is read-only (the default);
   /// false for an application whose frame says it already.
   final bool showReadOnlyReason;
@@ -84,6 +100,24 @@ class TomTextFileEditor extends StatefulWidget {
 
 class _TextFileEditorState extends State<TomTextFileEditor> {
   final GlobalKey<TomTextSourceState> _source = GlobalKey();
+
+  /// Ends the typing burst once [TomTextFileEditor.typingPause] has passed
+  /// without typing.
+  Timer? _pause;
+
+  @override
+  void dispose() {
+    _pause?.cancel();
+    super.dispose();
+  }
+
+  void _typed(ForgeFileSession session, String text) {
+    session.edit(text, 'Edit ${widget.host.name}', group: 'typing');
+    final pause = widget.typingPause;
+    if (pause == null) return;
+    _pause?.cancel();
+    _pause = Timer(pause, session.endGesture);
+  }
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -135,8 +169,7 @@ class _TextFileEditorState extends State<TomTextFileEditor> {
             key: _source,
             text: session.text,
             readOnly: readOnly != null,
-            onChanged: (text) =>
-                session.edit(text, 'Edit ${widget.host.name}', group: 'typing'),
+            onChanged: (text) => _typed(session, text),
             onUndo: () => unawaited(widget.host.undo(context)),
             onRedo: () => unawaited(widget.host.redo(context)),
             onSelectionMoved: session.endGesture,
@@ -144,6 +177,7 @@ class _TextFileEditorState extends State<TomTextFileEditor> {
             onSelectionChanged: widget.onSelectionChanged,
             selectionRequest: widget.selectionRequest,
             handleHistoryKeys: widget.handleHistoryKeys,
+            handleFindKey: widget.handleFindKey,
             highlighter: widget.highlighter,
           ),
         ),

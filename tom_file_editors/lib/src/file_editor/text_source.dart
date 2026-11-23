@@ -95,6 +95,7 @@ class TomTextSource extends StatefulWidget {
     this.selectionRequest,
     this.hostOwnsUndo = true,
     this.handleHistoryKeys = true,
+    this.handleFindKey = true,
     this.style,
   });
 
@@ -143,6 +144,12 @@ class TomTextSource extends StatefulWidget {
   /// binding the user may change — passes false: the keys then pass by, and
   /// the text field's own undo still answers nothing.
   final bool handleHistoryKeys;
+
+  /// Whether the find key (Cmd/Ctrl+F) opens the source's own find bar (the
+  /// default). A host with a find of its own on that key — an application's
+  /// find bar searching the editor — passes false: the key then passes by;
+  /// [TomTextSourceState.openSearch] still opens the source's.
+  final bool handleFindKey;
 
   /// The look, when not the default.
   final TomTextSourceStyle? style;
@@ -455,7 +462,7 @@ class TomTextSourceState extends State<TomTextSource> {
       call();
       return KeyEventResult.handled;
     }
-    if (key == LogicalKeyboardKey.keyF) {
+    if (widget.handleFindKey && key == LogicalKeyboardKey.keyF) {
       openSearch();
       return KeyEventResult.handled;
     }

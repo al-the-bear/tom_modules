@@ -152,6 +152,11 @@ Iterable<String> _screenText(WidgetTester tester) => [
         e.controller.text,
     ];
 
+/// A host's own find, bound to the find key above the editor.
+class _HostFindIntent extends Intent {
+  const _HostFindIntent();
+}
+
 void main() {
   setUp(() {
     _fs = TomMemoryFileSystem(root: Uri.directory('/work/'), seed: {
@@ -283,6 +288,79 @@ void main() {
       await tester.enterText(find.byKey(const Key('tom-text-source')), 'ab');
       await tester.pump();
       expect(host.session.history, hasLength(2), reason: 'two bursts');
+    });
+
+    testWidgets('FILE-ED-T8: with a typing pause, typing after the pause is a '
+        'burst of its own; without one it joins the burst', (tester) async {
+      final paused = await _open(
+          tester,
+          'notes/crlf.txt',
+          (host) => TomTextFileEditor(
+              host: host, typingPause: const Duration(milliseconds: 500)));
+      final source = find.byKey(const Key('tom-text-source'));
+      await tester.enterText(source, 'a');
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.enterText(source, 'ab');
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.enterText(source, 'abc');
+      await tester.pump();
+      expect(paused.session.history, hasLength(2),
+          reason: 'the pause ended the first burst');
+
+      final joined = await _open(tester, 'app.env',
+          (host) => TomTextFileEditor(key: const ValueKey('no-pause'), host: host));
+      await tester.enterText(source, 'A');
+      await tester.pump(const Duration(seconds: 2));
+      await tester.enterText(source, 'AB');
+      await tester.pump();
+      expect(joined.session.history, hasLength(1), reason: 'one burst');
+    });
+
+    testWidgets('FILE-ED-T9: a host with its own find gets the find key '
+        'passed by; by default it opens the source\'s find bar, and the '
+        'header\'s button opens it either way', (tester) async {
+      var hostFinds = 0;
+      Widget hostFind(Widget editor) => Shortcuts(
+            shortcuts: const {
+              SingleActivator(LogicalKeyboardKey.keyF, meta: true):
+                  _HostFindIntent(),
+            },
+            child: Actions(actions: {
+              _HostFindIntent: CallbackAction<_HostFindIntent>(
+                  onInvoke: (_) => hostFinds++),
+            }, child: editor),
+          );
+      Future<void> pressFind() async {
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+        await tester.pump();
+      }
+
+      await _open(
+          tester,
+          'notes/crlf.txt',
+          (host) =>
+              hostFind(TomTextFileEditor(host: host, handleFindKey: false)));
+      await tester.tap(find.byKey(const Key('tom-text-source')));
+      await tester.pump();
+      await pressFind();
+      expect(hostFinds, 1);
+      expect(find.byKey(const Key('tom-text-search')), findsNothing);
+      await tester.tap(find.byKey(const Key('tom-text-find')));
+      await tester.pump();
+      expect(find.byKey(const Key('tom-text-search')), findsOneWidget);
+
+      await _open(
+          tester,
+          'app.env',
+          (host) => hostFind(TomTextFileEditor(
+              key: const ValueKey('own-find'), host: host)));
+      await tester.tap(find.byKey(const Key('tom-text-source')));
+      await tester.pump();
+      await pressFind();
+      expect(hostFinds, 1, reason: 'the source took the key');
+      expect(find.byKey(const Key('tom-text-search')), findsOneWidget);
     });
   });
 

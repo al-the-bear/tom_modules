@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- `TomTextFileEditor` takes `typingPause` (a typing burst also ends after
+  that pause without typing; default none) and `handleFindKey`;
+  `TomTextSource.handleFindKey: false` lets the find key pass to a host with
+  a find of its own (an application's find bar), the header's find button
+  still opening the source's. Tom Forge's plain-text editor is built on
+  `TomTextFileEditor` with both.
 - The source editor takes over Tom Forge's `TextEditorCore` (removed
   there), so the YAML editor's text mode and subtree inspector draw through
   it:
