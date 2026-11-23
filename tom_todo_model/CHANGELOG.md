@@ -1,3 +1,26 @@
+## 5.0.0
+
+What follows a completed todo (`on_done`): two actions, and its quest and run
+name where the instructions go.
+
+- `TomTodoOnDoneAction` has `unblock` and `notify` only. `unblock` sets the
+  targets free when the todo is completed (a group todo to `group`, any other
+  to `not-started`, `decision-needed` with an open decision) without looking
+  at their other conditions; `notify` sends the done notification to the
+  quest and run in `filed_by` instead of the run that queued the todo.
+- `queue` and `none` are gone (`TomTodoOnDoneAction.retiredWires`). A todo
+  file that still carries them reads them as nothing, and they are not
+  written back.
+- `TomTodoOnDone.effectiveActions` is gone: an absent `action` is no action.
+- `TomTodoOnDone.quest` / `run` name where `instructions` are sent (unset:
+  the todo's own quest and the run it is completed in); `todos` name each
+  target with its quest, `<quest>/<id>` for a todo of another quest.
+- Breaking for code that names `queue`, `none` or `effectiveActions`; files
+  read as before.
+- `TomTodoDecision.toMap` leaves out an empty `decision_needed` (the schema
+  requires only `summary`), so a decision recorded without its question
+  reads back as written.
+
 ## 4.2.0
 
 The role a todo runs in and the guideline aspects it chooses.

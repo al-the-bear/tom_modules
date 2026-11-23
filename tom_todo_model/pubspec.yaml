@@ -4,7 +4,7 @@ description: >-
   journal entries, mindmap nodes, emails and document sections, with item
   types and extensions) and the *.todo.yaml file codec, which edits a todo
   file as splices into its own text.
-version: 4.2.0
+version: 5.0.0
 repository: https://github.com/al-the-bear/tom_modules
 issue_tracker: https://github.com/al-the-bear/tom_modules/issues
 topics:

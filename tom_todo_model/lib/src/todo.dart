@@ -131,7 +131,9 @@ class TomTodoDecision {
 
   Map<String, Object?> toMap() => {
     'summary': summary,
-    'decision_needed': decisionNeeded,
+    // The schema requires only `summary`: a decision recorded without its
+    // question reads back as written.
+    if (decisionNeeded.isNotEmpty) 'decision_needed': decisionNeeded,
     if (decision != null && decision!.trim().isNotEmpty) 'decision': decision,
   };
 
@@ -287,21 +289,21 @@ class TomTodoReference {
 
 /// One action of [TomTodoOnDone.action] (workspace schema `on_done.action`).
 enum TomTodoOnDoneAction {
-  /// Remove the completed todo from the named todos' `blocked_by`.
+  /// When the todo is completed, set the [TomTodoOnDone.todos] free: a group
+  /// todo to `group`, any other to `not-started` (`decision-needed` while it
+  /// has an open decision), without looking at their other conditions.
   unblock('unblock'),
 
-  /// Queue the notify prompt (or a default report) in the filing session.
-  notify('notify'),
-
-  /// Queue the named todos.
-  queue('queue'),
-
-  /// Nothing; also what an absent `action` means.
-  none('none');
+  /// Send the done notification to the quest and run in `filed_by` instead of
+  /// the run that queued the todo.
+  notify('notify');
 
   const TomTodoOnDoneAction(this.wire);
 
   final String wire;
+
+  /// The actions 4.x knew and 5.0 retired (`queue`, `none`): read as nothing.
+  static const Set<String> retiredWires = {'queue', 'none'};
 
   static TomTodoOnDoneAction fromWire(String value) => values.firstWhere(
     (a) => a.wire == value,
@@ -311,7 +313,7 @@ enum TomTodoOnDoneAction {
 }
 
 /// What happens when a todo is completed (workspace schema `on_done`). Every
-/// part is optional; an absent [action] means `[none]`.
+/// part is optional.
 class TomTodoOnDone {
   TomTodoOnDone({
     this.quest,
@@ -324,31 +326,29 @@ class TomTodoOnDone {
   }) : todos = List.of(todos),
        action = List.of(action);
 
-  /// The quest [todos] are in; null: the todo's own quest.
+  /// The quest [instructions] are sent to; null: the todo's own quest.
   String? quest;
 
-  /// The process run of that quest.
+  /// The process run [instructions] are sent to; null: the run the todo is
+  /// completed in (in another [quest]: its `default` run).
   String? run;
 
-  /// The todos the actions act on.
+  /// The target todos (`unblock`): a bare id in the todo's own quest,
+  /// `<quest>/<id>` in another.
   List<String> todos;
 
-  /// The actions, in order; empty means `[none]`.
+  /// The actions, in order.
   List<TomTodoOnDoneAction> action;
 
-  /// What the agent doing the actions should know.
+  /// Sent as a prompt to [quest] / [run] when the todo is completed.
   String? instructions;
 
-  /// The prompt a `notify` queues.
+  /// The done notification: sent to the run that queued the todo, with
+  /// `notify` to the quest and run in `filed_by`.
   String? notifyPrompt;
 
   /// The document (`path#section`) the outcome is recorded in.
   String? reportTo;
-
-  /// The actions as they apply: `[none]` when none are given.
-  List<TomTodoOnDoneAction> get effectiveActions => action.isEmpty
-      ? const [TomTodoOnDoneAction.none]
-      : List.unmodifiable(action);
 
   TomTodoOnDone copy() => TomTodoOnDone(
     quest: quest,
@@ -398,7 +398,8 @@ class TomTodoOnDone {
       todos: [for (final t in (map['todos'] as List? ?? const [])) '$t'],
       action: [
         for (final a in (action as List? ?? const []))
-          TomTodoOnDoneAction.fromWire('$a'),
+          if (!TomTodoOnDoneAction.retiredWires.contains('$a'))
+            TomTodoOnDoneAction.fromWire('$a'),
       ],
       instructions: map['instructions']?.toString(),
       notifyPrompt: map['notify_prompt']?.toString(),

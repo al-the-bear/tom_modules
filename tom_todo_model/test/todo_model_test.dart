@@ -300,8 +300,8 @@ void main() {
         final stored = {
           ...map,
           'on_done': {
-            'todos': ['b'],
-            'action': ['queue'],
+            'todos': ['b', 'other/c'],
+            'action': ['unblock'],
           },
           'filed_by': {'session': 'chat', 'at': '2026-11-12T15:20Z'},
           'resources': ['github/al-the-bear/tom_vscode'],
@@ -312,8 +312,8 @@ void main() {
         expect(read.toMap(), {
           ...map,
           'on_done': {
-            'todos': ['b'],
-            'action': ['queue'],
+            'todos': ['b', 'other/c'],
+            'action': ['unblock'],
           },
           'filed_by': {'session': 'chat', 'at': '2026-11-12T15:20Z'},
           'resources': ['github/al-the-bear/tom_vscode'],
@@ -336,17 +336,50 @@ void main() {
       },
     );
 
-    test('COLLAB2-03: an on_done without action means [none]', () {
-      final onDone = TomTodoOnDone.fromMap({
-        'todos': ['b'],
-      });
-      expect(onDone.action, isEmpty);
-      expect(onDone.effectiveActions, [TomTodoOnDoneAction.none]);
-      expect(onDone.toMap(), {
-        'todos': ['b'],
-      });
-      expect(TomTodoOnDone().toMap(), isEmpty);
-    });
+    test(
+      'COLLAB2-03: the actions; the retired queue and none read as nothing',
+      () {
+        final onDone = TomTodoOnDone.fromMap({
+          'todos': ['b'],
+        });
+        expect(onDone.action, isEmpty);
+        expect(onDone.toMap(), {
+          'todos': ['b'],
+        });
+        expect(TomTodoOnDone().toMap(), isEmpty);
+        expect(TomTodoOnDoneAction.values.map((a) => a.wire), [
+          'unblock',
+          'notify',
+        ]);
+        final old = TomTodoOnDone.fromMap({
+          'action': ['none', 'queue', 'notify'],
+          'instructions': 'go',
+        });
+        expect(old.action, [TomTodoOnDoneAction.notify]);
+        expect(old.toMap(), {
+          'action': ['notify'],
+          'instructions': 'go',
+        });
+        expect(
+          () => TomTodoOnDone.fromMap({
+            'action': ['wake'],
+          }),
+          throwsFormatException,
+        );
+      },
+    );
+
+    test(
+      'COLLAB2-05: a decision without decision_needed reads back as written',
+      () {
+        final stored = {'summary': 'Scope', 'decision': 'Narrowed.'};
+        expect(TomTodoDecision.fromMap(stored).toMap(), stored);
+        expect(TomTodoDecision(summary: 's', decisionNeeded: 'q?').toMap(), {
+          'summary': 's',
+          'decision_needed': 'q?',
+        });
+      },
+    );
 
     test('COLLAB2-04: copy() is detached', () {
       final original = everyField();
@@ -668,19 +701,33 @@ void main() {
       final map = original.toMap();
       final keys = map.keys.toList();
       expect(
-        keys.sublist(keys.indexOf('bundle_id'), keys.indexOf('derived_from') + 1),
+        keys.sublist(
+          keys.indexOf('bundle_id'),
+          keys.indexOf('derived_from') + 1,
+        ),
         ['bundle_id', 'role', 'guidelines', 'derived_from'],
       );
       expect(map['role'], 'idea_author');
-      expect(map['guidelines'], {'answer_mode': 'answer tool', 'night': 'remove'});
+      expect(map['guidelines'], {
+        'answer_mode': 'answer tool',
+        'night': 'remove',
+      });
       final read = TomItem.fromMap(map);
       expect(read, original);
       expect(read.workflow!.role, 'idea_author');
-      expect(read.workflow!.guidelines['night'], TomItemWorkflow.removeGuideline);
+      expect(
+        read.workflow!.guidelines['night'],
+        TomItemWorkflow.removeGuideline,
+      );
       final flat = TomItem.fields.toList();
-      expect(flat.sublist(flat.indexOf('bundle_id'), flat.indexOf('bundle_id') + 4),
-          ['bundle_id', 'role', 'guidelines', 'derived_from']);
-      expect(TomItemWorkflow.fields, containsAllInOrder(['bundle_id', 'role', 'guidelines', 'derived_from']));
+      expect(
+        flat.sublist(flat.indexOf('bundle_id'), flat.indexOf('bundle_id') + 4),
+        ['bundle_id', 'role', 'guidelines', 'derived_from'],
+      );
+      expect(
+        TomItemWorkflow.fields,
+        containsAllInOrder(['bundle_id', 'role', 'guidelines', 'derived_from']),
+      );
     });
 
     test('ROLEGL-2: neither is written when unset; an empty guidelines map '
@@ -688,13 +735,21 @@ void main() {
       final map = item().toMap();
       expect(map.containsKey('role'), isFalse);
       expect(map.containsKey('guidelines'), isFalse);
-      final read = TomItem.fromMap({'id': 'x', 'title': 'X', 'guidelines': <String, String>{}});
+      final read = TomItem.fromMap({
+        'id': 'x',
+        'title': 'X',
+        'guidelines': <String, String>{},
+      });
       expect(read.workflow?.guidelines ?? const {}, isEmpty);
       expect(read.toMap().containsKey('guidelines'), isFalse);
     });
 
     test('ROLEGL-3: a role alone makes the workflow extension present', () {
-      final read = TomItem.fromMap({'id': 'x', 'title': 'X', 'role': 'reviewer'});
+      final read = TomItem.fromMap({
+        'id': 'x',
+        'title': 'X',
+        'role': 'reviewer',
+      });
       expect(read.workflow, isNotNull);
       expect(read.workflow!.role, 'reviewer');
     });
@@ -710,11 +765,17 @@ void main() {
 
     test('ROLEGL-5: what is no role folder name or no section / option name '
         'is a format error', () {
-      Map<String, Object?> with_(String key, Object? value) =>
-          {'id': 'x', 'title': 'X', key: value};
+      Map<String, Object?> with_(String key, Object? value) => {
+        'id': 'x',
+        'title': 'X',
+        key: value,
+      };
       for (final bad in ['', ' reviewer', 'a/b', '_hidden', 'two words']) {
-        expect(() => TomItem.fromMap(with_('role', bad)), throwsFormatException,
-            reason: 'role "$bad"');
+        expect(
+          () => TomItem.fromMap(with_('role', bad)),
+          throwsFormatException,
+          reason: 'role "$bad"',
+        );
       }
       for (final bad in <Object>[
         'answer tool',
@@ -726,12 +787,18 @@ void main() {
         {'s': 'o\n'},
         {'s': 1},
       ]) {
-        expect(() => TomItem.fromMap(with_('guidelines', bad)),
-            throwsFormatException,
-            reason: 'guidelines $bad');
+        expect(
+          () => TomItem.fromMap(with_('guidelines', bad)),
+          throwsFormatException,
+          reason: 'guidelines $bad',
+        );
       }
-      expect(TomItem.fromMap(with_('guidelines', {'answer_mode': 'trail only'}))
-          .workflow!.guidelines, {'answer_mode': 'trail only'});
+      expect(
+        TomItem.fromMap(
+          with_('guidelines', {'answer_mode': 'trail only'}),
+        ).workflow!.guidelines,
+        {'answer_mode': 'trail only'},
+      );
     });
 
     test('ROLEGL-6: a todo file writes and reads both, keeping the rest', () {
