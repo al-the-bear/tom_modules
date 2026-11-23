@@ -60,7 +60,11 @@ class ForgeSessionFile {
   }
 
   String _toEditor(String text) => text.replaceAll('\r\n', '\n');
-  String _toFile(String text) => _crlf ? text.replaceAll('\n', '\r\n') : text;
+  // The editor's text may already hold CRLF (an editor that hands the
+  // session's own text back): normalise to LF first, so a line never gets a
+  // second CR.
+  String _toFile(String text) =>
+      _crlf ? _toEditor(text).replaceAll('\n', '\r\n') : text;
 
   /// Whether a save can run now.
   bool get canSave =>

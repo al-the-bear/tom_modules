@@ -108,6 +108,18 @@ void main() {
     expect(disk, 'one\r\ntwo\r\nthree\r\n');
   });
 
+  testWidgets('FSF-4b: a save of text that already holds CRLF (an editor '
+      'that hands the session\'s own text back) keeps one CR per line', (
+    tester,
+  ) async {
+    final (file, editor) = await _bind(tester, 'notes.md');
+    editor.text = 'one\r\ntwo\r\nthree\r\n';
+    final outcome = await tester.runAsync(file.save);
+    expect(outcome, ForgeFileSaveOutcome.saved);
+    final disk = await tester.runAsync(() => _fs.readText(_uri('notes.md')));
+    expect(disk, 'one\r\ntwo\r\nthree\r\n');
+  });
+
   testWidgets('FSF-5: read-only — the session\'s notice is shown above the '
       'editor and nothing is saved', (tester) async {
     await tester.runAsync(

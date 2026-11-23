@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.1
+
+- A save of a CRLF file no longer doubles the CR when the editor's text already
+  holds CRLF (an editor whose `textOf` hands back the session's own text, as
+  Tom Forge's `.env` editor does): the text is normalised to LF before CRLF is
+  written (test FSF-4b).
+
 ## 0.1.0
 
 - `ForgeSessionFile` and `ForgeSessionFileFrame`, moved here from
