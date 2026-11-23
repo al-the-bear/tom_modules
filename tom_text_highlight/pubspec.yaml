@@ -4,7 +4,7 @@ description: >-
   HighlightSpan), the themes that style its token classes, and light
   highlighters of our own for YAML, Markdown, JSON, shell and .env. Flutter
   only, so every source view and renderer takes it. License: BSD-3-Clause.
-version: 0.1.0
+version: 0.2.0
 repository: https://github.com/al-the-bear/tom_modules
 
 environment:

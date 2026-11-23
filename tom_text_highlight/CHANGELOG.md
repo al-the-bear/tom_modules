@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0
+
+- `registerHighlighterFallback` / `unregisterHighlighterFallback` and the
+  `HighlighterFallback` type: `highlighterForLanguage` asks the registered
+  fallbacks for a language this package does not highlight (our own come
+  first). Nothing is registered by default; `tom_highlight_js` registers
+  the highlight.js languages for an application that wants them all.
+
 ## 0.1.0
 
 - `SyntaxHighlighter` and `HighlightSpan`, moved here from Tom Forge's

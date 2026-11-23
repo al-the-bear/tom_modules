@@ -16,7 +16,11 @@ highlighters of our own.
 - Highlighters: `YamlHighlighter`, `MarkdownHighlighter`, `JsonHighlighter`,
   `ShellHighlighter` and `EnvHighlighter`. `highlighterForLanguage` picks one
   for a fenced code block's language (`yaml`/`yml`, `markdown`/`md`, `json`,
-  `bash`/`sh`/`shell`/`zsh`, `env`/`dotenv`), or answers null.
+  `bash`/`sh`/`shell`/`zsh`, `env`/`dotenv`); for any other language it asks
+  the fallbacks registered with `registerHighlighterFallback`, in order, and
+  answers null when none knows it. Nothing is registered by default:
+  `tom_highlight_js` registers every highlight.js language for an
+  application that wants them (`registerHighlightJsLanguages()`).
 
 It depends on Flutter only, so both Tom Forge's editors and `tom_file_editors`
 take it. A heavy highlighter (the Dart analyzer's) is a package of its own

@@ -1,0 +1,26 @@
+name: tom_highlight_js
+description: >-
+  Every highlight.js language (about 190, through the highlight package) as
+  tom_text_highlight highlighters: an optional fallback an application
+  registers when it wants code blocks in languages beyond tom_text_highlight's
+  own. License: BSD-3-Clause.
+version: 0.1.0
+repository: https://github.com/al-the-bear/tom_modules
+
+environment:
+  sdk: ^3.10.8
+  flutter: ">=1.17.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # The highlight.js grammars and parser.
+  highlight: ^0.7.0
+  # The highlighter interface and the language lookup this registers into.
+  tom_text_highlight:
+    path: ../tom_text_highlight
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
