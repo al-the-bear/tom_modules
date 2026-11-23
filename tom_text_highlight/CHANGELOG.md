@@ -7,6 +7,7 @@
   fallbacks for a language this package does not highlight (our own come
   first). Nothing is registered by default; `tom_highlight_js` registers
   the highlight.js languages for an application that wants them all.
+- Published on pub.dev.
 
 ## 0.1.0
 

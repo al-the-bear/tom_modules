@@ -10,8 +10,8 @@
   (`tomYamlSourceTheme`, `tomMarkdownSourceTheme`), and `tomYamlHighlight` /
   `tomMarkdownHighlight` still answer spans, styled as before. The YAML
   tokenizer is the one Tom Forge's YAML editor uses. `tom_text_highlight`
-  0.1.0 is on pub.dev, so this package's staged copy takes it as a version
-  (`^0.1.0`).
+  0.2.0 is on pub.dev, so this package's staged copy takes it as a version
+  (`^0.2.0`).
 - Breaking: `TomSourceHighlighter` is removed. pub.dev's latest release is
   0.1.0, so this goes out with the next breaking version (0.2.0, together
   with the 0.2.0 section below, which has not been released either).

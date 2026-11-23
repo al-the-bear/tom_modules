@@ -8,3 +8,4 @@
 - `registerHighlightJsLanguages()` registers it as a fallback of
   `highlighterForLanguage` for every name and alias highlight.js knows;
   `tom_text_highlight`'s own highlighters stay first.
+- Published on pub.dev (with `tom_text_highlight` 0.2.0).
