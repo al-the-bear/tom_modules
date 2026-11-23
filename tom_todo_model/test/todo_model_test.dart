@@ -679,24 +679,29 @@ void main() {
   });
 
   group('role and guidelines (4.2.0)', () {
-    TomItem item({String? role, Map<String, String> guidelines = const {}}) =>
-        TomItem(
-          id: 'g1',
-          headline: 'Tune it',
-          workflow: TomItemWorkflow(
-            executionRole: 'software_engineer',
-            bundleId: 'b1',
-            role: role,
-            guidelines: guidelines,
-            derivedFrom: 'g0',
-          ),
-        );
+    TomItem item({
+      String? role,
+      Map<String, List<String>> guidelines = const {},
+    }) => TomItem(
+      id: 'g1',
+      headline: 'Tune it',
+      workflow: TomItemWorkflow(
+        executionRole: 'software_engineer',
+        bundleId: 'b1',
+        role: role,
+        guidelines: guidelines,
+        derivedFrom: 'g0',
+      ),
+    );
 
     test('ROLEGL-1: both round-trip, written after bundle_id and before '
         'derived_from, in the flat field set and the workflow fields', () {
       final original = item(
         role: 'idea_author',
-        guidelines: {'answer_mode': 'answer tool', 'night': 'remove'},
+        guidelines: {
+          'answer_mode': ['answer tool'],
+          'night': ['remove'],
+        },
       );
       final map = original.toMap();
       final keys = map.keys.toList();
@@ -715,10 +720,9 @@ void main() {
       final read = TomItem.fromMap(map);
       expect(read, original);
       expect(read.workflow!.role, 'idea_author');
-      expect(
-        read.workflow!.guidelines['night'],
+      expect(read.workflow!.guidelines['night'], [
         TomItemWorkflow.removeGuideline,
-      );
+      ]);
       final flat = TomItem.fields.toList();
       expect(
         flat.sublist(flat.indexOf('bundle_id'), flat.indexOf('bundle_id') + 4),
@@ -755,11 +759,16 @@ void main() {
     });
 
     test('ROLEGL-4: copy() is detached', () {
-      final original = item(role: 'a', guidelines: {'s': 'o'});
+      final original = item(
+        role: 'a',
+        guidelines: {
+          's': ['o'],
+        },
+      );
       final copy = original.copy();
-      copy.workflow!.guidelines['s'] = 'other';
+      copy.workflow!.guidelines['s']!.add('other');
       copy.workflow!.role = 'b';
-      expect(original.workflow!.guidelines['s'], 'o');
+      expect(original.workflow!.guidelines['s'], ['o']);
       expect(original.workflow!.role, 'a');
     });
 
@@ -786,6 +795,18 @@ void main() {
         {'s': ' o'},
         {'s': 'o\n'},
         {'s': 1},
+        {
+          's': ['a', '+b'],
+        },
+        {
+          's': ['remove', 'a'],
+        },
+        {
+          's': ['+'],
+        },
+        {
+          's': [1],
+        },
       ]) {
         expect(
           () => TomItem.fromMap(with_('guidelines', bad)),
@@ -797,7 +818,41 @@ void main() {
         TomItem.fromMap(
           with_('guidelines', {'answer_mode': 'trail only'}),
         ).workflow!.guidelines,
-        {'answer_mode': 'trail only'},
+        {
+          'answer_mode': ['trail only'],
+        },
+      );
+    });
+
+    test('ROLEGL-7: several choices (6.0.0): a list replaces, a list of '
+        '"+" entries adds, a single choice stays a string', () {
+      final original = item(
+        guidelines: {
+          'js_ts': ['vscode_extension', 'react'],
+          'dart': ['+flutter'],
+          'night': ['on'],
+          'tone': ['+dry'],
+        },
+      );
+      final map = original.toMap();
+      expect(map['guidelines'], {
+        'js_ts': ['vscode_extension', 'react'],
+        'dart': '+flutter',
+        'night': 'on',
+        'tone': '+dry',
+      });
+      expect(TomItem.fromMap(map), original);
+      expect(
+        TomItem.fromMap({
+          'id': 'x',
+          'title': 'X',
+          'guidelines': {
+            'dart': ['+packages', '+flutter'],
+          },
+        }).workflow!.guidelines,
+        {
+          'dart': ['+packages', '+flutter'],
+        },
       );
     });
 
@@ -808,7 +863,9 @@ void main() {
       final todo = file.entries.single.item!.copy();
       (todo.workflow ??= TomItemWorkflow())
         ..role = 'idea_author'
-        ..guidelines = {'answer_mode': 'answer tool'};
+        ..guidelines = {
+          'answer_mode': ['answer tool'],
+        };
       final written = file.withItem(0, todo);
       expect(
         written,

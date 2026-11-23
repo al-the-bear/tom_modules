@@ -1,3 +1,19 @@
+## 6.0.0
+
+Several guideline choices per aspect (the extension's aspect guidelines).
+
+- `TomItemWorkflow.guidelines` is `Map<String, List<String>>`: an aspect to
+  its choices. The choices replace those of the levels below; when every
+  entry starts with `TomItemWorkflow.addGuidelinePrefix` (`+`) they are added
+  to them; `['remove']` sends nothing for the aspect.
+- In the file a single choice stays a string (`night: on`, `js_ts: +react`),
+  several are a list (`js_ts: [vscode_extension, react]`, `dart: [+flutter]`);
+  both read into the list form, and one entry is written back as a string.
+  Files written before read unchanged.
+- Refused: a list mixing `+` and plain entries, `remove` beside a choice, an
+  empty `+`, non-string entries.
+- Breaking for code that reads or sets `guidelines` as `Map<String, String>`.
+
 ## 5.0.0
 
 What follows a completed todo (`on_done`): two actions, and its quest and run

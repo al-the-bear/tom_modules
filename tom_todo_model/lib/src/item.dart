@@ -500,7 +500,7 @@ class TomItemWorkflow {
     this.orchestrationRole,
     this.bundleId,
     this.role,
-    Map<String, String> guidelines = const {},
+    Map<String, List<String>> guidelines = const {},
     this.derivedFrom,
     this.feedbackSource,
     this.filedBy,
@@ -513,7 +513,10 @@ class TomItemWorkflow {
     DateTime? archived,
     DateTime? deleted,
   }) : decisions = [for (final d in decisions) d.copy()],
-       guidelines = Map.of(guidelines),
+       guidelines = {
+         for (final MapEntry(:key, :value) in guidelines.entries)
+           key: List.of(value),
+       },
        resources = resources == null ? null : List.of(resources),
        _archived = tomCanonicalDate(archived),
        _deleted = tomCanonicalDate(deleted) {
@@ -544,14 +547,24 @@ class TomItemWorkflow {
   /// the queuing process step's role and the chat variable `role`.
   String? role;
 
-  /// The guideline aspects the todo chooses: an aspect section (a folder
-  /// name under `_ai/aspect_guidelines/`) to an option's short name, or to
-  /// [removeGuideline] (nothing for that section, whatever a higher level
-  /// chose). A section the todo does not choose has no entry and inherits.
-  Map<String, String> guidelines;
+  /// The guideline aspects the todo chooses: an aspect (a folder name under
+  /// `_ai/aspect_guidelines/`) to its choices. The choices **replace** those
+  /// of the levels below; when every entry starts with [addGuidelinePrefix]
+  /// they are **added** to them; `[`[removeGuideline]`]` sends nothing for the
+  /// aspect, whatever a higher level chose. An aspect the todo does not
+  /// choose has no entry and inherits.
+  ///
+  /// In the file a single choice is a string (`night: on`, `night: remove`,
+  /// `js_ts: +react`), several a list (`js_ts: [vscode_extension, react]`,
+  /// `js_ts: [+react]`); both are read into the list form here, and one
+  /// entry is written back as a string.
+  Map<String, List<String>> guidelines;
 
-  /// The value of a [guidelines] entry that sends nothing for its section.
+  /// The value of a [guidelines] entry that sends nothing for its aspect.
   static const String removeGuideline = 'remove';
+
+  /// The prefix of a [guidelines] choice added to the levels below.
+  static const String addGuidelinePrefix = '+';
 
   /// The todo this one was derived from, and the feedback that raised it.
   String? derivedFrom;
@@ -624,9 +637,9 @@ class TomItemWorkflow {
       throw FormatException('Todo "role" must be a role folder name: "$role"');
     }
     for (final MapEntry(:key, :value) in guidelines.entries) {
-      if (!_nameOk(key) || !_nameOk(value)) {
+      if (!_nameOk(key) || !_choicesOk(value)) {
         throw FormatException(
-          'Todo "guidelines" entry must map a section name to an option name: "$key": "$value"',
+          'Todo "guidelines" entry must map an aspect name to a choice, a list of choices (all with "+" to add) or "remove": "$key": $value',
         );
       }
     }
@@ -640,6 +653,19 @@ class TomItemWorkflow {
   }
 
   static final RegExp _roleRe = RegExp(r'^[A-Za-z0-9][A-Za-z0-9_-]*$');
+
+  /// One entry's choices: names (each with `+` or none with it), or `[remove]`.
+  static bool _choicesOk(List<String> choices) {
+    if (choices.length == 1 && choices.first == removeGuideline) return true;
+    final adds = choices.where((c) => c.startsWith(addGuidelinePrefix)).length;
+    if (adds != 0 && adds != choices.length) return false;
+    return choices.every((c) {
+      final name = adds != 0 ? c.substring(addGuidelinePrefix.length) : c;
+      return _nameOk(name) &&
+          name != removeGuideline &&
+          !name.startsWith(addGuidelinePrefix);
+    });
+  }
 
   static bool _nameOk(String name) =>
       name.isNotEmpty &&
@@ -685,7 +711,11 @@ class TomItemWorkflow {
     'orchestration_role': ?orchestrationRole,
     'bundle_id': ?bundleId,
     'role': ?role,
-    if (guidelines.isNotEmpty) 'guidelines': Map.of(guidelines),
+    if (guidelines.isNotEmpty)
+      'guidelines': {
+        for (final MapEntry(:key, :value) in guidelines.entries)
+          key: value.length == 1 ? value.first : List.of(value),
+      },
     'derived_from': ?derivedFrom,
     'feedback_source': ?feedbackSource,
     if (filedBy != null) 'filed_by': filedBy!.toMap(),
@@ -732,20 +762,26 @@ class TomItemWorkflow {
     );
   }
 
-  /// The `guidelines` mapping: section names to option names, both strings.
-  static Map<String, String> _guidelineMap(Object? value) {
+  /// The `guidelines` mapping: aspect names to a choice (a string) or a list
+  /// of choices, read into the list form.
+  static Map<String, List<String>> _guidelineMap(Object? value) {
     if (value == null) return const {};
     if (value is! Map) {
       throw FormatException('Todo "guidelines" must be a mapping: $value');
     }
-    final out = <String, String>{};
+    final out = <String, List<String>>{};
     for (final MapEntry(:key, :value) in value.entries) {
-      if (key is! String || value is! String) {
+      final choices = value is String
+          ? [value]
+          : value is List && value.every((v) => v is String)
+          ? [for (final v in value) v as String]
+          : null;
+      if (key is! String || choices == null) {
         throw FormatException(
-          'Todo "guidelines" entry must map a section name to an option name: $key: $value',
+          'Todo "guidelines" entry must map an aspect name to a choice or a list of choices: $key: $value',
         );
       }
-      out[key] = value;
+      out[key] = choices;
     }
     return out;
   }
