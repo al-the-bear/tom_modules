@@ -1,0 +1,27 @@
+name: tom_file_session_ui
+description: >-
+  The binding of an editor to a tom_file_session session and the frame that
+  shows the file's state above the editor (loading, not readable, refused,
+  read-only, deleted on disk, changed on disk). Light: Flutter and
+  tom_file_session only, so both tom_file_editors and Tom Forge's kit and
+  adapters take it. License: BSD-3-Clause.
+version: 0.1.0
+repository: https://github.com/al-the-bear/tom_modules
+
+environment:
+  sdk: ^3.10.8
+  flutter: ">=1.17.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # The editing session the binding follows.
+  tom_file_session:
+    path: ../tom_file_session
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  tom_file_system:
+    path: ../../basics/tom_file_system

@@ -28,6 +28,9 @@ dependencies:
     path: ../tom_file_session
   tom_ui_support:
     path: ../tom_ui_support
+  # ForgeSessionFile and ForgeSessionFileFrame, re-exported.
+  tom_file_session_ui:
+    path: ../tom_file_session_ui
 
 dev_dependencies:
   flutter_test:

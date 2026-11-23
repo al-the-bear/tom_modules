@@ -5,7 +5,7 @@
 library;
 
 export 'src/file_editor/file_editor_host.dart';
-export 'src/file_editor/forge_session_file.dart';
+export 'package:tom_file_session_ui/tom_file_session_ui.dart';
 export 'src/file_editor/schema_cache.dart';
 export 'src/file_editor/session_listenable.dart';
 export 'src/file_editor/text_source.dart';

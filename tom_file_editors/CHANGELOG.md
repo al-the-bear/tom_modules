@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- `ForgeSessionFile` and `ForgeSessionFileFrame` moved to the new package
+  `tom_file_session_ui` (Flutter and `tom_file_session` only), which this
+  package depends on and re-exports, so its users are unchanged. Tom Forge's
+  kit and `tom_forge_shared_ui` take the same implementation instead of a
+  copy. `tom_file_session_ui` has to be on pub.dev before this package's next
+  release.
+
 ## 0.2.0
 
 - `ForgeSessionFile` and `ForgeSessionFileFrame`, taken out of Tom Forge's
