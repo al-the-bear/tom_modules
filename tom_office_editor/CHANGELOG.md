@@ -1,3 +1,38 @@
+## 0.7.0
+
+- The LibreOffice tool descriptor, `TomLibreOfficeTool.standard`
+  (`lib/src/detection/libreoffice_tool.dart`, no `dart:io`): per platform
+  (`TomToolPlatform`) the minimum version (macOS and Windows 26.8.3.1,
+  Linux 26.8.0: DPLD-4), the search locations, the files a program folder
+  must hold, the warnings (Linux: no Snap or Flatpak; the program folder at
+  `/opt/libreoffice<x.y>/program`) and the install routes
+  (`TomInstallRoute`: argv commands, elevation, steps, the package manager
+  it needs, the version it delivers): Homebrew's cask; winget and
+  Chocolatey; TDF's `.deb` and `.rpm` archives as managed downloads
+  (`TomManagedDownload`, checked against the published `.sha256`) and apt
+  with `ppa:libreoffice/ppa` through `pkexec`; the download page
+  `kLibreOfficeDownloadPage` as the by-hand route on each.
+- `TomLibreOfficeInstallHelp`: what is missing (not found, too old, the
+  path set unusable, damaged) and why, the platform's routes, a
+  confirmation naming the commands and the elevation, the run's streamed
+  output and end (`TomLibreOfficeInstallRun`,
+  `TomLibreOfficeInstallRunController`; the host runs the commands through
+  `onInstall`), the download page (`onOpenDownloadPage`) and *Check again*.
+- `TomLibreOfficeDetector` detects on Linux and Windows too: program
+  folders from the descriptor (`/opt/libreoffice*/program`,
+  `/usr/lib/libreoffice/program`, `/usr/lib64/libreoffice/program`;
+  `C:\Program Files\LibreOffice\program`) and `soffice` on `PATH`; a
+  folder counts only with `soffice` and `libmergedlo.so` (`soffice.exe`,
+  `mergedlo.dll`); the version from `soffice --version` under a private
+  profile (on Windows checked against `version.ini`). It uses the
+  platform's minimum (`platform`, `tool`, `programFolderPatterns`); the
+  macOS defaults now come from the descriptor.
+- `LibreOfficeInstallation`: `programFolder`, `sofficeExecutable`,
+  `minimumVersion` (set on `tooOld`, shown in the message),
+  `isUnusableSetting`.
+- `io.dart`: `installRouteAvailability`, which routes' package managers are
+  on `PATH`.
+
 ## 0.6.0
 
 - The ZetaOffice route moved to its own package, `tom_office_zetaoffice`

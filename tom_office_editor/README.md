@@ -29,7 +29,9 @@ notices: [THIRD_PARTY.md](THIRD_PARTY.md).
 | Host | `lib/src/host.dart` | `TomOfficeEditorHost`: the file, its access (`TomBinaryFiles`), the helper launcher, notices, links (`HYPERLINK_CLICKED`), history changes, the image picker of *Insert image* (`pickImage`). |
 | Tiles | `lib/src/tiles/tile_cache.dart` | `TileCache`: least recently used, bounded by memory (256 MiB), keyed by part, zoom, column and row; invalidation by twip rectangle. |
 | Callbacks | `lib/src/callbacks.dart` | The callback payloads as LibreOffice 26.8.3.1 sends them, parsed: rectangles, selections, the cell cursor, `INVALIDATE_TILES`, `STATE_CHANGED`, the context menu, links, command results. |
-| Detection | `lib/src/io/detector.dart`, `lib/src/detection/installation.dart` | `TomLibreOfficeDetector` (macOS): the user's path (its state, no fallback), `/Applications`, `~/Applications`, Spotlight (the newest usable copy); *Auto-detect* (`autoDetect`) adds `PATH`, the installation folders one level down (`LibreOffice*.app`, `LibreOfficeDev*.app`, `Collabora Office*.app`), Homebrew casks and MacPorts. A copy is read from `Info.plist` without starting anything, checked for its parts, the minimum version (26.8.3.1, the version on mbp: DPLD-1), the architecture (`lipo`), the signature (`codesign --verify`), quarantine (`xattr`, `spctl`), and cross-checked with `soffice --headless --version` under a private profile (15 s). States: `found`, `missing`, `tooOld`, `damaged`, `quarantined`. |
+| Detection | `lib/src/io/detector.dart`, `lib/src/detection/installation.dart` | `TomLibreOfficeDetector`. macOS: the user's path (its state, no fallback), `/Applications`, `~/Applications`, Spotlight (the newest usable copy); *Auto-detect* (`autoDetect`) adds `PATH`, the installation folders one level down (`LibreOffice*.app`, `LibreOfficeDev*.app`, `Collabora Office*.app`), Homebrew casks and MacPorts. A copy is read from `Info.plist` without starting anything, checked for its parts, the minimum version, the architecture (`lipo`), the signature (`codesign --verify`), quarantine (`xattr`, `spctl`), and cross-checked with `soffice --headless --version` under a private profile (15 s). Linux and Windows: the program folders of the descriptor (`/opt/libreoffice*/program`, `/usr/lib/libreoffice/program`, `/usr/lib64/libreoffice/program`; `C:\Program Files\LibreOffice\program`) and `soffice` on `PATH`; a folder counts only when it holds `soffice` and `libmergedlo.so` (`soffice.exe` and `mergedlo.dll`), its version is what `soffice --version` reports (on Windows checked against `version.ini`). The minimum is the platform's: 26.8.3.1 on macOS and Windows (DPLD-1), 26.8.0 on Linux (DPLD-4). States: `found`, `missing`, `tooOld`, `damaged`, `quarantined`. |
+| Tool descriptor | `lib/src/detection/libreoffice_tool.dart` | `TomLibreOfficeTool.standard`: per platform the minimum version, the search locations, the program files, the warnings (Linux: no Snap or Flatpak; the program folder at `/opt/libreoffice<x.y>/program`) and the install routes with their commands, elevation, steps, package manager and the version each delivers — macOS `brew install --cask libreoffice`; Windows `winget install --id TheDocumentFoundation.LibreOffice -e` (the installer raises UAC) and `choco install libreoffice-fresh -y` (an elevated shell); Linux TDF's `.deb` / `.rpm` archive as a managed download (`download.documentfoundation.org/libreoffice/stable/<version>/…`, checked against the published `<file>.sha256`, installed with `pkexec dpkg -i` / `pkexec rpm -Uvh`) and apt with `ppa:libreoffice/ppa` through `pkexec`; the download page as the by-hand route. `installRouteAvailability` (`io.dart`) says which routes' package managers are on `PATH`. |
+| Install help | `lib/src/widgets/install_help.dart`, `lib/src/detection/install_run.dart` | `TomLibreOfficeInstallHelp`: what is missing (not found, too old with the found version and the minimum, the path set unusable, damaged) and why, the platform's warnings and routes, a confirmation naming the commands and the elevation before a route runs, the run's output as it streams and its end (`TomLibreOfficeInstallRun`, built by the host with `TomLibreOfficeInstallRunController`), the download page and *Check again*. The host runs the commands (`onInstall`) and opens the link (`onOpenDownloadPage`). |
 | Launcher | `lib/src/io/process_launcher.dart` | `TomOfficeProcessLauncher`: starts `tom_office_host` (found with `findHelper` in `$TOM_BINARY_PATH/<os>-<arch>/`) with the program folder and a private profile under `<temp>/office-host/<pid>-<n>/`; `close` sends `close`, then SIGTERM after 5 s, SIGKILL after 2 s more. `cleanUp` removes what dead helpers left: profiles, the `.~lock.<name>#` file naming a dead helper's profile, the temporary files of an interrupted save. |
 | Fake helper | `lib/src/testing/fake_helper.dart` | `FakeOfficeHelperChannel` (fixed tiles, scripted callbacks, passwords, saves, a crash or a hang) and `FakeOfficeHelperLauncher`. |
 | Debug | `lib/src/office_editor_trail.dart` | `kOfficeEditorDebug` (switchable at run time), prefix `[OE]`: state changes, every message by type and id (tiles summarised once a second), callback types, input as kind and key code (text by its length), save steps and conflicts, the helper's exit and stderr, focus changes; the heartbeat and the `FlutterError` intercept while on. Errors are reported through `FlutterError.reportError` whether it is on or off. |
@@ -38,8 +40,8 @@ notices: [THIRD_PARTY.md](THIRD_PARTY.md).
 
 | Import | Holds | Platforms |
 | --- | --- | --- |
-| `package:tom_office_editor/tom_office_editor.dart` | the widget, controller, host, tile cache, detection's answer, the helper channel interface | all (no `dart:io`) |
-| `package:tom_office_editor/io.dart` | `TomLibreOfficeDetector`, `TomOfficeProcessLauncher`, `TomBinaryFileAccess` | desktop (`dart:io`) |
+| `package:tom_office_editor/tom_office_editor.dart` | the widget, controller, host, tile cache, detection's answer, the tool descriptor, the install help, the helper channel interface | all (no `dart:io`) |
+| `package:tom_office_editor/io.dart` | `TomLibreOfficeDetector`, `installRouteAvailability`, `TomOfficeProcessLauncher`, `TomBinaryFileAccess` | desktop (`dart:io`) |
 | `package:tom_office_editor/testing.dart` | `FakeOfficeHelperChannel`, `FakeOfficeHelperLauncher` | all |
 
 ## Usage
@@ -68,6 +70,26 @@ controller.undo();
 await controller.checkExternal(); // when the window regains focus
 ```
 
+The install help, when detection does not answer `found`:
+
+```dart
+TomLibreOfficeInstallHelp(
+  installation: installation,
+  routeAvailability: installRouteAvailability(
+    TomLibreOfficeTool.standard.routes(TomToolPlatform.current!),
+  ),
+  onInstall: (route) {
+    final run = TomLibreOfficeInstallRunController();
+    // Run route.commands (a managed download: fetch route.download, check
+    // its SHA-256, unpack, then route.commandsWith(packages)), feeding
+    // run.add(output) and ending with run.finish(exitCode).
+    return run.run;
+  },
+  onOpenDownloadPage: openInBrowser,
+  onCheckAgain: detectAgain,
+);
+```
+
 `example/` is a macOS app that opens the sample DOCX, XLSX and PPTX of the
 tom_forge prototype; its integration test opens, edits, saves and reopens each.
 
@@ -94,4 +116,7 @@ against the installed LibreOffice and skip themselves where either is missing.
 ## Not yet in this package
 
 JSON dialogs as Flutter forms: LibreOffice's desktop build sends none.
-Detection covers macOS; Linux and Windows locations come later.
+Detection on Linux and Windows is tested with fake folders only; the
+Windows registry keys (`HKLM\SOFTWARE\LibreOffice`) are not read yet.
+Running a route (downloading, checking the hash, starting the package
+manager) is the host's.

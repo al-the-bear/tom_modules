@@ -302,6 +302,192 @@ void main() {
     );
   });
 
+  group('OE-DETECT Linux and Windows', () {
+    /// A fake program folder at `<root>/<parts>/program` holding [files].
+    String makeProgram(List<String> parts, List<String> files) {
+      final folder = Directory(p.joinAll([root.path, ...parts, 'program']))
+        ..createSync(recursive: true);
+      for (final f in files) {
+        File(p.join(folder.path, f)).writeAsStringSync('x');
+      }
+      return folder.path;
+    }
+
+    TomLibreOfficeDetector onPlatform(
+      TomToolPlatform platform,
+      ScriptedRunner run, {
+      String userPath = '',
+      String searchPath = '',
+    }) => TomLibreOfficeDetector(
+      platform: platform,
+      userPath: userPath,
+      programFolderPatterns: [
+        p.join(root.path, 'opt', 'libreoffice*', 'program'),
+        p.join(root.path, 'usr', 'lib', 'libreoffice', 'program'),
+      ],
+      run: run.call,
+      scratch: p.join(root.path, 'scratch'),
+      searchPath: searchPath,
+    );
+
+    TomDetectionRun reports(String version) =>
+        TomDetectionRun(0, 'LibreOffice $version 861effc\n', '');
+
+    test('OE-DETECT-12: Linux: TDF\'s /opt folder, newest usable', () async {
+      final tdf = makeProgram(
+        ['opt', 'libreoffice26.8'],
+        ['soffice', 'libmergedlo.so'],
+      );
+      makeProgram(['usr', 'lib', 'libreoffice'], ['soffice', 'libmergedlo.so']);
+      final run = ScriptedRunner({'soffice': reports('26.8.3.1')});
+      final r = await onPlatform(TomToolPlatform.linux, run).detect();
+      expect(r.state, LibreOfficeState.found);
+      expect(r.programPath, tdf);
+      expect(r.sofficePath, p.join(tdf, 'soffice'));
+      expect(r.bundlePath, p.join(root.path, 'opt', 'libreoffice26.8'));
+      expect(r.source, 'folder');
+      final soffice = run.calls.firstWhere((c) => c.startsWith('soffice'));
+      expect(soffice, contains('-env:UserInstallation=file://'));
+    });
+
+    test('OE-DETECT-13: Linux\'s minimum 26.8.0: 26.8.2.2 is found there, '
+        'too old on macOS', () async {
+      makeProgram(['opt', 'libreoffice26.8'], ['soffice', 'libmergedlo.so']);
+      final linux = await onPlatform(
+        TomToolPlatform.linux,
+        ScriptedRunner({'soffice': reports('26.8.2.2')}),
+      ).detect();
+      expect(linux.state, LibreOfficeState.found);
+      expect(linux.version, '26.8.2.2');
+
+      makeBundle(apps, version: '26.8.2.2');
+      final mac = await detector(ScriptedRunner()).detect();
+      expect(mac.state, LibreOfficeState.tooOld);
+      expect(mac.minimumVersion, '26.8.3.1');
+
+      makeProgram(['opt', 'libreoffice24.2'], ['soffice', 'libmergedlo.so']);
+      final old = await onPlatform(
+        TomToolPlatform.linux,
+        ScriptedRunner({'soffice': reports('24.2.7.2')}),
+      ).check(p.join(root.path, 'opt', 'libreoffice24.2'));
+      expect(old.state, LibreOfficeState.tooOld);
+      expect(old.minimumVersion, '26.8.0');
+      expect(
+        libreOfficeStateMessage(old),
+        'LibreOffice 24.2.7.2 is older than 26.8.0.',
+      );
+    });
+
+    test('OE-DETECT-14: Linux: a leftover folder is no copy; the setting '
+        'names an unusable path', () async {
+      makeProgram(['opt', 'libreoffice26.8'], ['soffice']);
+      final run = ScriptedRunner({'soffice': reports('26.8.3.1')});
+      final r = await onPlatform(TomToolPlatform.linux, run).detect();
+      expect(r.state, LibreOfficeState.missing);
+      final notLo = Directory(p.join(root.path, 'tools'))..createSync();
+      final s = await onPlatform(
+        TomToolPlatform.linux,
+        run,
+        userPath: notLo.path,
+      ).detect();
+      expect(s.state, LibreOfficeState.damaged);
+      expect(s.isUnusableSetting, isTrue);
+      expect(s.reason, contains('is not a LibreOffice program folder'));
+      expect(s.reason, contains('soffice, libmergedlo.so missing'));
+    });
+
+    test(
+      'OE-DETECT-15: Linux: soffice on PATH names its program folder',
+      () async {
+        final folder = makeProgram(
+          ['elsewhere', 'lo'],
+          ['soffice', 'libmergedlo.so'],
+        );
+        final bin = Directory(p.join(root.path, 'bin'))..createSync();
+        Link(p.join(bin.path, 'soffice')).createSync(p.join(folder, 'soffice'));
+        final all = await onPlatform(
+          TomToolPlatform.linux,
+          ScriptedRunner({'soffice': reports('26.8.3.1')}),
+          searchPath: bin.path,
+        ).autoDetect();
+        expect(
+          all.single.programPath,
+          Directory(folder).resolveSymbolicLinksSync(),
+        );
+        expect(all.single.source, 'path');
+      },
+    );
+
+    test(
+      'OE-DETECT-16: Windows: soffice.exe and mergedlo.dll, version.ini',
+      () async {
+        final folder = makeProgram(
+          ['opt', 'libreoffice'],
+          ['soffice.exe', 'mergedlo.dll'],
+        );
+        File(p.join(folder, 'version.ini')).writeAsStringSync(
+          '[Version]\nMsiProductVersion=26.8.3.1\nbuildid=861effc\n',
+        );
+        var r = await onPlatform(
+          TomToolPlatform.windows,
+          ScriptedRunner({'soffice.exe': reports('26.8.3.1')}),
+        ).detect();
+        expect(r.state, LibreOfficeState.found);
+        expect(r.sofficePath, p.join(folder, 'soffice.exe'));
+        r = await onPlatform(
+          TomToolPlatform.windows,
+          ScriptedRunner({'soffice.exe': reports('26.8.2.2')}),
+        ).detect();
+        expect(r.state, LibreOfficeState.damaged);
+        expect(r.reason, contains('version.ini says 26.8.3.1'));
+        // The leftover seen on legiondary01: only program\logs.
+        final leftover = makeProgram(['usr', 'lib', 'libreoffice'], []);
+        r = await onPlatform(
+          TomToolPlatform.windows,
+          ScriptedRunner(),
+        ).check(leftover, source: 'programFiles');
+        expect(r.state, LibreOfficeState.damaged);
+        expect(r.reason, contains('soffice.exe, mergedlo.dll missing'));
+      },
+    );
+
+    test('OE-DETECT-17: the defaults come from the descriptor', () {
+      final d = TomLibreOfficeDetector(platform: TomToolPlatform.linux);
+      expect(d.programFolderPatterns, [
+        ('/opt/libreoffice*/program', 'tdf'),
+        ('/usr/lib/libreoffice/program', 'distribution'),
+        ('/usr/lib64/libreoffice/program', 'distribution'),
+      ]);
+      expect(d.minimumVersion, '26.8.0');
+      final mac = TomLibreOfficeDetector(platform: TomToolPlatform.macos);
+      expect(mac.applicationFolders.first, '/Applications');
+      expect(mac.caskFolders, [
+        '/opt/homebrew/Caskroom/libreoffice',
+        '/usr/local/Caskroom/libreoffice',
+      ]);
+      expect(mac.minimumVersion, kLibreOfficeMinimumVersion);
+    });
+
+    test('OE-DETECT-18: which install routes can run here', () {
+      final bin = Directory(p.join(root.path, 'bin'))..createSync();
+      for (final name in ['dpkg', 'pkexec', 'apt-get']) {
+        File(p.join(bin.path, name)).writeAsStringSync('x');
+      }
+      final available = installRouteAvailability(
+        TomLibreOfficeTool.standard.routes(TomToolPlatform.linux),
+        searchPath: bin.path,
+        platform: TomToolPlatform.linux,
+      );
+      expect(available, {
+        'linux-tdf-deb': true,
+        'linux-tdf-rpm': false,
+        // add-apt-repository is missing.
+        'linux-apt-ppa': false,
+        'linux-download': true,
+      });
+    });
+  });
+
   test('OE-DETECT-11: the real copy on this Mac, when there is one', () async {
     const real = '/Applications/LibreOffice.app';
     if (!Directory(real).existsSync()) {

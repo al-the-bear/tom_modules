@@ -20,7 +20,7 @@ String libreOfficeStateMessage(LibreOfficeInstallation installation) =>
       LibreOfficeState.missing => 'LibreOffice is not installed.',
       LibreOfficeState.tooOld =>
         'LibreOffice ${installation.version ?? '?'} is older than '
-            '$kLibreOfficeMinimumVersion.',
+            '${installation.minimumVersion ?? kLibreOfficeMinimumVersion}.',
       LibreOfficeState.damaged =>
         'LibreOffice at ${installation.bundlePath ?? '?'} cannot be used.',
       LibreOfficeState.quarantined =>

@@ -7,8 +7,10 @@ library;
 
 import 'package:flutter/foundation.dart';
 
-/// The minimum LibreOffice version (DPLD-1): the version installed on mbp,
-/// the one the prototype is tested against.
+/// The minimum LibreOffice version on macOS and Windows (DPLD-1): the
+/// version installed on mbp, the one the prototype is tested against. Linux's
+/// is `kLibreOfficeMinimumVersionLinux` (DPLD-4); each platform's is in
+/// `TomLibreOfficeTool.standard`.
 const kLibreOfficeMinimumVersion = '26.8.3.1';
 
 /// LibreOffice's download page, shown with `missing` and `tooOld`.
@@ -45,12 +47,16 @@ final class LibreOfficeInstallation {
     this.bundleId,
     this.reason,
     this.source = '',
+    this.programFolder,
+    this.sofficeExecutable,
+    this.minimumVersion,
   });
 
   /// The state.
   final LibreOfficeState state;
 
-  /// The application bundle (`…/LibreOffice.app`), or `null` when none.
+  /// The application bundle (`…/LibreOffice.app`; on Linux and Windows the
+  /// installation folder above `program`), or `null` when none.
   final String? bundlePath;
 
   /// `CFBundleShortVersionString`, e.g. `26.8.3.1`.
@@ -63,20 +69,42 @@ final class LibreOfficeInstallation {
   final String? reason;
 
   /// Where it was found: `setting`, `applications`, `home`, `spotlight`,
-  /// `path`, `homebrew`, `macports`.
+  /// `path`, `homebrew`, `macports`; on Linux `tdf`, `distribution`; on
+  /// Windows `programFiles`.
   final String source;
+
+  /// The program folder, when it is not the macOS bundle's
+  /// `Contents/Frameworks` (Linux: `/opt/libreoffice26.8/program`).
+  final String? programFolder;
+
+  /// `soffice`, when it is not the macOS bundle's `Contents/MacOS/soffice`.
+  final String? sofficeExecutable;
+
+  /// The platform's minimum version detection compared with (set on
+  /// `tooOld`); `null` means [kLibreOfficeMinimumVersion].
+  final String? minimumVersion;
+
+  /// Whether the user's path setting names something that is no usable
+  /// LibreOffice (nothing there, or not a LibreOffice): the install help's
+  /// *unusable path*.
+  bool get isUnusableSetting =>
+      source == 'setting' &&
+      (state == LibreOfficeState.missing || state == LibreOfficeState.damaged);
 
   /// Whether the helper can be started with it.
   bool get isUsable => state == LibreOfficeState.found;
 
   /// The program folder handed to the helper (`lok_init_2`'s install path):
   /// `Contents/Frameworks`, holding `libmergedlo.dylib`.
+  /// On Linux and Windows [programFolder].
   String? get programPath =>
-      bundlePath == null ? null : '$bundlePath/Contents/Frameworks';
+      programFolder ??
+      (bundlePath == null ? null : '$bundlePath/Contents/Frameworks');
 
-  /// `Contents/MacOS/soffice`.
+  /// `Contents/MacOS/soffice`; on Linux and Windows [sofficeExecutable].
   String? get sofficePath =>
-      bundlePath == null ? null : '$bundlePath/Contents/MacOS/soffice';
+      sofficeExecutable ??
+      (bundlePath == null ? null : '$bundlePath/Contents/MacOS/soffice');
 
   @override
   bool operator ==(Object other) =>
@@ -84,10 +112,12 @@ final class LibreOfficeInstallation {
       other.state == state &&
       other.bundlePath == bundlePath &&
       other.version == version &&
-      other.reason == reason;
+      other.reason == reason &&
+      other.programFolder == programFolder;
 
   @override
-  int get hashCode => Object.hash(state, bundlePath, version, reason);
+  int get hashCode =>
+      Object.hash(state, bundlePath, version, reason, programFolder);
 
   @override
   String toString() =>

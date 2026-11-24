@@ -8,6 +8,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../detection/installation.dart';
+import '../detection/libreoffice_tool.dart';
 
 /// The result of a short process detection runs.
 final class TomDetectionRun {
@@ -79,47 +80,60 @@ Future<TomDetectionRun> runDetectionProcess(
   );
 }
 
-/// LibreOffice detection on macOS (`part-libreoffice-detection`): where to
-/// look, what to read from a copy, the cross-check, the states. It starts
-/// nothing that stays running.
+/// LibreOffice detection (`part-libreoffice-detection`): where to look,
+/// what to read from a copy, the cross-check, the states. On macOS it reads
+/// application bundles; on Linux and Windows program folders (the
+/// `TomLibreOfficeTool.standard` locations). The minimum version is the
+/// platform's. It starts nothing that stays running.
 class TomLibreOfficeDetector {
   /// A detector. [userPath] is the user's setting (empty: search).
-  /// [applicationFolders] default to `/Applications` and `~/Applications`;
+  /// [platform] defaults to the one this runs on; [tool] is the descriptor
+  /// the search locations and the minimum come from.
+  /// macOS: [applicationFolders] default to `/Applications` and
+  /// `~/Applications`, [caskFolders] and [macPortsFolders] to Homebrew's and
+  /// MacPorts'. Linux and Windows: [programFolderPatterns] default to the
+  /// descriptor's program folders (a `*` matches within one segment).
   /// [run] runs the short processes (`mdfind`, `lipo`, `codesign`, `xattr`,
   /// `spctl`, `soffice`); [scratch] holds the cross-check's private profile.
   /// Tests pass fake bundles in a temporary folder and a scripted runner.
   TomLibreOfficeDetector({
     this.userPath = '',
+    TomToolPlatform? platform,
+    this.tool = TomLibreOfficeTool.standard,
     List<String>? applicationFolders,
     List<String>? caskFolders,
     List<String>? macPortsFolders,
+    List<String>? programFolderPatterns,
     TomDetectionRunner? run,
     String? scratch,
     String? searchPath,
     String? machineArchitecture,
     this.useSpotlight = true,
     this.crossCheckTimeout = const Duration(seconds: 15),
-  }) : applicationFolders =
+  }) : platform =
+           platform ??
+           TomToolPlatform.fromName(Platform.operatingSystem) ??
+           TomToolPlatform.macos,
+       applicationFolders =
            applicationFolders ??
-           [
-             '/Applications',
-             if (Platform.environment['HOME'] case final home?)
-               p.join(home, 'Applications'),
-           ],
+           _locations(tool, TomToolPlatform.macos, ['applications', 'home']),
        caskFolders =
-           caskFolders ??
-           [
-             '/opt/homebrew/Caskroom/libreoffice',
-             '/usr/local/Caskroom/libreoffice',
-           ],
+           caskFolders ?? _locations(tool, TomToolPlatform.macos, ['homebrew']),
        macPortsFolders =
            macPortsFolders ??
-           ['/opt/local/Applications', '/Applications/MacPorts'],
+           _locations(tool, TomToolPlatform.macos, ['macports']),
+       _programFolderPatterns = programFolderPatterns,
        _run = run ?? runDetectionProcess,
        _scratch =
            scratch ?? p.join(Directory.systemTemp.path, 'tom-office-detect'),
        _searchPath = searchPath ?? Platform.environment['PATH'] ?? '',
        _arch = machineArchitecture;
+
+  /// The platform searched for.
+  final TomToolPlatform platform;
+
+  /// The descriptor (locations, minimum versions).
+  final TomLibreOfficeTool tool;
 
   /// The user's path setting; empty means *search*.
   final String userPath;
@@ -139,10 +153,49 @@ class TomLibreOfficeDetector {
   /// The cross-check's timeout.
   final Duration crossCheckTimeout;
 
+  final List<String>? _programFolderPatterns;
   final TomDetectionRunner _run;
   final String _scratch;
   final String _searchPath;
   String? _arch;
+
+  /// The program-folder patterns searched on Linux and Windows, with their
+  /// source names.
+  List<(String, String)> get programFolderPatterns {
+    final given = _programFolderPatterns;
+    if (given != null) return [for (final g in given) (g, 'folder')];
+    final spec = tool.platforms[platform];
+    if (spec == null) return const [];
+    return [
+      for (final MapEntry(:key, :value) in spec.searchLocations.entries)
+        for (final pattern in value) (_home(pattern), key),
+    ];
+  }
+
+  /// The platform's minimum version.
+  String get minimumVersion =>
+      tool.platforms[platform]?.minimumVersion ?? kLibreOfficeMinimumVersion;
+
+  static List<String> _locations(
+    TomLibreOfficeTool tool,
+    TomToolPlatform platform,
+    List<String> sources,
+  ) {
+    final spec = tool.platforms[platform];
+    if (spec == null) return const [];
+    return [
+      for (final source in sources)
+        for (final folder in spec.searchLocations[source] ?? const <String>[])
+          if (!folder.startsWith('~') || Platform.environment['HOME'] != null)
+            _home(folder),
+    ];
+  }
+
+  static String _home(String folder) {
+    if (!folder.startsWith('~')) return folder;
+    final home = Platform.environment['HOME'] ?? '';
+    return p.join(home, folder.substring(folder.startsWith('~/') ? 2 : 1));
+  }
 
   /// LibreOffice's bundle identifier.
   static const bundleId = 'org.libreoffice.script';
@@ -156,9 +209,22 @@ class TomLibreOfficeDetector {
   /// `/Applications/LibreOffice.app`, `~/Applications/LibreOffice.app`,
   /// then Spotlight (the newest usable hit). The first place holding a copy
   /// answers.
+  ///
+  /// On Linux and Windows: the user's path, then the program folders of
+  /// [programFolderPatterns] and `soffice` on `PATH`; the newest usable copy.
   Future<LibreOfficeInstallation> detect() async {
     final setting = userPath.trim();
     if (setting.isNotEmpty) return check(setting, source: 'setting');
+    if (platform != TomToolPlatform.macos) {
+      final copies = await autoDetect();
+      if (copies.isNotEmpty) return copies.first;
+      return LibreOfficeInstallation(
+        state: LibreOfficeState.missing,
+        reason:
+            'No LibreOffice program folder in '
+            '${programFolderPatterns.map((e) => e.$1).join(', ')} or on PATH.',
+      );
+    }
     for (final (i, folder) in applicationFolders.indexed) {
       final bundle = p.join(folder, 'LibreOffice.app');
       if (Directory(bundle).existsSync()) {
@@ -184,7 +250,11 @@ class TomLibreOfficeDetector {
   /// installation folders and one level below them (`LibreOffice*.app`,
   /// `LibreOfficeDev*.app`, `Collabora Office*.app`), in Homebrew's casks,
   /// MacPorts and Spotlight, each checked, newest first.
+  ///
+  /// On Linux and Windows: every program folder of [programFolderPatterns]
+  /// and every `soffice` on `PATH`.
   Future<List<LibreOfficeInstallation>> autoDetect() async {
+    if (platform != TomToolPlatform.macos) return _autoDetectFolders();
     final found = <String, String>{}; // bundle → source
     final seen = <String>{}; // the bundles' real paths
     void add(String? bundle, String source) {
@@ -303,10 +373,16 @@ class TomLibreOfficeDetector {
   /// Checks the copy at [path] (a bundle, or a path inside one): what it
   /// reads, the architecture, the signature, quarantine and the
   /// cross-check.
+  ///
+  /// On Linux and Windows [path] is a program folder, the installation
+  /// folder above it, or `soffice` in it: [checkProgramFolder].
   Future<LibreOfficeInstallation> check(
     String path, {
     String source = 'setting',
   }) async {
+    if (platform != TomToolPlatform.macos) {
+      return checkProgramFolder(path, source: source);
+    }
     final bundle = bundleOf(path) ?? path;
     LibreOfficeInstallation answer(
       LibreOfficeState state, {
@@ -373,8 +449,15 @@ class TomLibreOfficeDetector {
         reason: 'The bundle is incomplete: ${missing.join(', ')} missing.',
       );
     }
-    if (compareLibreOfficeVersions(version, kLibreOfficeMinimumVersion) < 0) {
-      return answer(LibreOfficeState.tooOld, version: version, id: id);
+    if (compareLibreOfficeVersions(version, minimumVersion) < 0) {
+      return LibreOfficeInstallation(
+        state: LibreOfficeState.tooOld,
+        bundlePath: bundle,
+        version: version,
+        bundleId: id,
+        source: source,
+        minimumVersion: minimumVersion,
+      );
     }
     // The architecture: LibreOfficeKit cannot be loaded across
     // architectures, not even under Rosetta.
@@ -452,18 +535,241 @@ class TomLibreOfficeDetector {
     return answer(LibreOfficeState.found, version: version, id: id);
   }
 
+  /// The Linux / Windows check of a program folder: it must hold the
+  /// platform's program files (`soffice` and `libmergedlo.so`;
+  /// `soffice.exe` and `mergedlo.dll`) — a leftover folder does not count —
+  /// and answer `soffice --version` under a private profile (the version
+  /// and the cross-check in one; on Windows `program\version.ini`'s
+  /// `MsiProductVersion` first, when it is there).
+  Future<LibreOfficeInstallation> checkProgramFolder(
+    String path, {
+    String source = 'setting',
+  }) async {
+    final folder = _programFolderOf(path);
+    final root = p.dirname(folder);
+    final windows = platform == TomToolPlatform.windows;
+    final sofficeName = windows ? 'soffice.exe' : 'soffice';
+    final soffice = p.join(folder, sofficeName);
+    LibreOfficeInstallation answer(
+      LibreOfficeState state, {
+      String? version,
+      String? reason,
+      String? minimum,
+    }) => LibreOfficeInstallation(
+      state: state,
+      bundlePath: root,
+      version: version,
+      reason: reason,
+      source: source,
+      programFolder: folder,
+      sofficeExecutable: soffice,
+      minimumVersion: minimum,
+    );
+
+    if (!Directory(folder).existsSync()) {
+      return LibreOfficeInstallation(
+        state: LibreOfficeState.missing,
+        bundlePath: path,
+        reason: 'Nothing at $path.',
+        source: source,
+      );
+    }
+    final spec = tool.platforms[platform];
+    final required =
+        spec?.programFiles ??
+        [sofficeName, windows ? 'mergedlo.dll' : 'libmergedlo.so'];
+    final missing = [
+      for (final file in required)
+        if (FileSystemEntity.typeSync(p.join(folder, file)) ==
+            FileSystemEntityType.notFound)
+          file,
+    ];
+    if (missing.isNotEmpty) {
+      return answer(
+        LibreOfficeState.damaged,
+        reason:
+            '$folder is not a LibreOffice program folder: '
+            '${missing.join(', ')} missing.',
+      );
+    }
+    String? version;
+    if (windows) {
+      final ini = File(p.join(folder, 'version.ini'));
+      if (ini.existsSync()) {
+        version = RegExp(
+          r'^MsiProductVersion=(\d+(?:\.\d+)+)',
+          multiLine: true,
+        ).firstMatch(ini.readAsStringSync())?.group(1);
+      }
+    }
+    // Windows: soffice.com is the console launcher that prints the version.
+    final console = p.join(folder, 'soffice.com');
+    final cross = await _crossCheckExecutable(
+      windows && File(console).existsSync() ? console : soffice,
+    );
+    if (!cross.ok) {
+      return answer(
+        LibreOfficeState.damaged,
+        version: version,
+        reason: cross.timedOut
+            ? 'soffice --version did not answer in '
+                  '${crossCheckTimeout.inSeconds} s.'
+            : 'soffice --version failed (exit ${cross.exitCode}): '
+                  '${cross.output}',
+      );
+    }
+    final reported = RegExp(
+      r'(\d+(?:\.\d+)+)',
+    ).firstMatch(cross.stdout)?.group(1);
+    if (reported == null) {
+      return answer(
+        LibreOfficeState.damaged,
+        version: version,
+        reason: 'soffice reports no version: ${cross.output}',
+      );
+    }
+    if (version != null && compareLibreOfficeVersions(reported, version) != 0) {
+      return answer(
+        LibreOfficeState.damaged,
+        version: version,
+        reason:
+            'soffice reports $reported, version.ini says $version: '
+            '${cross.output}',
+      );
+    }
+    version = reported;
+    if (compareLibreOfficeVersions(version, minimumVersion) < 0) {
+      return answer(
+        LibreOfficeState.tooOld,
+        version: version,
+        minimum: minimumVersion,
+      );
+    }
+    return answer(LibreOfficeState.found, version: version);
+  }
+
+  /// The program folder [path] names: itself, its `program` subfolder (an
+  /// installation folder), or the folder holding it (`soffice`).
+  String _programFolderOf(String path) {
+    final normal = p.normalize(path);
+    if (FileSystemEntity.isFileSync(normal)) return p.dirname(normal);
+    final program = p.join(normal, 'program');
+    if (p.basename(normal) != 'program' && Directory(program).existsSync()) {
+      return program;
+    }
+    return normal;
+  }
+
+  Future<List<LibreOfficeInstallation>> _autoDetectFolders() async {
+    final found = <String, String>{}; // program folder → source
+    final seen = <String>{};
+    void add(String folder, String source) {
+      final normal = p.normalize(folder);
+      String real;
+      try {
+        real = Directory(normal).resolveSymbolicLinksSync();
+      } on FileSystemException {
+        return;
+      }
+      if (!seen.add(real)) return;
+      found.putIfAbsent(normal, () => source);
+    }
+
+    for (final (pattern, source) in programFolderPatterns) {
+      for (final folder in _expandPattern(pattern)) {
+        add(folder, source);
+      }
+    }
+    final windows = platform == TomToolPlatform.windows;
+    final separator = windows ? ';' : ':';
+    for (final dir in _searchPath.split(separator)) {
+      if (dir.isEmpty) continue;
+      for (final name
+          in windows ? ['soffice.exe'] : ['soffice', 'libreoffice']) {
+        final file = File(p.join(dir, name));
+        if (!file.existsSync()) continue;
+        try {
+          add(p.dirname(file.resolveSymbolicLinksSync()), 'path');
+        } on FileSystemException {
+          continue;
+        }
+      }
+    }
+    final checked = [
+      for (final MapEntry(:key, :value) in found.entries)
+        await checkProgramFolder(key, source: value),
+    ];
+    // A folder that holds no LibreOffice (a leftover) is not a copy.
+    checked.removeWhere(
+      (c) =>
+          c.state == LibreOfficeState.missing ||
+          (c.state == LibreOfficeState.damaged &&
+              (c.reason?.contains('is not a LibreOffice program folder') ??
+                  false)),
+    );
+    checked.sort((a, b) {
+      final byState = (a.isUsable ? 0 : 1).compareTo(b.isUsable ? 0 : 1);
+      if (byState != 0) return byState;
+      return compareLibreOfficeVersions(b.version ?? '0', a.version ?? '0');
+    });
+    return checked;
+  }
+
+  /// The existing folders [pattern] names; a `*` matches within one
+  /// segment.
+  static List<String> _expandPattern(String pattern) {
+    final parts = p.split(pattern);
+    var current = <String>[parts.first];
+    for (final part in parts.skip(1)) {
+      final next = <String>[];
+      for (final base in current) {
+        if (!part.contains('*')) {
+          next.add(p.join(base, part));
+          continue;
+        }
+        final matcher = RegExp(
+          '^${RegExp.escape(part).replaceAll(r'\*', '.*')}\$',
+        );
+        final dir = Directory(base);
+        if (!dir.existsSync()) continue;
+        try {
+          final names =
+              dir
+                  .listSync(followLinks: false)
+                  .map((e) => p.basename(e.path))
+                  .where(matcher.hasMatch)
+                  .toList()
+                ..sort();
+          for (final name in names.reversed) {
+            next.add(p.join(base, name));
+          }
+        } on FileSystemException {
+          continue;
+        }
+      }
+      current = next;
+    }
+    return [
+      for (final c in current)
+        if (Directory(c).existsSync()) c,
+    ];
+  }
+
   static bool _knownOtherId(String? id) =>
       id != null &&
       (id.startsWith('org.libreoffice') || id.contains('collabora'));
 
-  Future<TomDetectionRun> _crossCheck(String bundle) async {
+  Future<TomDetectionRun> _crossCheck(String bundle) =>
+      _crossCheckExecutable(p.join(bundle, 'Contents', 'MacOS', 'soffice'));
+
+  Future<TomDetectionRun> _crossCheckExecutable(String soffice) async {
     final profile = Directory(p.join(_scratch, 'lo-detect'));
     try {
       profile.createSync(recursive: true);
     } on FileSystemException {
       // The run reports what goes wrong.
     }
-    return _run(p.join(bundle, 'Contents', 'MacOS', 'soffice'), [
+    return _run(soffice, [
       '-env:UserInstallation=${profile.uri}',
       '--headless',
       '--version',
