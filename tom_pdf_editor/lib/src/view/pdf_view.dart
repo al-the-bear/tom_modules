@@ -87,8 +87,8 @@ class PdfPageViewState extends State<PdfPageView> {
   final horizontal = ScrollController();
 
   late PdfRenderCache _cache = widget.cache ?? PdfRenderCache();
-  final _pending = <PdfTileKey, (int, int)>{}; // key → (ticket, version)
-  var _nextTicket = 1;
+  // key → (ticket, version); tickets from nextPdfRenderTicket.
+  final _pending = <PdfTileKey, (int, int)>{};
   int _generation = -1;
   Size _viewport = Size.zero;
   final _focus = FocusNode(debugLabel: 'PdfPageView');
@@ -139,6 +139,11 @@ class PdfPageViewState extends State<PdfPageView> {
   @override
   void initState() {
     super.initState();
+    // The cache may hold another document's images: start from the
+    // controller's document, so its first notification does not cancel the
+    // first renders again.
+    _generation = _c.generation;
+    _cache.clear();
     _c.addListener(_onController);
     _c.scrollRequest.addListener(_onScrollRequest);
     vertical.addListener(_schedule);
@@ -277,6 +282,12 @@ class PdfPageViewState extends State<PdfPageView> {
   }
 
   void _cancelAll() {
+    if (_pending.isNotEmpty) {
+      pdfTrail(
+        'render cancel all: tickets '
+        '${_pending.values.map((p) => p.$1).join(', ')}',
+      );
+    }
     for (final (ticket, _) in _pending.values) {
       _c.engine?.cancel(ticket);
       _dropped++;
@@ -339,7 +350,9 @@ class PdfPageViewState extends State<PdfPageView> {
     for (final key in _pending.keys.toList()) {
       if (!wanted.containsKey(key) ||
           _pending[key]!.$2 != _c.pageVersion(key.page)) {
-        engine.cancel(_pending.remove(key)!.$1);
+        final ticket = _pending.remove(key)!.$1;
+        pdfTrail('render cancel $key ticket $ticket (left the view)');
+        engine.cancel(ticket);
         _dropped++;
       }
     }
@@ -350,9 +363,13 @@ class PdfPageViewState extends State<PdfPageView> {
         continue;
       }
       final (tile, priority) = value;
-      final ticket = _nextTicket++;
+      final ticket = nextPdfRenderTicket();
       _pending[key] = (ticket, version);
       _requested++;
+      pdfTrail(
+        'render request $key ticket $ticket ${priority.name} '
+        'v$version gen ${_c.generation}',
+      );
       final watch = Stopwatch()..start();
       final generation = _c.generation;
       engine
@@ -368,20 +385,43 @@ class PdfPageViewState extends State<PdfPageView> {
             ticket: ticket,
           )
           .then((r) async {
-            if (_pending[key]?.$1 == ticket) _pending.remove(key);
+            // Still this key's request: the view did not cancel it.
+            final own = _pending[key]?.$1 == ticket;
+            if (own) _pending.remove(key);
+            if (r == null &&
+                own &&
+                mounted &&
+                generation == _c.generation &&
+                _c.info != null) {
+              // Dropped by the engine without the view cancelling it: the
+              // tile is still wanted, so it is asked for again.
+              pdfTrail(
+                'render result $key ticket $ticket answered null without a '
+                'cancel: requested again',
+              );
+              _dropped++;
+              _schedule();
+              return;
+            }
             if (r == null ||
                 !mounted ||
                 generation != _c.generation ||
                 _c.info == null) {
+              pdfTrail(
+                'render result $key ticket $ticket dropped: '
+                '${r == null ? 'answered null' : 'outdated'}',
+              );
               return; // cancelled, or the document closed meanwhile
             }
             _done++;
             _ms += watch.elapsedMilliseconds;
             final image = await widget.decoder(r.bgra, r.pxW, r.pxH);
             if (!mounted || generation != _c.generation || _c.info == null) {
+              pdfTrail('render result $key ticket $ticket outdated on decode');
               image.dispose();
               return;
             }
+            pdfTrail('render result $key ticket $ticket cached');
             _cache.put(
               key,
               image,

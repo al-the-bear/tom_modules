@@ -726,7 +726,6 @@ class _PageListState extends State<_PageList> {
   final _thumbs = <int, ui.Image>{};
   final _thumbVersions = <int, int>{};
   final _pending = <int, int>{};
-  var _ticket = 1 << 30;
   int _generation = -1;
   bool _outline = false;
 
@@ -770,7 +769,7 @@ class _PageListState extends State<_PageList> {
     }
     final size = info.pages[page];
     final scale = 120 * dpr / size.width;
-    final ticket = _ticket++;
+    final ticket = nextPdfRenderTicket();
     _pending[page] = ticket;
     final generation = _c.generation;
     unawaited(
@@ -787,11 +786,17 @@ class _PageListState extends State<_PageList> {
             ticket: ticket,
           )
           .then((r) async {
-            _pending.remove(page);
+            final own = _pending[page] == ticket;
+            if (own) _pending.remove(page);
             if (r == null ||
                 !mounted ||
                 generation != _c.generation ||
                 _c.info == null) {
+              if (r == null && own && mounted && generation == _c.generation) {
+                // Dropped without a cancel: the next build asks again.
+                pdfTrail('thumbnail $page ticket $ticket answered null');
+                setState(() {});
+              }
               return;
             }
             final image = await widget.decoder(r.bgra, r.pxW, r.pxH);

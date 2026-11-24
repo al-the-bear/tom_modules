@@ -298,7 +298,10 @@ abstract interface class TomPdfEngine {
   });
 
   /// Drops a render request by the [ticket] it was sent with, if it has not
-  /// run yet.
+  /// run yet (it then answers `null`). A cancel of a render that has run, or
+  /// is running, changes nothing and is not kept: a later render with the
+  /// same ticket runs. Tickets name a request among all the engine's
+  /// callers, so callers sharing an engine send distinct ones.
   void cancel(int ticket);
 
   /// The number of characters of [page] (0: no text layer).

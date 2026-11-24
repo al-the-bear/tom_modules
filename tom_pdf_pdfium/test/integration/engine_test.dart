@@ -169,6 +169,35 @@ void main() {
     await engine.close(info.handle);
   }, skip: skip);
 
+  test('PDFIUM-RENDER-2: a cancel that reaches the worker after its render '
+      'started is not kept: the ticket\'s next render runs', () async {
+    final info = await open('pdf-text.pdf');
+    Future<PdfRendered?> render(int ticket) => engine.render(
+      info.handle,
+      0,
+      scale: 1,
+      x: 0,
+      y: 0,
+      pxW: 300,
+      pxH: 300,
+      ticket: ticket,
+    );
+    // The worker, idle, starts the render before it reads the cancel.
+    final first = render(4000);
+    engine.cancel(4000);
+    expect(await first, isNotNull, reason: 'it ran before the cancel came');
+    // A cancel of a render already answered.
+    engine.cancel(4000);
+    expect(await render(4000), isNotNull, reason: 'the same ticket again');
+    // A queued render is still dropped.
+    final queued = [for (var i = 0; i < 6; i++) render(4100 + i)];
+    engine.cancel(4105);
+    final results = await Future.wait(queued);
+    expect(results.last, isNull);
+    expect(results.first, isNotNull);
+    await engine.close(info.handle);
+  }, skip: skip);
+
   test('PDFIUM-SAVE-1: an incremental save of pdf-form and pdf-encrypted '
       'carries /Type/XRef and keeps the original bytes', () async {
     final dir = Directory.systemTemp.createTempSync('pdfium-save-');

@@ -19,6 +19,20 @@
 - Exported for every PDF view: `PdfNoticeBar`, `PdfToolbarRow`, and the
   trail helpers `pdfEditorTrail` and `pdfEditorReport` the engine packages
   write with.
+- Page 1 is drawn after every open. A render answered `null` without the
+  view having cancelled it left the page grey for good: each page view and
+  page list counted its render tickets from the same start, while a cancel
+  that reached the engine after its render had run was kept for the ticket's
+  next use, so the next document on the shared engine had its first render
+  dropped (seen after a password open, which uses the fewest tickets). Now
+  every caller takes its tickets from `nextPdfRenderTicket` (one counter per
+  isolate), a render dropped without a cancel is asked for again (the
+  thumbnail too), and a new view starts from the controller's generation, so
+  its first renders are not cancelled and sent again at the first
+  notification. `TomPdfEngine.cancel` says it: a cancel of a render that has
+  run changes nothing and is not kept; `FakePdfEngine` models it (with
+  `tickets` and `dropNextRenders` for the tests). Trail lines for every
+  render request, result and cancel. Tests `PDF-DRAW-1` … `PDF-DRAW-3`.
 
 ## 0.1.0
 

@@ -13,3 +13,12 @@
   `startEngine`.
 - The engine's tests on the real library (tag `pdfium`) and the example app
   with its macOS integration tests (`example/`).
+- A cancel no longer outlives its render. The worker kept every cancelled
+  ticket in a set until a render with that ticket came; a cancel that
+  arrived while its render ran, or after, stayed there, and dropped the next
+  render sent with the same ticket (the first page of the next document
+  opened on the shared engine never drew). The worker now drops a queued
+  render at once and forgets a cancel that finds none; the engine sends no
+  cancel for a ticket it has no render outstanding for, with a trail line
+  (`cancel ticket <n>: no render outstanding, ignored`). Test
+  `PDFIUM-RENDER-2`.

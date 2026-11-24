@@ -22,6 +22,9 @@ final class PdfiumEngine implements TomPdfEngine {
   final SendPort _port;
   final ReceivePort _inbox;
   final _pending = <int, Completer<Object?>>{};
+
+  /// The renders sent with a ticket and not answered yet: ticket → id.
+  final _tickets = <int, int>{};
   final _streams = <int, StreamController<PdfSearchHit>>{};
   var _nextId = 1;
   bool _disposed = false;
@@ -219,6 +222,7 @@ final class PdfiumEngine implements TomPdfEngine {
     final id = _nextId++;
     final completer = Completer<Object?>();
     _pending[id] = completer;
+    if (ticket != null) _tickets[ticket] = id;
     _port.send([
       id,
       'render',
@@ -226,8 +230,16 @@ final class PdfiumEngine implements TomPdfEngine {
       priority.index,
       ticket,
     ]);
-    final r = await completer.future as List<Object?>?;
-    if (r == null) return null; // cancelled
+    final List<Object?>? r;
+    try {
+      r = await completer.future as List<Object?>?;
+    } finally {
+      if (ticket != null && _tickets[ticket] == id) _tickets.remove(ticket);
+    }
+    if (r == null) {
+      pdfiumTrail('render p$page ticket $ticket answered null (cancelled)');
+      return null;
+    }
     return PdfRendered(
       r[0] as int,
       r[1] as int,
@@ -237,6 +249,13 @@ final class PdfiumEngine implements TomPdfEngine {
 
   @override
   void cancel(int ticket) {
+    // Only a render still outstanding can be cancelled: a ticket whose
+    // render has been answered sends nothing (the worker would find nothing
+    // to drop either way).
+    if (!_tickets.containsKey(ticket)) {
+      pdfiumTrail('cancel ticket $ticket: no render outstanding, ignored');
+      return;
+    }
     if (!_disposed) _port.send([0, 'cancel', ticket]);
   }
 

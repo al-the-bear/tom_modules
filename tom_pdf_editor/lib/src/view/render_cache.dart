@@ -13,6 +13,13 @@ const kPdfWholePageLimit = 2048;
 /// The tile size, in physical pixels, above [kPdfWholePageLimit].
 const kPdfTileSize = 512;
 
+var _nextRenderTicket = 1;
+
+/// A render ticket no other caller in this isolate has sent: the page view,
+/// the page list and every editor share one engine, and a cancel names its
+/// render by ticket, so two callers must never send the same one.
+int nextPdfRenderTicket() => _nextRenderTicket++;
+
 /// One piece of a page to render: its key and its pixel rectangle in the
 /// page rendered at the key's scale.
 @immutable

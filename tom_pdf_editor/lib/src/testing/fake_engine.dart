@@ -144,7 +144,8 @@ PdfRect fakeCharRect(String text, int index) {
 /// A fake [TomPdfEngine] serving fixed page images, text and links from
 /// [FakePdfDocument]s by path, so the editor's tests run without PDFium.
 /// Renders answer after a microtask (no timer, so a widget test's `pump`
-/// delivers them); a render cancelled before then answers `null`.
+/// delivers them); a render cancelled before then answers `null`, a cancel
+/// after it ran changes nothing.
 class FakePdfEngine implements TomPdfEngine {
   FakePdfEngine(this.documents, {this.files});
 
@@ -157,6 +158,16 @@ class FakePdfEngine implements TomPdfEngine {
   final _open = <int, FakePdfDocument>{};
   var _next = 1;
   final _cancelled = <int>{};
+
+  /// The tickets of the renders that have not run yet.
+  final _queued = <int>{};
+
+  /// The tickets every render was sent with, in order.
+  final tickets = <int?>[];
+
+  /// Renders still to be answered `null` as if the engine had dropped them
+  /// without a cancel (a test of the view's recovery).
+  int dropNextRenders = 0;
 
   /// Every call, in order (`open <path>`, `render <page> …`, `find …`).
   final calls = <String>[];
@@ -256,8 +267,15 @@ class FakePdfEngine implements TomPdfEngine {
     PdfRenderPriority priority = PdfRenderPriority.visible,
     int? ticket,
   }) async {
+    tickets.add(ticket);
+    if (ticket != null) _queued.add(ticket);
     await Future<void>.value(); // a microtask: pump() flushes it
+    if (ticket != null) _queued.remove(ticket);
     if (ticket != null && _cancelled.remove(ticket)) return null;
+    if (dropNextRenders > 0) {
+      dropNextRenders--;
+      return null;
+    }
     _doc(doc);
     renders.add((page, scale, x, y, pxW, pxH));
     final pixels = Uint8List(pxW * pxH * 4);
@@ -273,7 +291,12 @@ class FakePdfEngine implements TomPdfEngine {
   }
 
   @override
-  void cancel(int ticket) => _cancelled.add(ticket);
+  void cancel(int ticket) {
+    // Like PDFium's worker: only a render that has not run is dropped; a
+    // cancel that comes later is forgotten, never held for the ticket's
+    // next use.
+    if (_queued.contains(ticket)) _cancelled.add(ticket);
+  }
 
   @override
   Future<int> charCount(int doc, int page) async =>

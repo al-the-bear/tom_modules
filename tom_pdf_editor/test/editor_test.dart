@@ -74,10 +74,12 @@ class _Rig {
     FakePdfDocument doc, {
     bool readOnlyFile = false,
     TomPdfEngineStatus? status,
+    FakePdfEngine? shared,
   }) {
     files.write(_path, utf8.encode('%PDF-original'));
     if (readOnlyFile) files.readOnly.add(_path);
-    engine = FakePdfEngine({_path: doc}, files: files);
+    if (shared != null) shared.documents[_path] = doc;
+    engine = shared ?? FakePdfEngine({_path: doc}, files: files);
     host = FakePdfEditorHost(
       filePath: _path,
       files: files,
@@ -1174,6 +1176,89 @@ void main() {
     await tester.runAsync(rig.controller.close);
     expect(rig.engine.releases, 1);
     expect(rig.engine.calls, contains('close 1'));
+  });
+
+  group('PDF-DRAW the first page is drawn', () {
+    /// Answers the password panel with [password].
+    Future<void> unlock(WidgetTester tester, _Rig rig, String password) async {
+      await tester.enterText(
+        find.byKey(const ValueKey('pdf-password-field')),
+        password,
+      );
+      await tester.tap(find.text('Open'));
+      await rig.settle(tester);
+    }
+
+    testWidgets('PDF-DRAW-1: a cancel sent after its render ran is not kept: '
+        'the next document on the same engine, opened with a password, draws '
+        'page 1', (tester) async {
+      final first = _Rig(_textDoc());
+      await first.pump(tester);
+      expect(first.view(tester).hasCurrentImages(0), isTrue);
+      final used = first.engine.tickets.whereType<int>().toList();
+      expect(used, isNotEmpty);
+      // The cancels of a view closed while its renders were answered: they
+      // arrive after the renders ran.
+      used.forEach(first.engine.cancel);
+      await tester.pumpWidget(const SizedBox());
+      await first.controller.close();
+
+      final second = _Rig(
+        _textDoc(password: 'sesame', securityRevision: 3),
+        shared: first.engine,
+      );
+      await second.pump(tester);
+      expect(second.controller.state, TomPdfEditorState.password);
+      await unlock(tester, second, 'sesame');
+      expect(second.controller.state, TomPdfEditorState.open);
+      expect(second.view(tester).hasCurrentImages(0), isTrue);
+      final later = second.engine.tickets.skip(used.length);
+      expect(
+        later.where(used.contains),
+        isEmpty,
+        reason: 'two views on one engine never send the same ticket',
+      );
+    });
+
+    testWidgets('PDF-DRAW-2: a render the engine drops without a cancel is '
+        'asked for again', (tester) async {
+      final rig = _Rig(_textDoc());
+      await rig.pump(tester);
+      expect(rig.view(tester).hasCurrentImages(0), isTrue);
+      // The next zoom's first renders answer null, nobody having cancelled
+      // them; nothing else asks the view to render meanwhile.
+      rig.engine.dropNextRenders = 3;
+      await tester.tap(find.byTooltip('Zoom in'));
+      await rig.settle(tester);
+      await rig.settle(tester);
+      expect(rig.engine.dropNextRenders, 0);
+      expect(rig.view(tester).hasCurrentImages(0), isTrue);
+    });
+
+    testWidgets('PDF-DRAW-3: a re-layout while the first render is in flight '
+        'ends with page 1 drawn at the new size', (tester) async {
+      final rig = _Rig(_textDoc(password: 'sesame', securityRevision: 3));
+      await rig.pump(tester);
+      await tester.enterText(
+        find.byKey(const ValueKey('pdf-password-field')),
+        'sesame',
+      );
+      await tester.tap(find.text('Open'));
+      // The document opens and page 1 is asked for; its image is not
+      // decoded yet when the editor is laid out narrower.
+      for (var i = 0; i < 3; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 20)),
+        );
+        await tester.pump();
+      }
+      expect(rig.controller.state, TomPdfEditorState.open);
+      expect(rig._decodes, isNotEmpty, reason: 'a render in flight');
+      await tester.binding.setSurfaceSize(const Size(700, 600));
+      await tester.pump();
+      await rig.settle(tester);
+      expect(rig.view(tester).hasCurrentImages(0), isTrue);
+    });
   });
 
   group('PDF-NARROW the editor at its narrowest', () {

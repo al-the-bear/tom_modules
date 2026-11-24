@@ -41,7 +41,7 @@ void pdfiumWorkerMain(List<Object?> args) {
   port.listen((message) {
     final list = message as List<Object?>;
     if (list[1] == 'cancel') {
-      worker.cancelled.add(list[2] as int);
+      worker.cancel(list[2] as int);
       return;
     }
     if (list[1] == 'dispose') {
@@ -93,7 +93,6 @@ final class _Worker {
 
   final _commands = Queue<List<Object?>>();
   final _renders = <List<Object?>>[];
-  final cancelled = <int>{};
   bool _pumping = false;
 
   NativeCallable<
@@ -126,6 +125,16 @@ final class _Worker {
     b.FPDF_DestroyLibrary();
   }
 
+  /// Drops the queued render sent with [ticket], answering it `null`. A
+  /// render that has run or is running is not affected: nothing of the
+  /// cancel is kept, so a later render with the same ticket runs.
+  void cancel(int ticket) {
+    final i = _renders.indexWhere((r) => r[4] == ticket);
+    if (i < 0) return;
+    final job = _renders.removeAt(i);
+    reply.send([job[0], 'ok', null]);
+  }
+
   void enqueue(List<Object?> message) {
     if (message[1] == 'render') {
       _renders.add(message);
@@ -150,11 +159,6 @@ final class _Worker {
           if ((_renders[i][3] as int) < (_renders[best][3] as int)) best = i;
         }
         job = _renders.removeAt(best);
-        final ticket = job[4] as int?;
-        if (ticket != null && cancelled.remove(ticket)) {
-          reply.send([job[0], 'ok', null]);
-          continue;
-        }
       }
       _run(job);
       // Let new requests and cancels in between jobs.
