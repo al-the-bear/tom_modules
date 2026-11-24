@@ -58,8 +58,8 @@
   `tom_file_session_ui` (Flutter and `tom_file_session` only), which this
   package depends on and re-exports, so its users are unchanged. Tom Forge's
   kit and `tom_forge_shared_ui` take the same implementation instead of a
-  copy. `tom_file_session_ui` 0.1.0 is on pub.dev, so this package's staged
-  copy takes it as a version (`^0.1.0`).
+  copy. `tom_file_session_ui` 0.1.1 (with the CRLF save fix) is on pub.dev, so
+  this package's staged copy takes it as a version (`^0.1.1`).
 
 ## 0.2.0
 

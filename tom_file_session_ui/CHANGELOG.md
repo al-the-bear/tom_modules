@@ -6,6 +6,7 @@
   holds CRLF (an editor whose `textOf` hands back the session's own text, as
   Tom Forge's `.env` editor does): the text is normalised to LF before CRLF is
   written (test FSF-4b).
+- Published on pub.dev.
 
 ## 0.1.0
 
