@@ -94,24 +94,72 @@ void main() {
     expect(tapped, ['readme']);
     expect(find.text('[README.md]'), findsOneWidget);
 
-    // The tree takes the keyboard once its listener has focus (a click on a
-    // row does not give it focus today).
-    tester
-        .widget<KeyboardListener>(
-          find.descendant(
-            of: find.byType(TreeView<String>),
-            matching: find.byType(KeyboardListener),
-          ),
-        )
-        .focusNode
-        .requestFocus();
-    tree.focus('docs');
+    // The click gave the tree the keyboard: the arrows and Enter work at
+    // once, with no code focusing it.
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
     await tester.pump();
     await tester.pump();
+    expect(tree.focusedId, 'docs');
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pump();
     await tester.pump();
     expect(tree.isExpanded('docs'), isTrue);
     expect(find.text('a.md'), findsOneWidget);
+  });
+
+  testWidgets('TUC-T5: a click into a text field inside a row keeps the text '
+      'field focused; a click on a row label gives the tree the keyboard', (
+    tester,
+  ) async {
+    final tree = _tree();
+    addTearDown(tree.dispose);
+    final field = FocusNode();
+    addTearDown(field.dispose);
+    final text = TextEditingController(text: 'value');
+    addTearDown(text.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: TreeView<String>(
+            controller: tree,
+            nodeBuilder: (context, node, isSelected) => node.id == 'readme'
+                ? Row(
+                    children: [
+                      Text(node.data),
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        width: 120,
+                        child: TextField(
+                          key: const Key('inline-editor'),
+                          focusNode: field,
+                          controller: text,
+                        ),
+                      ),
+                    ],
+                  )
+                : Text(node.data),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('inline-editor')));
+    await tester.pump();
+    await tester.pump();
+    expect(field.hasFocus, isTrue);
+    await tester.enterText(find.byKey(const Key('inline-editor')), 'typed');
+    expect(text.text, 'typed');
+    expect(field.hasFocus, isTrue);
+
+    // A click on the row's label takes the keyboard from the field.
+    await tester.tap(find.text('README.md'));
+    await tester.pump();
+    await tester.pump();
+    expect(field.hasFocus, isFalse);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pump();
+    await tester.pump();
+    expect(tree.focusedId, 'docs');
+    expect(text.text, 'typed');
   });
 }

@@ -9,11 +9,8 @@ import 'tree_theme.dart';
 ///
 /// The builder receives the node, whether it's selected, and a callback
 /// to toggle expand/collapse.
-typedef TreeNodeBuilder<T> = Widget Function(
-  BuildContext context,
-  TreeNode<T> node,
-  bool isSelected,
-);
+typedef TreeNodeBuilder<T> =
+    Widget Function(BuildContext context, TreeNode<T> node, bool isSelected);
 
 /// A generic tree view widget that renders [TreeNode] hierarchies.
 ///
@@ -96,9 +93,14 @@ class _TreeViewState<T> extends State<TreeView<T>> {
     if (!mounted) return;
     // Defer setState to avoid calling it while the widget tree is locked
     // (e.g. during element unmount when a gesture recognizer fires select).
+    // A post-frame callback runs only when a frame comes, so one is
+    // scheduled: a change from the keyboard (or from code) with nothing else
+    // on screen moving would otherwise not be drawn until the next frame
+    // something else asks for.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) setState(() {});
     });
+    WidgetsBinding.instance.scheduleFrame();
   }
 
   @override
@@ -139,7 +141,17 @@ class _TreeViewState<T> extends State<TreeView<T>> {
       nodeBuilder: widget.nodeBuilder,
       onNodeTap: widget.onNodeTap,
       onNodeDoubleTap: widget.onNodeDoubleTap,
+      onTakeKeyboard: _takeKeyboard,
     );
+  }
+
+  /// A click on a row's content gives the tree the keyboard, so the arrows,
+  /// Enter and Space work at once. A focusable child of the row (an inline
+  /// text field, a button) wins its own tap in the gesture arena, so this is
+  /// not called for a click into it and its focus stays.
+  void _takeKeyboard() {
+    if (!widget.enableKeyboardNavigation) return;
+    if (!_focusNode.hasPrimaryFocus) _focusNode.requestFocus();
   }
 
   void _handleKeyEvent(KeyEvent event) {
@@ -190,8 +202,9 @@ class _TreeViewState<T> extends State<TreeView<T>> {
         if (visible[i].depth <= level) {
           hasMore = false;
         } else if (level < result[i].length) {
-          result[i][level] =
-              hasMore ? _GuideType.continues : _GuideType.lastChild;
+          result[i][level] = hasMore
+              ? _GuideType.continues
+              : _GuideType.lastChild;
           hasMore = true;
         }
       }
@@ -219,6 +232,9 @@ class _TreeRow<T> extends StatefulWidget {
   final ValueChanged<TreeNode<T>>? onNodeTap;
   final ValueChanged<TreeNode<T>>? onNodeDoubleTap;
 
+  /// Called on a click on the row's content: the tree takes the keyboard.
+  final VoidCallback? onTakeKeyboard;
+
   const _TreeRow({
     required this.node,
     required this.guides,
@@ -227,6 +243,7 @@ class _TreeRow<T> extends StatefulWidget {
     required this.nodeBuilder,
     this.onNodeTap,
     this.onNodeDoubleTap,
+    this.onTakeKeyboard,
   });
 
   @override
@@ -269,6 +286,7 @@ class _TreeRowState<T> extends State<_TreeRow<T>> {
     void selectAndFocus() {
       widget.controller.select(node.id);
       widget.controller.focus(node.id);
+      widget.onTakeKeyboard?.call();
       widget.onNodeTap?.call(node);
     }
 
@@ -340,8 +358,8 @@ class _TreeRowState<T> extends State<_TreeRow<T>> {
                             widget.onNodeDoubleTap?.call(node);
                           }
                         : (widget.onNodeDoubleTap != null
-                            ? () => widget.onNodeDoubleTap!.call(node)
-                            : null),
+                              ? () => widget.onNodeDoubleTap!.call(node)
+                              : null),
                     child: widget.nodeBuilder(context, node, isSelected),
                   ),
                 ),
@@ -406,7 +424,10 @@ class _IndentGuidePainter extends CustomPainter {
           if (isLast) {
             // ├ — T-branch toward the node
             canvas.drawLine(
-                Offset(x, centerY), Offset(size.width, centerY), paint);
+              Offset(x, centerY),
+              Offset(size.width, centerY),
+              paint,
+            );
           }
         case _GuideType.lastChild:
           // top → centre
@@ -414,7 +435,10 @@ class _IndentGuidePainter extends CustomPainter {
           if (isLast) {
             // └ — L-branch toward the node
             canvas.drawLine(
-                Offset(x, centerY), Offset(size.width, centerY), paint);
+              Offset(x, centerY),
+              Offset(size.width, centerY),
+              paint,
+            );
           }
         case _GuideType.none:
           break;
