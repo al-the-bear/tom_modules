@@ -1,5 +1,12 @@
 ## 0.7.0
 
+- Checked on real hosts (bigbeast Ubuntu 24.04, a Fedora 43 container,
+  legiondary01 Windows 11): on Windows the detector reads the installer's
+  `UNO\InstallPath` registry keys (`programFoldersInRegQuery`, source
+  `registry`) and survives non-UTF-8 tool output (a German `reg.exe`);
+  winget's app execution alias counts as present (`installExecutableExists`);
+  the winget route accepts the package and source agreements; the PPA route
+  offers 26.8.3.1. On Linux `soffice --version` stays the version source.
 - The LibreOffice tool descriptor, `TomLibreOfficeTool.standard`
   (`lib/src/detection/libreoffice_tool.dart`, no `dart:io`): per platform
   (`TomToolPlatform`) the minimum version (macOS and Windows 26.8.3.1,

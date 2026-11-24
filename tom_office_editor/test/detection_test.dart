@@ -486,6 +486,105 @@ void main() {
         'linux-download': true,
       });
     });
+
+    test('OE-DETECT-19: Windows: winget\'s app execution alias counts as on '
+        'PATH', () {
+      // Dart sees the alias in %LOCALAPPDATA%\Microsoft\WindowsApps as a
+      // link that cannot be followed (legiondary01): File.existsSync is false.
+      final apps = Directory(p.join(root.path, 'WindowsApps'))..createSync();
+      final alias = p.join(apps.path, 'winget.exe');
+      Link(alias).createSync(p.join(root.path, 'nowhere', 'winget.exe'));
+      expect(File(alias).existsSync(), isFalse);
+      expect(installExecutableExists(alias, windows: true), isTrue);
+      expect(installExecutableExists(alias, windows: false), isFalse);
+      expect(
+        installRouteAvailability(
+          TomLibreOfficeTool.standard.routes(TomToolPlatform.windows),
+          searchPath: apps.path,
+          platform: TomToolPlatform.windows,
+        ),
+        {
+          'windows-winget': true,
+          'windows-choco': false,
+          'windows-download': true,
+        },
+      );
+    });
+
+    test('OE-DETECT-20: Windows: reg query\'s values name program folders', () {
+      // `reg query HKLM\SOFTWARE\LibreOffice\UNO\InstallPath` after TDF's
+      // MSI (winget, Chocolatey) on legiondary01, a German Windows.
+      const installed = '''
+
+HKEY_LOCAL_MACHINE\\SOFTWARE\\LibreOffice\\UNO\\InstallPath
+    (Standard)    REG_SZ    C:\\Program Files\\LibreOffice\\program
+    LibreOffice 26.8    REG_SZ    C:\\Program Files\\LibreOffice\\program
+
+''';
+      expect(TomLibreOfficeDetector.programFoldersInRegQuery(installed), [
+        r'C:\Program Files\LibreOffice\program',
+      ]);
+      expect(
+        TomLibreOfficeDetector.programFoldersInRegQuery(
+          '    Path    REG_SZ    D:\\LO\\program\\soffice.exe\r\n'
+          '    (Default)    REG_EXPAND_SZ    E:\\Office\\program\\\r\n'
+          '    Count    REG_DWORD    0x1\r\n',
+        ),
+        [r'D:\LO\program', r'E:\Office\program'],
+      );
+      // A missing key (the leftover's MaintenanceService only): an error on
+      // stderr, nothing on stdout.
+      expect(TomLibreOfficeDetector.programFoldersInRegQuery(''), isEmpty);
+    });
+
+    test('OE-DETECT-21: Windows: a program folder the registry names is '
+        'found there', () async {
+      final folder = makeProgram(
+        ['D', 'LibreOffice'],
+        ['soffice.exe', 'mergedlo.dll'],
+      );
+      final run = ScriptedRunner({
+        'soffice.exe': reports('26.8.3.1'),
+        'reg': TomDetectionRun(
+          0,
+          '\nHKEY_LOCAL_MACHINE\\SOFTWARE\\LibreOffice\\UNO\\InstallPath\n'
+              '    (Default)    REG_SZ    $folder\n',
+          '',
+        ),
+      });
+      final r = await onPlatform(TomToolPlatform.windows, run).detect();
+      expect(r.state, LibreOfficeState.found);
+      expect(r.programPath, folder);
+      expect(r.source, 'registry');
+      expect(run.calls.where((c) => c.startsWith('reg ')), [
+        r'reg query HKLM\SOFTWARE\LibreOffice\UNO\InstallPath',
+        r'reg query HKLM\SOFTWARE\WOW6432Node\LibreOffice\UNO\InstallPath',
+        r'reg query HKCU\SOFTWARE\LibreOffice\UNO\InstallPath',
+      ]);
+      // Linux reads no registry.
+      final linux = ScriptedRunner();
+      await onPlatform(TomToolPlatform.linux, linux).detect();
+      expect(linux.calls.where((c) => c.startsWith('reg ')), isEmpty);
+    });
+
+    test(
+      'OE-DETECT-22: a byte that is no UTF-8 does not break a run',
+      () async {
+        if (Platform.isWindows) {
+          markTestSkipped('needs /bin/sh');
+          return;
+        }
+        // reg.exe's German "Schlüssel" in the console code page (0xfc, cp1252;
+        // 0x81 in cp850).
+        final r = await runDetectionProcess('/bin/sh', [
+          '-c',
+          r"printf 'Schl\374ssel\201' >&2; printf 'ok'",
+        ]);
+        expect(r.ok, isTrue);
+        expect(r.stdout, 'ok');
+        expect(r.stderr, startsWith('Schl'));
+      },
+    );
   });
 
   test('OE-DETECT-11: the real copy on this Mac, when there is one', () async {

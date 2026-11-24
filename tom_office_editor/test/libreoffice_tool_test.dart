@@ -51,8 +51,11 @@ void main() {
     expect(brew.versionOffered, '26.8.3');
 
     final winget = tool.route('windows-winget')!;
+    // The agreements are accepted on the command line: the user confirmed
+    // the route, and nothing is typed into a run.
     expect(winget.commandLines, [
-      'winget install --id TheDocumentFoundation.LibreOffice -e',
+      'winget install --id TheDocumentFoundation.LibreOffice -e '
+          '--accept-package-agreements --accept-source-agreements',
     ]);
     expect(winget.elevation, TomInstallElevation.installerRaises);
     expect(winget.versionOffered, '26.8.3.1');
@@ -75,9 +78,10 @@ void main() {
       'add-apt-repository',
       'pkexec',
     ]);
-    expect(ppa.versionOffered, '26.8.2.2');
-    // Every Linux route reaches Linux's minimum (DPLD-4); the PPA's
-    // 26.8.2.2 would not reach macOS's.
+    // The PPA as installed on Ubuntu 24.04 on 2026-11-24.
+    expect(ppa.versionOffered, '26.8.3.1');
+    // Every Linux route reaches Linux's minimum (DPLD-4); a PPA build a
+    // bugfix release behind (26.8.2.2) still would, not macOS's.
     for (final route in tool.routes(TomToolPlatform.linux)) {
       expect(
         tool.meetsMinimum(route.versionOffered!, TomToolPlatform.linux),
@@ -85,10 +89,8 @@ void main() {
         reason: route.id,
       );
     }
-    expect(
-      tool.meetsMinimum(ppa.versionOffered!, TomToolPlatform.macos),
-      isFalse,
-    );
+    expect(tool.meetsMinimum('26.8.2.2', TomToolPlatform.linux), isTrue);
+    expect(tool.meetsMinimum('26.8.2.2', TomToolPlatform.macos), isFalse);
   });
 
   test('OE-TOOL-3: the managed downloads and their hash check', () {
@@ -162,6 +164,13 @@ void main() {
       r'C:\Program Files\LibreOffice\program',
     ]);
     expect(windows.programFiles, ['soffice.exe', 'mergedlo.dll']);
+    // The keys TDF's MSI writes the program folder under (read by the
+    // detector; checked on legiondary01 after winget and Chocolatey).
+    expect(windows.registryKeys, [
+      r'HKLM\SOFTWARE\LibreOffice\UNO\InstallPath',
+      r'HKLM\SOFTWARE\WOW6432Node\LibreOffice\UNO\InstallPath',
+      r'HKCU\SOFTWARE\LibreOffice\UNO\InstallPath',
+    ]);
     expect(windows.warnings, isEmpty);
     expect(tool.spec(TomToolPlatform.macos).searchLocations.keys, [
       'applications',

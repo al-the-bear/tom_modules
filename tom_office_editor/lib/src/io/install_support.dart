@@ -7,11 +7,23 @@ import 'package:path/path.dart' as p;
 
 import '../detection/libreoffice_tool.dart';
 
+/// Whether an executable is at [path]: a file, or on Windows also an app
+/// execution alias — `winget.exe` in `%LOCALAPPDATA%\Microsoft\WindowsApps`
+/// is a reparse point that `File.existsSync` does not see (it is a `link`
+/// that cannot be followed). It starts nothing.
+bool installExecutableExists(String path, {required bool windows}) {
+  if (File(path).existsSync()) return true;
+  return windows &&
+      FileSystemEntity.typeSync(path, followLinks: false) ==
+          FileSystemEntityType.link;
+}
+
 /// Which of [routes] can run here, by route id: a route whose package
 /// manager's executables are all on [searchPath] (default `PATH`), or which
 /// needs none. On Windows an executable is also looked for with `.exe`,
-/// `.cmd` and `.bat`. What `TomLibreOfficeInstallHelp.routeAvailability`
-/// takes. It starts nothing.
+/// `.cmd` and `.bat`, app execution aliases included
+/// ([installExecutableExists]). What
+/// `TomLibreOfficeInstallHelp.routeAvailability` takes. It starts nothing.
 Map<String, bool> installRouteAvailability(
   List<TomInstallRoute> routes, {
   String? searchPath,
@@ -30,7 +42,9 @@ Map<String, bool> installRouteAvailability(
         : [name];
     for (final dir in dirs) {
       for (final n in names) {
-        if (File(p.join(dir, n)).existsSync()) return true;
+        if (installExecutableExists(p.join(dir, n), windows: windows)) {
+          return true;
+        }
       }
     }
     return false;

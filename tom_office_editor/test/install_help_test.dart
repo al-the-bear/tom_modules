@@ -168,7 +168,10 @@ void main() {
 
       await _pump(tester, _notFound, platform: TomToolPlatform.windows);
       expect(
-        find.text('winget install --id TheDocumentFoundation.LibreOffice -e'),
+        find.text(
+          'winget install --id TheDocumentFoundation.LibreOffice -e '
+          '--accept-package-agreements --accept-source-agreements',
+        ),
         findsOneWidget,
       );
       expect(find.text('choco install libreoffice-fresh -y'), findsOneWidget);

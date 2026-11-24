@@ -244,7 +244,8 @@ final class TomInstallRoute {
   /// The package manager it needs (none for a by-hand route).
   final TomPackageManager? packageManager;
 
-  /// The LibreOffice version it delivers (DPLD-3's table, 2026-11-19).
+  /// The LibreOffice version it delivers (DPLD-3's table, 2026-11-19; the
+  /// PPA's checked on an Ubuntu 24.04 install, 2026-11-24).
   final String? versionOffered;
 
   /// The archive a managed download installs.
@@ -318,9 +319,12 @@ final class TomToolPlatformSpec {
   /// What the user should know on this platform.
   final List<String> warnings;
 
-  /// Registry keys an installer records its path under (Windows; not read
-  /// by the detector yet: the exact key is to be checked against an
-  /// installed copy).
+  /// Registry keys whose string values name a program folder (Windows):
+  /// TDF's installer writes `UNO\InstallPath` (its default value and
+  /// `LibreOffice <x.y>`, e.g. `C:\Program Files\LibreOffice\program`) and
+  /// removes it on uninstall, so a leftover folder leaves no entry. The
+  /// detector reads them with `reg query` and checks each folder as it
+  /// checks [searchLocations].
   final List<String> registryKeys;
 
   /// Every folder pattern of [searchLocations], in order.
@@ -531,7 +535,7 @@ final class TomLibreOfficeTool {
             ],
             elevation: TomInstallElevation.pkexec,
             packageManager: _aptPpa,
-            versionOffered: '26.8.2.2',
+            versionOffered: '26.8.3.1',
             steps: [
               'Adds the LibreOffice team\'s stable PPA '
                   '(ppa:libreoffice/ppa) to apt\'s sources.',
@@ -552,7 +556,11 @@ final class TomLibreOfficeTool {
         },
         programFiles: ['soffice.exe', 'mergedlo.dll'],
         programFolder: r'C:\Program Files\LibreOffice\program',
-        registryKeys: [r'HKLM\SOFTWARE\LibreOffice'],
+        registryKeys: [
+          r'HKLM\SOFTWARE\LibreOffice\UNO\InstallPath',
+          r'HKLM\SOFTWARE\WOW6432Node\LibreOffice\UNO\InstallPath',
+          r'HKCU\SOFTWARE\LibreOffice\UNO\InstallPath',
+        ],
         routes: [
           TomInstallRoute(
             id: 'windows-winget',
@@ -566,6 +574,8 @@ final class TomLibreOfficeTool {
                 '--id',
                 'TheDocumentFoundation.LibreOffice',
                 '-e',
+                '--accept-package-agreements',
+                '--accept-source-agreements',
               ],
             ],
             elevation: TomInstallElevation.installerRaises,
@@ -606,7 +616,8 @@ final class TomLibreOfficeTool {
 const kLibreOfficeDownloadPage =
     'https://www.libreoffice.org/download/download-libreoffice/';
 
-/// The minimum version on Linux (DPLD-4): the stable PPA's 26.8.2.2 counts.
+/// The minimum version on Linux (DPLD-4): any 26.8 counts, so the stable
+/// PPA's build counts while it is a bugfix release behind TDF's.
 const kLibreOfficeMinimumVersionLinux = '26.8.0';
 
 /// TDF's stable release folders (mirrored by MirrorBrain: appending

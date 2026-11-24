@@ -48,7 +48,9 @@ typedef TomDetectionRunner =
       Duration timeout,
     });
 
-/// The default runner: `Process.start`, killed at the timeout.
+/// The default runner: `Process.start`, killed at the timeout. Its output is
+/// read as UTF-8, a malformed byte replaced: `reg.exe` answers in the
+/// console's code page (a German Windows' *Schlüssel* is no UTF-8).
 Future<TomDetectionRun> runDetectionProcess(
   String executable,
   List<String> arguments, {
@@ -60,8 +62,9 @@ Future<TomDetectionRun> runDetectionProcess(
   } on ProcessException catch (e) {
     return TomDetectionRun(-1, '', e.message);
   }
-  final out = process.stdout.transform(utf8.decoder).join();
-  final err = process.stderr.transform(utf8.decoder).join();
+  const decoder = Utf8Decoder(allowMalformed: true);
+  final out = process.stdout.transform(decoder).join();
+  final err = process.stderr.transform(decoder).join();
   unawaited(process.stdin.close());
   var timedOut = false;
   final code = await process.exitCode.timeout(
@@ -211,7 +214,9 @@ class TomLibreOfficeDetector {
   /// answers.
   ///
   /// On Linux and Windows: the user's path, then the program folders of
-  /// [programFolderPatterns] and `soffice` on `PATH`; the newest usable copy.
+  /// [programFolderPatterns], on Windows those the registry names
+  /// ([registryProgramFolders]), and `soffice` on `PATH`; the newest usable
+  /// copy.
   Future<LibreOfficeInstallation> detect() async {
     final setting = userPath.trim();
     if (setting.isNotEmpty) return check(setting, source: 'setting');
@@ -222,7 +227,9 @@ class TomLibreOfficeDetector {
         state: LibreOfficeState.missing,
         reason:
             'No LibreOffice program folder in '
-            '${programFolderPatterns.map((e) => e.$1).join(', ')} or on PATH.',
+            '${programFolderPatterns.map((e) => e.$1).join(', ')}'
+            '${platform == TomToolPlatform.windows ? ', the registry' : ''}'
+            ' or on PATH.',
       );
     }
     for (final (i, folder) in applicationFolders.indexed) {
@@ -251,8 +258,9 @@ class TomLibreOfficeDetector {
   /// `LibreOfficeDev*.app`, `Collabora Office*.app`), in Homebrew's casks,
   /// MacPorts and Spotlight, each checked, newest first.
   ///
-  /// On Linux and Windows: every program folder of [programFolderPatterns]
-  /// and every `soffice` on `PATH`.
+  /// On Linux and Windows: every program folder of [programFolderPatterns],
+  /// on Windows every one the registry names, and every `soffice` on
+  /// `PATH`.
   Future<List<LibreOfficeInstallation>> autoDetect() async {
     if (platform != TomToolPlatform.macos) return _autoDetectFolders();
     final found = <String, String>{}; // bundle → source
@@ -681,6 +689,11 @@ class TomLibreOfficeDetector {
       }
     }
     final windows = platform == TomToolPlatform.windows;
+    if (windows) {
+      for (final folder in await registryProgramFolders()) {
+        add(folder, 'registry');
+      }
+    }
     final separator = windows ? ';' : ':';
     for (final dir in _searchPath.split(separator)) {
       if (dir.isEmpty) continue;
@@ -713,6 +726,42 @@ class TomLibreOfficeDetector {
       return compareLibreOfficeVersions(b.version ?? '0', a.version ?? '0');
     });
     return checked;
+  }
+
+  /// The program folders the descriptor's registry keys name (Windows):
+  /// each key read with `reg query`, its string values parsed by
+  /// [programFoldersInRegQuery]. A missing key answers nothing.
+  Future<List<String>> registryProgramFolders() async {
+    final keys = tool.platforms[platform]?.registryKeys ?? const <String>[];
+    return [
+      for (final key in keys)
+        ...programFoldersInRegQuery(
+          (await _run('reg', ['query', key], timeout: _registryTimeout)).stdout,
+        ),
+    ];
+  }
+
+  static const _registryTimeout = Duration(seconds: 5);
+
+  /// The program folders in `reg query <key>`'s [output]: every `REG_SZ` /
+  /// `REG_EXPAND_SZ` value (whatever its name: the default value's is
+  /// localized, `(Default)`, `(Standard)`), a value naming `soffice.exe`
+  /// taken as its folder; each folder once, trailing separators dropped.
+  static List<String> programFoldersInRegQuery(String output) {
+    final value = RegExp(r'^\s+.*?\s{2,}REG_(?:EXPAND_)?SZ\s{2,}(.+?)\s*$');
+    final folders = <String>[];
+    for (final line in const LineSplitter().convert(output)) {
+      var path = value.firstMatch(line)?.group(1);
+      if (path == null) continue;
+      if (path.toLowerCase().endsWith(r'\soffice.exe')) {
+        path = path.substring(0, path.length - r'\soffice.exe'.length);
+      }
+      while (path!.length > 3 && (path.endsWith(r'\') || path.endsWith('/'))) {
+        path = path.substring(0, path.length - 1);
+      }
+      if (!folders.contains(path)) folders.add(path);
+    }
+    return folders;
   }
 
   /// The existing folders [pattern] names; a `*` matches within one
