@@ -1,0 +1,49 @@
+name: tom_office_zetaoffice
+description: >-
+  The office editor's ZetaOffice route: ZetaOffice (LibreOffice compiled to
+  WebAssembly) in a webview as a Flutter widget, its controller over the
+  office editor's host interface, the download and cache of ZetaOffice's
+  files, the local server that hands them to the webview; fakes for tests
+  (testing.dart). License: BSD-3-Clause.
+version: 0.1.0
+publish_to: none
+repository: https://github.com/al-the-bear/tom_modules
+
+environment:
+  sdk: ^3.10.8
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # Path arithmetic (the cache folder).
+  path: ^1.9.0
+  # SHA-256 (the cache's file checks).
+  crypto: ^3.0.0
+  # The binary save rules (TomBinaryFiles) and the local content server.
+  tom_file_session:
+    path: ../tom_file_session
+  # The host interface, notices and save outcomes shared with the native
+  # route.
+  tom_office_editor:
+    path: ../tom_office_editor
+  # The webview (the workspace's fork, WKWebView on macOS).
+  flutter_inappwebview:
+    path: ../../xternal/tom_flutter_inappwebview/flutter_inappwebview
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  # The in-memory file system the tests' host saves into.
+  tom_file_system:
+    path: ../../basics/tom_file_system
+  # OfficeSave, which the tests' fake helper hands its save target in.
+  tom_office_protocol:
+    path: ../tom_office_protocol
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    # The view's host page and zetajs (MIT). ZetaOffice's own files are
+    # downloaded at run time, never kept here.
+    - assets/zetaoffice/

@@ -7,4 +7,3 @@
 library;
 
 export 'src/testing/fake_helper.dart';
-export 'src/testing/fake_zetaoffice.dart';

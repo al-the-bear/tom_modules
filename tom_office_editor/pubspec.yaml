@@ -3,9 +3,9 @@ description: >-
   The office editor: a Flutter widget that shows and edits an office document
   served by the LibreOfficeKit helper (tom_office_host) over protocol 1, its
   controller and host interface; LibreOffice detection and the helper
-  launcher (io.dart); a fake helper for tests (testing.dart).
-  License: BSD-3-Clause.
-version: 0.5.0
+  launcher (io.dart); a fake helper for tests (testing.dart). The ZetaOffice
+  route is the package tom_office_zetaoffice. License: BSD-3-Clause.
+version: 0.6.0
 publish_to: none
 repository: https://github.com/al-the-bear/tom_modules
 
@@ -30,10 +30,6 @@ dependencies:
   # Notices and readable colours.
   tom_ui_support:
     path: ../tom_ui_support
-  # The webview of the ZetaOffice view (the workspace's fork, WKWebView on
-  # macOS).
-  flutter_inappwebview:
-    path: ../../xternal/tom_flutter_inappwebview/flutter_inappwebview
 
 dev_dependencies:
   flutter_test:
@@ -45,7 +41,3 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  assets:
-    # The ZetaOffice view's host page and zetajs (MIT). ZetaOffice's own
-    # files are downloaded at run time, never kept here.
-    - assets/zetaoffice/

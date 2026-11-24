@@ -293,13 +293,14 @@ class TomPdfEditorController extends ChangeNotifier {
 
   // ----------------------------------------------------------------- opening
 
-  /// Opens the host's file: the library must be usable, then the engine
-  /// loads it (lazily from disk). A changed revision during the load reopens.
+  /// Opens the host's file: the engine's status must be usable, then the
+  /// engine loads it (lazily from disk). A changed revision during the load
+  /// reopens.
   Future<void> open() async {
-    final library = host.pdfium;
-    pdfTrail('library: ${library.message}');
-    if (!library.isUsable) {
-      _failure = library.message;
+    final status = host.engineStatus;
+    pdfTrail('engine: ${status.message}');
+    if (!status.isUsable) {
+      _failure = status.message;
       _set(TomPdfEditorState.failed);
       return;
     }
@@ -308,10 +309,10 @@ class TomPdfEditorController extends ChangeNotifier {
     _failure = null;
     _set(TomPdfEditorState.opening);
     try {
-      _engine ??= await host.startEngine(library);
+      _engine ??= await host.startEngine(status);
     } catch (e, s) {
       pdfReport(e, s, 'starting the engine');
-      _failure = 'PDFium did not start: $e';
+      _failure = 'The PDF engine did not start: $e';
       _set(TomPdfEditorState.failed);
       return;
     }
@@ -330,8 +331,8 @@ class TomPdfEditorController extends ChangeNotifier {
     final files = host.files;
     final PdfOpenResult result;
     if (files is TomBinaryFileBytes) {
-      // No path on this machine (a remote or virtual file system): PDFium
-      // reads the bytes.
+      // No path on this machine (a remote or virtual file system): the
+      // engine reads the bytes.
       final bytes = await files.readBytes(host.filePath);
       if (bytes == null) {
         _failure = 'the file does not exist';
@@ -556,7 +557,7 @@ class TomPdfEditorController extends ChangeNotifier {
   }
 
   /// Saves the document into [temp] (a temporary target of the host's file
-  /// access): PDFium writes the file itself when it has a path on this
+  /// access): the engine writes the file itself when it has a path on this
   /// machine; else the saved bytes are written through the file access.
   /// [removeSecurity] makes a full copy without the encryption. Answers the
   /// error, or `null`.
@@ -1573,8 +1574,8 @@ final class _FormEdit implements TomPdfEdit {
   Future<void> revert(TomPdfEditorController c) async {
     await _set(c, change.before);
     if (change.type == PdfFieldType.radio && change.before.isEmpty) {
-      // PDFium turns a radio button on only by a click, so a group cannot
-      // go back to no button on.
+      // The engine turns a radio button on only by a click, so a group
+      // cannot go back to no button on.
       c._notice(
         'info',
         'The radio group stays on its choice: a PDF form cannot go back to no '

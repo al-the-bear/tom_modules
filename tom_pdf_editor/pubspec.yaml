@@ -1,11 +1,11 @@
 name: tom_pdf_editor
 description: >-
-  The PDF editor: a Flutter widget that shows a PDF rendered natively by
-  PDFium over FFI on an engine isolate, its controller and host interface;
-  the PDFium locator (io.dart); the pdf.js view in a webview (pdfjs.dart);
-  fakes for tests (testing.dart). License: BSD-3-Clause; PDFium
-  BSD-3-Clause, pdf.js Apache-2.0 (THIRD_PARTY.md).
-version: 0.1.0
+  The PDF editor without an engine: a Flutter widget that shows a PDF an
+  engine renders, its controller, the host interface both PDF views share,
+  the engine's interface, and fakes for tests (testing.dart). The engines
+  are packages of their own: tom_pdf_pdfium (PDFium over FFI) and
+  tom_pdf_pdfjs (pdf.js in a webview). License: BSD-3-Clause.
+version: 0.2.0
 publish_to: none
 repository: https://github.com/al-the-bear/tom_modules
 
@@ -15,8 +15,6 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  # Calling PDFium (dart:ffi helpers: calloc, UTF-16 strings).
-  ffi: ^2.2.0
   # The annotation and form history; the dirty marker. By path,
   # as tom_file_session takes it (a path and a hosted source cannot mix).
   tom_undo:
@@ -25,8 +23,6 @@ dependencies:
   tom_basics: ^3.3.0
   # Path arithmetic.
   path: ^1.9.0
-  # SHA-256.
-  crypto: ^3.0.0
   # Annotation ids (NM).
   uuid: ^4.5.0
   # The binary save rules (TomBinaryFiles) the host gives the editor.
@@ -35,150 +31,11 @@ dependencies:
   # Notices and readable colours.
   tom_ui_support:
     path: ../tom_ui_support
-  # The pdf.js view's webview (pdfjs.dart): the workspace's fork, by path
-  # as tom_editors_shared takes it (macOS: WKWebView).
-  flutter_inappwebview:
-    path: ../../xternal/tom_flutter_inappwebview/flutter_inappwebview
 
 dev_dependencies:
-  # A file system without local paths, for the bytes route's tests.
-  tom_file_system:
-    path: ../../basics/tom_file_system
-  ffigen: ^23.0.0
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
 
 flutter:
   uses-material-design: true
-  assets:
-    # Forge's host files for the pdf.js view (bridge, options, stylesheet,
-    # the components page).
-    - assets/pdfjs_forge/
-    # The vendored pdf.js (DPPJ-1), every folder (tool/pdfjs_assets.py).
-    # pdfjs-assets: begin
-    - third_party/pdfjs/6.5.438/
-    - third_party/pdfjs/6.5.438/build/
-    - third_party/pdfjs/6.5.438/components/
-    - third_party/pdfjs/6.5.438/components/images/
-    - third_party/pdfjs/6.5.438/web/
-    - third_party/pdfjs/6.5.438/web/cmaps/
-    - third_party/pdfjs/6.5.438/web/iccs/
-    - third_party/pdfjs/6.5.438/web/images/
-    - third_party/pdfjs/6.5.438/web/locale/
-    - third_party/pdfjs/6.5.438/web/locale/ach/
-    - third_party/pdfjs/6.5.438/web/locale/af/
-    - third_party/pdfjs/6.5.438/web/locale/an/
-    - third_party/pdfjs/6.5.438/web/locale/ar/
-    - third_party/pdfjs/6.5.438/web/locale/ast/
-    - third_party/pdfjs/6.5.438/web/locale/az/
-    - third_party/pdfjs/6.5.438/web/locale/be/
-    - third_party/pdfjs/6.5.438/web/locale/bg/
-    - third_party/pdfjs/6.5.438/web/locale/bn/
-    - third_party/pdfjs/6.5.438/web/locale/bo/
-    - third_party/pdfjs/6.5.438/web/locale/bqi/
-    - third_party/pdfjs/6.5.438/web/locale/br/
-    - third_party/pdfjs/6.5.438/web/locale/brx/
-    - third_party/pdfjs/6.5.438/web/locale/bs/
-    - third_party/pdfjs/6.5.438/web/locale/ca/
-    - third_party/pdfjs/6.5.438/web/locale/cak/
-    - third_party/pdfjs/6.5.438/web/locale/ckb/
-    - third_party/pdfjs/6.5.438/web/locale/cs/
-    - third_party/pdfjs/6.5.438/web/locale/cy/
-    - third_party/pdfjs/6.5.438/web/locale/da/
-    - third_party/pdfjs/6.5.438/web/locale/de/
-    - third_party/pdfjs/6.5.438/web/locale/dsb/
-    - third_party/pdfjs/6.5.438/web/locale/el/
-    - third_party/pdfjs/6.5.438/web/locale/en-CA/
-    - third_party/pdfjs/6.5.438/web/locale/en-GB/
-    - third_party/pdfjs/6.5.438/web/locale/en-US/
-    - third_party/pdfjs/6.5.438/web/locale/eo/
-    - third_party/pdfjs/6.5.438/web/locale/es-AR/
-    - third_party/pdfjs/6.5.438/web/locale/es-CL/
-    - third_party/pdfjs/6.5.438/web/locale/es-ES/
-    - third_party/pdfjs/6.5.438/web/locale/es-MX/
-    - third_party/pdfjs/6.5.438/web/locale/et/
-    - third_party/pdfjs/6.5.438/web/locale/eu/
-    - third_party/pdfjs/6.5.438/web/locale/fa/
-    - third_party/pdfjs/6.5.438/web/locale/ff/
-    - third_party/pdfjs/6.5.438/web/locale/fi/
-    - third_party/pdfjs/6.5.438/web/locale/fr/
-    - third_party/pdfjs/6.5.438/web/locale/fur/
-    - third_party/pdfjs/6.5.438/web/locale/fy-NL/
-    - third_party/pdfjs/6.5.438/web/locale/ga-IE/
-    - third_party/pdfjs/6.5.438/web/locale/gd/
-    - third_party/pdfjs/6.5.438/web/locale/gl/
-    - third_party/pdfjs/6.5.438/web/locale/gn/
-    - third_party/pdfjs/6.5.438/web/locale/gu-IN/
-    - third_party/pdfjs/6.5.438/web/locale/he/
-    - third_party/pdfjs/6.5.438/web/locale/hi-IN/
-    - third_party/pdfjs/6.5.438/web/locale/hr/
-    - third_party/pdfjs/6.5.438/web/locale/hsb/
-    - third_party/pdfjs/6.5.438/web/locale/hu/
-    - third_party/pdfjs/6.5.438/web/locale/hy-AM/
-    - third_party/pdfjs/6.5.438/web/locale/hye/
-    - third_party/pdfjs/6.5.438/web/locale/ia/
-    - third_party/pdfjs/6.5.438/web/locale/id/
-    - third_party/pdfjs/6.5.438/web/locale/is/
-    - third_party/pdfjs/6.5.438/web/locale/it/
-    - third_party/pdfjs/6.5.438/web/locale/ja/
-    - third_party/pdfjs/6.5.438/web/locale/ka/
-    - third_party/pdfjs/6.5.438/web/locale/kab/
-    - third_party/pdfjs/6.5.438/web/locale/kk/
-    - third_party/pdfjs/6.5.438/web/locale/km/
-    - third_party/pdfjs/6.5.438/web/locale/kn/
-    - third_party/pdfjs/6.5.438/web/locale/ko/
-    - third_party/pdfjs/6.5.438/web/locale/lij/
-    - third_party/pdfjs/6.5.438/web/locale/lo/
-    - third_party/pdfjs/6.5.438/web/locale/lt/
-    - third_party/pdfjs/6.5.438/web/locale/ltg/
-    - third_party/pdfjs/6.5.438/web/locale/lv/
-    - third_party/pdfjs/6.5.438/web/locale/meh/
-    - third_party/pdfjs/6.5.438/web/locale/mk/
-    - third_party/pdfjs/6.5.438/web/locale/ml/
-    - third_party/pdfjs/6.5.438/web/locale/mr/
-    - third_party/pdfjs/6.5.438/web/locale/ms/
-    - third_party/pdfjs/6.5.438/web/locale/my/
-    - third_party/pdfjs/6.5.438/web/locale/nb-NO/
-    - third_party/pdfjs/6.5.438/web/locale/ne-NP/
-    - third_party/pdfjs/6.5.438/web/locale/nl/
-    - third_party/pdfjs/6.5.438/web/locale/nn-NO/
-    - third_party/pdfjs/6.5.438/web/locale/oc/
-    - third_party/pdfjs/6.5.438/web/locale/pa-IN/
-    - third_party/pdfjs/6.5.438/web/locale/pl/
-    - third_party/pdfjs/6.5.438/web/locale/pt-BR/
-    - third_party/pdfjs/6.5.438/web/locale/pt-PT/
-    - third_party/pdfjs/6.5.438/web/locale/rm/
-    - third_party/pdfjs/6.5.438/web/locale/ro/
-    - third_party/pdfjs/6.5.438/web/locale/ru/
-    - third_party/pdfjs/6.5.438/web/locale/sat/
-    - third_party/pdfjs/6.5.438/web/locale/sc/
-    - third_party/pdfjs/6.5.438/web/locale/scn/
-    - third_party/pdfjs/6.5.438/web/locale/sco/
-    - third_party/pdfjs/6.5.438/web/locale/si/
-    - third_party/pdfjs/6.5.438/web/locale/sk/
-    - third_party/pdfjs/6.5.438/web/locale/skr/
-    - third_party/pdfjs/6.5.438/web/locale/sl/
-    - third_party/pdfjs/6.5.438/web/locale/son/
-    - third_party/pdfjs/6.5.438/web/locale/sq/
-    - third_party/pdfjs/6.5.438/web/locale/sr/
-    - third_party/pdfjs/6.5.438/web/locale/sv-SE/
-    - third_party/pdfjs/6.5.438/web/locale/szl/
-    - third_party/pdfjs/6.5.438/web/locale/ta/
-    - third_party/pdfjs/6.5.438/web/locale/te/
-    - third_party/pdfjs/6.5.438/web/locale/tg/
-    - third_party/pdfjs/6.5.438/web/locale/th/
-    - third_party/pdfjs/6.5.438/web/locale/tl/
-    - third_party/pdfjs/6.5.438/web/locale/tr/
-    - third_party/pdfjs/6.5.438/web/locale/trs/
-    - third_party/pdfjs/6.5.438/web/locale/uk/
-    - third_party/pdfjs/6.5.438/web/locale/ur/
-    - third_party/pdfjs/6.5.438/web/locale/uz/
-    - third_party/pdfjs/6.5.438/web/locale/vi/
-    - third_party/pdfjs/6.5.438/web/locale/wo/
-    - third_party/pdfjs/6.5.438/web/locale/xh/
-    - third_party/pdfjs/6.5.438/web/locale/zh-CN/
-    - third_party/pdfjs/6.5.438/web/locale/zh-TW/
-    - third_party/pdfjs/6.5.438/web/standard_fonts/
-    - third_party/pdfjs/6.5.438/web/wasm/
-    # pdfjs-assets: end

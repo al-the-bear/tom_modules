@@ -29,7 +29,11 @@ applications share, each package one purpose:
 | [`tom_text_highlight`](tom_text_highlight/) | The one syntax-highlighting interface (`SyntaxHighlighter`, `HighlightSpan`), token themes, and light highlighters for YAML, Markdown, JSON, shell and `.env`; Flutter only. |
 | [`tom_file_editors`](tom_file_editors/) | Byte-preserving file editors over `tom_file_session` (text, `.env`, YAML and Markdown highlighting), the schema cache, the Markdown renderer. |
 | [`tom_mermaid_view`](tom_mermaid_view/) | Mermaid diagrams in a webview with the bundled mermaid.js (11.13.0, MIT); the webview is the Tom fork, taken by path. Not published. |
-| [`tom_pdf_editor`](tom_pdf_editor/) | The PDF viewer over PDFium (FFI on an engine isolate): scroll, zoom, page list, search, selection and copy, links; the controller and host interface. Not published. |
+| [`tom_pdf_editor`](tom_pdf_editor/) | The PDF editor without an engine: scroll, zoom, page list, search, selection and copy, links, annotations and forms over the engine interface; the controller and host interface. Not published. |
+| [`tom_pdf_pdfium`](tom_pdf_pdfium/) | The PDF editor's PDFium engine (FFI on an engine isolate) and the PDFium locator. Not published. |
+| [`tom_pdf_pdfjs`](tom_pdf_pdfjs/) | The pdf.js view in the Tom webview fork, with pdf.js 6.5.438 vendored. Not published. |
+| [`tom_office_editor`](tom_office_editor/) | The office editor over the installed LibreOffice (LibreOfficeKit in the helper `tom_office_host`, protocol 1): tiles, input, the ribbon, LibreOffice's dialogs, the controller and host interface, detection and the helper launcher. Not published. |
+| [`tom_office_zetaoffice`](tom_office_zetaoffice/) | The office editor's ZetaOffice route (LibreOffice compiled to WebAssembly) in the Tom webview fork, on the office editor's host; ZetaOffice downloaded once and cached. Not published. |
 | [`tom_todo_ui`](tom_todo_ui/) | The todo row, badges and details editor, and the `*.todo.yaml` file editor. |
 | [`tom_agentic_ui`](tom_agentic_ui/) | The agent and chat UI over `tom_core_agentic`: the composer with its placeholder preview, the send controller and reconnect banner, the prompt queue and trail, the agent connection picker, the change log and its review. |
 | [`tom_ai_trail_ui`](tom_ai_trail_ui/) | The live trails of AI sessions over `tom_llm`, as a panel, a chip or a phone sheet. |

@@ -21,12 +21,12 @@ bool kPdfEditorDebug = false;
 /// Filter the output with the prefix: `flutter run 2>&1 | grep '\[PE'`.
 /// Never pass a search term or a password: searches are logged by length,
 /// passwords as `password <redacted>`.
-void pdfTrail(String event) => _trail('PE', event);
+void pdfTrail(String event) => pdfEditorTrail('PE', event);
 
-/// The pdf.js view's trail: the same flag, the prefix `[PE:js]`.
-void pdfJsTrail(String event) => _trail('PE:js', event);
-
-void _trail(String prefix, String event) {
+/// Logs a timestamped event under [prefix] (`[<prefix> hh:mm:ss.mmm]`), a
+/// no-op while [kPdfEditorDebug] is false: the trail an engine package
+/// writes beside the editor's (e.g. `PE:js` for the pdf.js view).
+void pdfEditorTrail(String prefix, String event) {
   if (!kPdfEditorDebug) return;
   final now = DateTime.now();
   final ts =
@@ -66,13 +66,24 @@ String pdfErrorSummary(FlutterErrorDetails details) {
 
 /// Reports [error] through [FlutterError.reportError] whether the trail is on
 /// or off, and logs it to the trail.
-void pdfReport(Object error, StackTrace stack, String context) {
+void pdfReport(Object error, StackTrace stack, String context) =>
+    pdfEditorReport(error, stack, context);
+
+/// Reports [error] through [FlutterError.reportError] as [library]'s,
+/// whether the trail is on or off, and logs it to the `[PE]` trail: what an
+/// engine package reports its errors with.
+void pdfEditorReport(
+  Object error,
+  StackTrace stack,
+  String context, {
+  String library = 'tom_pdf_editor',
+}) {
   pdfTrail('ERROR $context: $error');
   FlutterError.reportError(
     FlutterErrorDetails(
       exception: error,
       stack: stack,
-      library: 'tom_pdf_editor',
+      library: library,
       context: ErrorDescription(context),
     ),
   );

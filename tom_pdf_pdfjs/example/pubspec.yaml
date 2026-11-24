@@ -1,0 +1,34 @@
+name: tom_pdf_pdfjs_example
+description: >-
+  The pdf.js view in a window, in each of its three modes. Run with the
+  PDF's path in TOM_PDF_FILE and the mode in TOM_PDF_VIEW.
+publish_to: none
+version: 0.1.0
+
+environment:
+  sdk: ^3.10.8
+
+dependencies:
+  flutter:
+    sdk: flutter
+  tom_file_session:
+    path: ../../tom_file_session
+  tom_pdf_editor:
+    path: ../../tom_pdf_editor
+  tom_pdf_pdfjs:
+    path: ..
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+  # Only the integration test: it reads the files pdf.js saved back with
+  # PDFium, an engine of its own. The example app and the package do not
+  # take it.
+  tom_pdf_pdfium:
+    path: ../../tom_pdf_pdfium
+
+flutter:
+  uses-material-design: true

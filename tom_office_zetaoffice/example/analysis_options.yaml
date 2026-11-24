@@ -1,0 +1,15 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    - build/**
+    - example/build/**
+    - macos/**
+  errors:
+    # Takes its sibling modules by relative path (the workspace's development
+    # mode); the package is not published.
+    invalid_dependency: ignore
+
+linter:
+  rules:
+    - unawaited_futures

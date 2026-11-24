@@ -1,3 +1,25 @@
+## 0.2.0
+
+- The engines moved out, one package each: the PDFium engine
+  (`PdfiumEngine`, `fixXrefInFile` and the cross-reference fix,
+  `TomPdfiumLocator`, `TomPdfiumLibrary`, `TomPdfiumProblem`,
+  `kPdfiumBindingsTag`, the bindings, the PDFium headers, the example app)
+  is `tom_pdf_pdfium`; the pdf.js view (`TomPdfJsView`, `TomPdfJsController`,
+  `TomPdfJsChannel` and its types, the vendored pdf.js, Forge's host files,
+  `FakePdfJsChannel`) is `tom_pdf_pdfjs`. `pdfium.dart`, `io.dart` and
+  `pdfjs.dart` are gone; `ffi`, `flutter_inappwebview`, `crypto`, `ffigen`
+  and the assets with them.
+- `TomPdfEditorHost` names no engine: `engineStatus` (a new
+  `TomPdfEngineStatus`: `isUsable`, `message`) replaces `pdfium`, and
+  `startEngine` takes the status (covariant, so a host may declare its
+  engine package's type, e.g. `TomPdfiumLibrary`). The failure when the
+  engine does not start reads *The PDF engine did not start*.
+- `FakePdfEditorHost` takes `engineStatus` (default
+  `FakePdfEngineStatus.usable()`) instead of `pdfium`.
+- Exported for every PDF view: `PdfNoticeBar`, `PdfToolbarRow`, and the
+  trail helpers `pdfEditorTrail` and `pdfEditorReport` the engine packages
+  write with.
+
 ## 0.1.0
 
 - `TomPdfEditor`, the PDF viewer over PDFium: the page column laid out from

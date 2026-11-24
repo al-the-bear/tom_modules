@@ -5,8 +5,27 @@ import 'package:flutter/widgets.dart';
 import 'package:tom_file_session/tom_file_session.dart';
 
 import '../engine/engine.dart';
-import '../engine/library.dart';
 import '../host.dart';
+
+/// A [TomPdfEngineStatus] for tests: usable, or not with the message the tab
+/// shows.
+final class FakePdfEngineStatus implements TomPdfEngineStatus {
+  /// A usable engine.
+  const FakePdfEngineStatus.usable([this.message = 'fake engine'])
+    : isUsable = true;
+
+  /// An engine that cannot be started, for the reason [message] gives.
+  const FakePdfEngineStatus.problem(this.message) : isUsable = false;
+
+  @override
+  final bool isUsable;
+
+  @override
+  final String message;
+
+  @override
+  String toString() => 'FakePdfEngineStatus($message)';
+}
 
 /// A [TomPdfEditorHost] for tests: it records notices, links and history
 /// changes, and hands out the engine it was given.
@@ -16,13 +35,8 @@ class FakePdfEditorHost implements TomPdfEditorHost {
     required this.files,
     required this.engine,
     this.authorName = 'Test Author',
-    TomPdfiumLibrary? pdfium,
-  }) : pdfium =
-           pdfium ??
-           const TomPdfiumLibrary.found(
-             '/fake/libpdfium.dylib',
-             kPdfiumBindingsTag,
-           );
+    TomPdfEngineStatus? engineStatus,
+  }) : engineStatus = engineStatus ?? const FakePdfEngineStatus.usable();
 
   @override
   final String filePath;
@@ -37,7 +51,7 @@ class FakePdfEditorHost implements TomPdfEditorHost {
   final String authorName;
 
   @override
-  final TomPdfiumLibrary pdfium;
+  final TomPdfEngineStatus engineStatus;
 
   /// `(kind, message)` of every notice.
   final notices = <(String, String)>[];
@@ -55,7 +69,7 @@ class FakePdfEditorHost implements TomPdfEditorHost {
   String get name => filePath.split('/').last;
 
   @override
-  Future<TomPdfEngine> startEngine(TomPdfiumLibrary library) async {
+  Future<TomPdfEngine> startEngine(TomPdfEngineStatus status) async {
     engineStarts++;
     return engine;
   }

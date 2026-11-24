@@ -1,3 +1,14 @@
+## 0.6.0
+
+- The ZetaOffice route moved to its own package, `tom_office_zetaoffice`
+  (one route per package): `package:tom_office_editor/zetaoffice.dart` is
+  now `package:tom_office_zetaoffice/tom_office_zetaoffice.dart`, the
+  ZetaOffice fakes left `testing.dart` for
+  `package:tom_office_zetaoffice/testing.dart`, `assets/zetaoffice/` went
+  with it. This package no longer depends on `flutter_inappwebview`.
+- `example/`: the *ZetaOffice* switch and `zetaoffice_test.dart` moved to
+  `tom_office_zetaoffice/example`.
+
 ## 0.5.0
 
 - *Save as copy* of a password-protected document: the warning offers

@@ -73,7 +73,7 @@ class _Rig {
   _Rig(
     FakePdfDocument doc, {
     bool readOnlyFile = false,
-    TomPdfiumLibrary? library,
+    TomPdfEngineStatus? status,
   }) {
     files.write(_path, utf8.encode('%PDF-original'));
     if (readOnlyFile) files.readOnly.add(_path);
@@ -82,7 +82,7 @@ class _Rig {
       filePath: _path,
       files: files,
       engine: engine,
-      pdfium: library,
+      engineStatus: status,
     );
     controller = TomPdfEditorController(host);
   }
@@ -186,19 +186,17 @@ void main() {
       expect(rig.host.engineStarts, 1);
     });
 
-    testWidgets('PDF-OPEN-2: the library missing or of another release shows '
-        'in the tab', (tester) async {
+    testWidgets('PDF-OPEN-2: an engine that cannot be started (its library '
+        'missing or of another release) shows why in the tab', (tester) async {
       final rig = _Rig(
         _textDoc(),
-        library: const TomPdfiumLibrary.problem(
-          TomPdfiumProblem.versionMismatch,
-          '/b/libpdfium.dylib',
-          tag: 'chromium/7000',
+        status: const FakePdfEngineStatus.problem(
+          'Engine version mismatch: /b/libengine is chromium/7000',
         ),
       );
       await rig.pump(tester);
       expect(rig.controller.state, TomPdfEditorState.failed);
-      expect(find.textContaining('PDFium version mismatch'), findsOneWidget);
+      expect(find.textContaining('Engine version mismatch'), findsOneWidget);
       expect(rig.host.engineStarts, 0);
     });
 
@@ -1203,10 +1201,8 @@ void main() {
 
       final missing = _Rig(
         _textDoc(),
-        library: const TomPdfiumLibrary.problem(
-          TomPdfiumProblem.versionMismatch,
-          '/nowhere/libpdfium.dylib',
-          tag: 'chromium/7000',
+        status: const FakePdfEngineStatus.problem(
+          'Engine version mismatch: /nowhere/libengine is chromium/7000',
         ),
       );
       await missing.pump(tester, size: narrow);

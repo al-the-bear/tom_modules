@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 /// The PDF engine as the editor sees it: [TomPdfEngine] and its value types.
-/// Pure Dart; the PDFium implementation (`PdfiumEngine`, an isolate over
-/// FFI) is in `pdfium.dart`, the fake for tests in `testing.dart`.
+/// Pure Dart; an engine package implements it (`PdfiumEngine` in
+/// `tom_pdf_pdfium`, an isolate over FFI), the fake for tests is in
+/// `testing.dart`.
 ///
 /// Every position is in **view points**: points (1/72 inch) of the page as
 /// it is shown (its rotation applied), origin at the top-left corner, y
