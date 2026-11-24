@@ -1,5 +1,10 @@
 ## 0.1.0
 
+- The vendored pdf.js `third_party/pdfjs/6.5.438/build/` (`pdf.mjs`, its worker,
+  sandbox and renderer, byte-identical to the release zip) is in the package:
+  the `.gitignore` rule `build/` hid it, so a fresh clone had a viewer that
+  never started. The rule is `/build/` now; `PDFJS-VENDOR-1` checks the files.
+
 - The pdf.js view of the PDF editor as a package of its own (it was part of
   `tom_pdf_editor` 0.1.0, `pdfjs.dart`): `TomPdfJsView`,
   `TomPdfJsController`, `TomPdfJsChannel` in the modes `integrated`, `full`
