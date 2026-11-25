@@ -15,6 +15,9 @@ dependencies:
   camera_macos: ^0.1.1
   path_provider: ^2.1.6
   path: ^1.9.1
+  tom_media_extract_probe:
+    path: extract
+  web: ^1.1.2
 
 dev_dependencies:
   flutter_test:
@@ -23,3 +26,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/fixtures/

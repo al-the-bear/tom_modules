@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 
 /// A folder the probe may write recordings and its report into.
@@ -31,4 +32,27 @@ Future<void> deleteFile(String path) async {
   if (await file.exists()) {
     await file.delete();
   }
+}
+
+/// A bundled asset as something an extractor can open: a copy in the
+/// probe's folder.
+Future<String> assetSource(String key) async {
+  final File file = File('${await probeFolder()}/${key.split('/').last}');
+  final ByteData data = await rootBundle.load(key);
+  await file.writeAsBytes(
+    data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
+  );
+  return file.path;
+}
+
+Future<int?> fileLength(String path) async {
+  final File file = File(path);
+  return await file.exists() ? file.length() : null;
+}
+
+bool fileExists(String path) => File(path).existsSync();
+
+/// Keeps bytes as a file of the probe's folder.
+Future<void> keepBytes(String name, List<int> bytes) async {
+  await File('${await probeFolder()}/$name').writeAsBytes(bytes);
 }

@@ -5,6 +5,7 @@
 list(APPEND FLUTTER_PLUGIN_LIST
   camera_desktop
   record_linux
+  tom_media_extract_probe
 )
 
 list(APPEND FLUTTER_FFI_PLUGIN_LIST

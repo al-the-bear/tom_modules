@@ -7,6 +7,10 @@ import 'package:record/record.dart';
 import 'level_meter.dart';
 import 'probe_out.dart';
 
+/// The video the recording screen saved last, for the extraction screen: a
+/// file path, on the web a blob URL.
+String? lastRecordedVideo;
+
 /// Recording by hand: audio with a level meter, video with a preview.
 class RecordingScreen extends StatelessWidget {
   const RecordingScreen({super.key});
@@ -328,6 +332,7 @@ class _VideoRecordingPaneState extends State<VideoRecordingPane> {
       final XFile file = await _controller!.stopVideoRecording();
       _tick?.cancel();
       _clock.stop();
+      lastRecordedVideo = file.path;
       _say('Saved ${await file.length()} bytes: ${file.path}');
     } on Object catch (error) {
       _say('Could not stop: $error');

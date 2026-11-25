@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
 import 'src/auto_run.dart';
+import 'src/extraction_auto_run.dart';
+import 'src/extraction_screen.dart';
 import 'src/recording_screen.dart';
 
-/// `--dart-define=PROBE_AUTO=recording` starts the automated run of a
-/// capability instead of the menu.
+/// `--dart-define=PROBE_AUTO=recording` (or `extraction`) starts the
+/// automated run of a capability instead of the menu.
 const String _auto = String.fromEnvironment('PROBE_AUTO');
 
 void main() {
@@ -20,9 +22,11 @@ class MediaProbeApp extends StatelessWidget {
     return MaterialApp(
       title: 'Tom Media Probe',
       theme: ThemeData(colorSchemeSeed: Colors.teal),
-      home: _auto == 'recording'
-          ? const RecordingAutoRun()
-          : const CapabilityMenu(),
+      home: switch (_auto) {
+        'recording' => const RecordingAutoRun(),
+        'extraction' => const ExtractionAutoRun(),
+        _ => const CapabilityMenu(),
+      },
     );
   }
 }
@@ -53,6 +57,24 @@ class CapabilityMenu extends StatelessWidget {
             subtitle: const Text('Measures every format and writes a report'),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute<void>(builder: (_) => const RecordingAutoRun()),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.movie_filter),
+            title: const Text('Extraction'),
+            subtitle: const Text('The sound and still frames out of a video'),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const ExtractionScreen()),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.speed),
+            title: const Text('Extraction: automated run'),
+            subtitle: const Text('Measures every fixture and writes a report'),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const ExtractionAutoRun(),
+              ),
             ),
           ),
         ],

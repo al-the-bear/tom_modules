@@ -1,0 +1,38 @@
+name: tom_media_extract_probe
+description: "The extraction half of tom_media_probe: audio and still frames out of a video, over each platform's own demuxers and decoders. A probe, not a product."
+publish_to: none
+version: 0.0.1
+
+environment:
+  sdk: ^3.13.7
+  flutter: '>=3.3.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_web_plugins:
+    sdk: flutter
+  web: ^1.0.0
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: de.tom.tom_media_extract_probe
+        pluginClass: TomMediaExtractProbePlugin
+      ios:
+        pluginClass: TomMediaExtractProbePlugin
+        sharedDarwinSource: true
+      macos:
+        pluginClass: TomMediaExtractProbePlugin
+        sharedDarwinSource: true
+      linux:
+        pluginClass: TomMediaExtractProbePlugin
+      windows:
+        pluginClass: TomMediaExtractProbePluginCApi
+      web:
+        pluginClass: TomMediaExtractProbeWeb
+        fileName: tom_media_extract_probe_web.dart

@@ -17,6 +17,7 @@ capability that measures and writes a report.
 | Capability | Screen | Automated run |
 | --- | --- | --- |
 | Recording | `lib/src/recording_screen.dart`: audio with device and format choice and a live level meter; video with camera choice and a preview | `lib/src/auto_run.dart`, started with `--dart-define=PROBE_AUTO=recording` |
+| Extraction | `lib/src/extraction_screen.dart`: the sound and still frames out of a fixture, of the video recorded last, or of a file named by its path | `lib/src/extraction_auto_run.dart`, started with `--dart-define=PROBE_AUTO=extraction` |
 
 ### Recording: the candidates
 
@@ -26,6 +27,18 @@ capability that measures and writes a report.
 | iOS, Android, web | `record` | `camera` |
 | Windows | `record` | `camera_desktop`; `camera_windows` by swapping the dependency (the two cannot be in one build: both register as `camera`'s Windows implementation) |
 | Linux | `record` (starts `parecord` and `ffmpeg`) | `camera_desktop` (GStreamer) |
+
+### Extraction: the plugin
+
+No permissive package extracts sound and frames on all six platforms, so
+the probe carries its own plugin, [extract/](extract/README.md)
+(`tom_media_extract_probe`), over each platform's demuxers and decoders:
+AVFoundation, `MediaExtractor` / `MediaCodec` / `MediaMetadataRetriever`,
+the Media Foundation Source Reader, the system's GStreamer on Linux, and in
+the browser Web Audio and a `<video>` drawn to a canvas.
+
+The fixtures are in [assets/fixtures/](assets/fixtures/README.md); every
+frame carries its own number, so a frame got back says which frame it is.
 
 ## The automated recording run
 
@@ -50,9 +63,31 @@ cuts long lines) and written as `recording_report.json` into the
 application's temporary folder. `tool/save_report.py <log> <report.json>`
 puts the parts together.
 
+## The automated extraction run
+
+For every fixture, for a video recorded just then with the first camera,
+and for a long video if one is named: what the platform says about the
+file, the sound as a WAV file (16 kHz mono, 44.1 kHz stereo) with its time,
+three seconds of sound in memory (checked for 440 Hz), frames at six times
+with *exact* and with *the nearest key frame is enough* (each checked for
+its frame number), ten frames at an interval, and a strip of ten thumbnails.
+
+| `--dart-define` | Meaning |
+| --- | --- |
+| `PROBE_AUTO=extraction` | start the run instead of the menu |
+| `PROBE_LONG_FILE=<path>` | also measure this video (`tool/make_fixtures.sh long <out>` writes one of an hour) |
+| `PROBE_SKIP=recorded,<fixture>` | parts to leave out |
+| `PROBE_KEEP=true` | keep every frame as `frame_<video>_<exact\|key>_<ms>.jpg`; `tool/frame_numbers.py <folder>` reads their numbers where the run cannot (no graphics context, as over SSH) |
+| `PROBE_EXIT=true` | end the application when the run is over (desktop) |
+
+It is run like the recording run (below), with `PROBE_AUTO=extraction`; on
+Linux `PROBE_RUN=extraction bash tool/linux_run.sh`. On macOS the
+application is sandboxed: a long video has to lie in its container
+(`~/Library/Containers/de.tom.tomMediaProbe/Data/tmp/`).
+
 ### Running it
 
-`tool/run_until_done.py <log> <seconds> <command…>` runs a command, copies
+Both runs: `tool/run_until_done.py <log> <seconds> <command…>` runs a command, copies
 its output to the log and ends it once the run printed `PROBE_DONE`.
 
 - **macOS, Windows, Linux:** `flutter build <platform> --release

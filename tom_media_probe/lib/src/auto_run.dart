@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:camera/camera.dart';
 import 'package:camera_macos/camera_macos.dart';
@@ -10,6 +9,7 @@ import 'package:record/record.dart';
 import 'level_meter.dart';
 import 'probe_out.dart';
 import 'recording_screen.dart' show encoderExtensions;
+import 'report.dart';
 
 /// Seconds each format is recorded for.
 const int _seconds = int.fromEnvironment('PROBE_SECONDS', defaultValue: 10);
@@ -89,20 +89,10 @@ class _RecordingAutoRunState extends State<RecordingAutoRun> {
       );
     }
     _report['finished'] = DateTime.now().toIso8601String();
-    final String json = jsonEncode(_report);
-    final String? path = await writeReport(
+    final String? path = await emitReport(
       'recording_report${_longSeconds > 0 ? '_long' : ''}.json',
-      json,
+      _report,
     );
-    // In parts: Android's log cuts a line near 1,000 characters.
-    const int part = 700;
-    for (int at = 0, n = 0; at < json.length; at += part, n++) {
-      final int end = at + part < json.length ? at + part : json.length;
-      // ignore: avoid_print
-      print('PROBE_PART $n ${json.substring(at, end)}');
-    }
-    // ignore: avoid_print
-    print('PROBE_DONE ${path ?? ''}');
     _say('Done. ${path ?? ''}');
     if (_exitWhenDone) {
       quit(0);

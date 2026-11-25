@@ -1,5 +1,6 @@
 #!/bin/bash
-# Builds and runs the automated recording probe on a Linux machine that has
+# Builds and runs an automated run of the probe (PROBE_RUN: recording, the
+# default, or extraction) on a Linux machine that has
 # no sound server running in the calling session (a server reached by SSH):
 # a private PulseAudio with two virtual sources standing in for two
 # microphones (record_linux leaves monitor sources out), on the X display
@@ -17,7 +18,7 @@ mkdir -p "$XDG_RUNTIME_DIR" build/probe
 chmod 700 "$XDG_RUNTIME_DIR"
 export DISPLAY="${PROBE_DISPLAY:-:10}"
 
-if ! flutter build linux --release --dart-define=PROBE_AUTO=recording \
+if ! flutter build linux --release --dart-define=PROBE_AUTO=${PROBE_RUN:-recording} \
     --dart-define=PROBE_EXIT=true "$@" > build/probe/linux_build.log 2>&1; then
   tail -40 build/probe/linux_build.log
   exit 1
