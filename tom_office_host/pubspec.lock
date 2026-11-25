@@ -655,7 +655,7 @@ packages:
       path: "../../basics/tom_build_base"
       relative: true
     source: path
-    version: "2.52.0"
+    version: "2.53.0"
   tom_dcli:
     dependency: transitive
     description:
