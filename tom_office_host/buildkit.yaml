@@ -5,6 +5,9 @@ versioner:
   variable-prefix: officeHost
 
 compiler:
+  # The release executables (tom_binaries/tom/<platform>/; buildkit :skill-build-binaries --list).
+  executables:
+    tom_office_host: {release: true}
   compiles:
     # macOS ARM64 only: the helper runs where LibreOffice runs, and the
     # prototype targets mbp. `dart build cli` (not `dart compile exe`), since
