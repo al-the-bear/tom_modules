@@ -1,0 +1,3 @@
+# Probe of the webwork quest's audiovideo group (recording, extraction,
+# transcript, analysis): not a Tom-managed project. Buildkit scans and the
+# workspace checks skip a package holding this file.

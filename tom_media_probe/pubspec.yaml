@@ -1,0 +1,25 @@
+name: tom_media_probe
+description: "Probe of the audio and video capabilities (recording, extraction, transcript, analysis) on six platforms. Not a product."
+publish_to: none
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.13.7
+
+dependencies:
+  flutter:
+    sdk: flutter
+  record: ^7.2.0
+  camera: ^0.12.2
+  camera_desktop: ^2.0.0
+  camera_macos: ^0.1.1
+  path_provider: ^2.1.6
+  path: ^1.9.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
