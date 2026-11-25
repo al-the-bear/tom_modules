@@ -51,17 +51,28 @@ class TomOfficeProcessLauncher implements TomOfficeHelperLauncher {
   static String? findHelper({String? binaryPath}) {
     final root = binaryPath ?? Platform.environment['TOM_BINARY_PATH'];
     if (root == null || root.isEmpty) return null;
-    final arch = _arch();
-    final os = Platform.isMacOS
-        ? 'darwin'
-        : Platform.isLinux
-        ? 'linux'
-        : Platform.isWindows
-        ? 'windows'
-        : Platform.operatingSystem;
+    final folder = binariesPlatformFolder(
+      operatingSystem: Platform.operatingSystem,
+      arch: _arch(),
+    );
     final name = Platform.isWindows ? 'tom_office_host.exe' : 'tom_office_host';
-    final file = File(p.join(root, '$os-$arch', name));
+    final file = File(p.join(root, folder, name));
     return file.existsSync() ? file.path : null;
+  }
+
+  /// The binaries layer's folder of a platform, as `tom_binaries` names it:
+  /// `darwin-arm64`, `linux-x64`, `win32-x64` (Windows is `win32`, the
+  /// layer's name, not `windows`).
+  static String binariesPlatformFolder({
+    required String operatingSystem,
+    required String arch,
+  }) {
+    final os = switch (operatingSystem) {
+      'macos' => 'darwin',
+      'windows' => 'win32',
+      final other => other,
+    };
+    return '$os-$arch';
   }
 
   static String _arch() {

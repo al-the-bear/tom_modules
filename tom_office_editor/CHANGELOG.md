@@ -1,5 +1,9 @@
 ## 0.7.0
 
+- `TomOfficeProcessLauncher.findHelper` looks in the binaries layer's own
+  Windows folder `win32-x64` (it looked in `windows-x64`, so the helper was
+  never found on Windows); the folder names come from
+  `binariesPlatformFolder` (`darwin-arm64`, `linux-x64`, `win32-x64`).
 - Checked on real hosts (bigbeast Ubuntu 24.04, a Fedora 43 container,
   legiondary01 Windows 11): on Windows the detector reads the installer's
   `UNO\InstallPath` registry keys (`programFoldersInRegQuery`, source
