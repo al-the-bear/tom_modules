@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
+import 'package:tom_basics/native_binaries.dart';
 import 'package:tom_file_session/io.dart';
 import 'package:tom_office_protocol/tom_office_protocol.dart';
 
@@ -45,20 +46,36 @@ class TomOfficeProcessLauncher implements TomOfficeHelperLauncher {
 
   int _count = 0;
 
-  /// The helper in the binaries layer: `<binaries>/<platform>/tom_office_host`,
-  /// [binaryPath] defaulting to `$TOM_BINARY_PATH`; `null` when it is not
-  /// there.
-  static String? findHelper({String? binaryPath}) {
-    final root = binaryPath ?? Platform.environment['TOM_BINARY_PATH'];
-    if (root == null || root.isEmpty) return null;
-    final folder = binariesPlatformFolder(
-      operatingSystem: Platform.operatingSystem,
-      arch: _arch(),
-    );
-    final name = Platform.isWindows ? 'tom_office_host.exe' : 'tom_office_host';
-    final file = File(p.join(root, folder, name));
-    return file.existsSync() ? file.path : null;
-  }
+  /// The helper's file name on the running platform: `tom_office_host`,
+  /// `tom_office_host.exe` on Windows.
+  static String get helperFileName =>
+      TomNativeBinaries.executableFileName('tom_office_host');
+
+  /// Where the helper is, or `null` when it is nowhere:
+  ///
+  /// 1. **In the running application's bundle** (an application started
+  ///    from the Finder or the Start menu sees no `TOM_BINARY_PATH`): macOS
+  ///    `<App>.app/Contents/MacOS/tom_office_host`, then
+  ///    `Contents/Frameworks/`; Linux and Windows beside the application's
+  ///    executable. The bundle is found from `Platform.resolvedExecutable`;
+  ///    [bundleFolders] replaces its folders (tests). `dart test` and
+  ///    `flutter test` run from no bundle.
+  /// 2. **In the binaries layer**: `<binaries>/<platform>/tom_office_host`,
+  ///    [binaryPath] defaulting to `$TOM_BINARY_PATH` ([environment] stands
+  ///    in for `Platform.environment`).
+  ///
+  /// The helper loads its trampoline (`libtom_office_host_lok.dylib`) from
+  /// beside itself, so a bundle carries both in `Contents/MacOS/`.
+  static String? findHelper({
+    String? binaryPath,
+    List<String>? bundleFolders,
+    Map<String, String>? environment,
+  }) => TomNativeBinaries.find(
+    helperFileName,
+    bundleFolders: bundleFolders,
+    binaryPath: binaryPath,
+    environment: environment,
+  );
 
   /// The binaries layer's folder of a platform, as `tom_binaries` names it:
   /// `darwin-arm64`, `linux-x64`, `win32-x64` (Windows is `win32`, the
@@ -66,21 +83,10 @@ class TomOfficeProcessLauncher implements TomOfficeHelperLauncher {
   static String binariesPlatformFolder({
     required String operatingSystem,
     required String arch,
-  }) {
-    final os = switch (operatingSystem) {
-      'macos' => 'darwin',
-      'windows' => 'win32',
-      final other => other,
-    };
-    return '$os-$arch';
-  }
-
-  static String _arch() {
-    final v = Platform.version;
-    if (v.contains('arm64')) return 'arm64';
-    if (v.contains('x64')) return 'x64';
-    return 'x64';
-  }
+  }) => TomNativeBinaries.platformFolder(
+    operatingSystem: operatingSystem,
+    arch: arch,
+  );
 
   @override
   Future<TomOfficeHelperChannel> start({required String documentPath}) async {

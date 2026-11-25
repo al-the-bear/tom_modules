@@ -1,3 +1,19 @@
+## 0.2.0
+
+- `TomPdfiumLocator` looks in the running application's bundle first:
+  macOS `<App>.app/Contents/Frameworks/libpdfium.dylib`, then
+  `Contents/MacOS/`; Linux beside the executable, then the bundle's `lib/`;
+  Windows beside the executable. Then in the binaries layer as before. An
+  application started from the Finder or the Start menu sees no
+  `TOM_BINARY_PATH`, so a release carries the library in its bundle.
+  `bundleFolders` replaces the bundle's folders for tests; `bundlePath` and
+  `binariesPath` name the two places.
+- `pdfium.version.json` is also read from a macOS bundle's
+  `Contents/Resources/`.
+- `platform` defaults to the running platform's folder (it was always
+  `darwin-arm64`) and is nullable; `platformFolder` answers the one used.
+- The lookup is `tom_basics`' `TomNativeBinaries` (`tom_basics: ^3.4.0`).
+
 ## 0.1.0
 
 - The PDFium engine of the PDF editor as a package of its own (it was part

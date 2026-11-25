@@ -5,7 +5,7 @@ description: >-
   controller and host interface; LibreOffice detection and the helper
   launcher (io.dart); a fake helper for tests (testing.dart). The ZetaOffice
   route is the package tom_office_zetaoffice. License: BSD-3-Clause.
-version: 0.7.0
+version: 0.8.0
 publish_to: none
 repository: https://github.com/al-the-bear/tom_modules
 
@@ -20,7 +20,7 @@ dependencies:
   # SHA-256 (the detector's file checks).
   crypto: ^3.0.0
   # Shared utilities.
-  tom_basics: ^3.3.0
+  tom_basics: ^3.4.0
   # The binary save rules (TomBinaryFiles) the host gives the editor.
   tom_file_session:
     path: ../tom_file_session

@@ -98,6 +98,7 @@ void main() {
     test('PDF-LOCATE-1: found, from TOM_BINARY_PATH\'s parent', () {
       lib(kPdfiumBindingsTag);
       final found = TomPdfiumLocator(
+        platform: 'darwin-arm64',
         environment: {'TOM_BINARY_PATH': '${root.path}/tom'},
       ).locate();
       expect(found.isUsable, isTrue);
@@ -105,16 +106,120 @@ void main() {
     });
 
     test('PDF-LOCATE-2: not found; another release is a mismatch', () {
-      final none = TomPdfiumLocator(binariesRoot: root.path).locate();
+      final none = TomPdfiumLocator(
+        binariesRoot: root.path,
+        platform: 'darwin-arm64',
+      ).locate();
       expect(none.problem, TomPdfiumProblem.notFound);
       expect(none.message, startsWith('PDFium not found'));
       lib('chromium/7000');
-      final other = TomPdfiumLocator(binariesRoot: root.path).locate();
+      final other = TomPdfiumLocator(
+        binariesRoot: root.path,
+        platform: 'darwin-arm64',
+      ).locate();
       expect(other.problem, TomPdfiumProblem.versionMismatch);
       expect(other.message, contains('chromium/7000'));
       expect(
         const TomPdfiumLocator(environment: {}).locate().problem,
         TomPdfiumProblem.notFound,
+      );
+    });
+
+    void bundleLib(
+      String folder,
+      String tag, {
+      bool versionInResources = false,
+    }) {
+      final dir = Directory('${root.path}/$folder')
+        ..createSync(recursive: true);
+      File('${dir.path}/libpdfium.dylib').writeAsStringSync('');
+      final versionDir = versionInResources
+          ? (Directory('${dir.parent.path}/Resources')..createSync())
+          : dir;
+      File(
+        '${versionDir.path}/pdfium.version.json',
+      ).writeAsStringSync(jsonEncode({'tag': tag}));
+    }
+
+    test('PDF-LOCATE-3: the bundle\'s library wins over the binaries layer, '
+        'its version file in Contents/Resources', () {
+      lib('chromium/7000');
+      bundleLib(
+        'Forge.app/Contents/Frameworks',
+        kPdfiumBindingsTag,
+        versionInResources: true,
+      );
+      final found = TomPdfiumLocator(
+        platform: 'darwin-arm64',
+        bundleFolders: [
+          '${root.path}/Forge.app/Contents/Frameworks',
+          '${root.path}/Forge.app/Contents/MacOS',
+        ],
+        environment: {'TOM_BINARY_PATH': '${root.path}/tom'},
+      ).locate();
+      expect(found.isUsable, isTrue);
+      expect(
+        found.path,
+        '${root.path}/Forge.app/Contents/Frameworks/libpdfium.dylib',
+      );
+    });
+
+    test('PDF-LOCATE-4: nothing in the bundle — the binaries layer', () {
+      lib(kPdfiumBindingsTag);
+      Directory('${root.path}/bundle').createSync();
+      final found = TomPdfiumLocator(
+        platform: 'darwin-arm64',
+        bundleFolders: ['${root.path}/bundle'],
+        environment: {'TOM_BINARY_PATH': '${root.path}/tom'},
+      ).locate();
+      expect(found.isUsable, isTrue);
+      expect(found.path, '${root.path}/pdfium/darwin-arm64/libpdfium.dylib');
+    });
+
+    test('PDF-LOCATE-5: neither — not found', () {
+      final none = TomPdfiumLocator(
+        platform: 'darwin-arm64',
+        bundleFolders: ['${root.path}/bundle'],
+        environment: {'TOM_BINARY_PATH': '${root.path}/tom'},
+      ).locate();
+      expect(none.problem, TomPdfiumProblem.notFound);
+      expect(none.path, '${root.path}/pdfium/darwin-arm64/libpdfium.dylib');
+    });
+
+    test('PDF-LOCATE-6: a library beside a Linux or Windows executable, and '
+        'in a Linux bundle\'s lib/', () {
+      for (final (platform, name, folder) in [
+        ('linux-x64', 'libpdfium.so', 'bundle/lib'),
+        ('win32-x64', 'pdfium.dll', 'app'),
+      ]) {
+        final dir = Directory('${root.path}/$folder')
+          ..createSync(recursive: true);
+        File('${dir.path}/$name').writeAsStringSync('');
+        File(
+          '${dir.path}/pdfium.version.json',
+        ).writeAsStringSync(jsonEncode({'tag': kPdfiumBindingsTag}));
+        final found = TomPdfiumLocator(
+          platform: platform,
+          bundleFolders: [
+            '${root.path}/${folder.split('/').first}',
+            '${root.path}/$folder',
+          ],
+          environment: const {},
+        ).locate();
+        expect(found.isUsable, isTrue, reason: platform);
+        expect(found.path, '${dir.path}/$name');
+      }
+    });
+
+    test('PDF-LOCATE-7: under flutter test there is no bundle, so the default '
+        'lookup reaches the binaries layer', () {
+      lib(kPdfiumBindingsTag);
+      expect(
+        TomPdfiumLocator(
+          platform: 'darwin-arm64',
+          environment: {'TOM_BINARY_PATH': '${root.path}/tom'},
+        ).expectedPath,
+        '${root.path}/pdfium/darwin-arm64/libpdfium.dylib',
       );
     });
   });

@@ -1,3 +1,16 @@
+## 0.8.0
+
+- `TomOfficeProcessLauncher.findHelper` looks in the running application's
+  bundle first, then in the binaries layer (`binaryPath` or
+  `TOM_BINARY_PATH`) as before: macOS `<App>.app/Contents/MacOS/`, then
+  `Contents/Frameworks/`; Linux and Windows beside the application's
+  executable. An application started from the Finder or the Start menu sees
+  no `TOM_BINARY_PATH`, so a release carries the helper (and its trampoline,
+  beside it) in its bundle. `bundleFolders` and `environment` replace the
+  process's for tests; `helperFileName` names the helper per platform.
+- The lookup and the platform folder names (`binariesPlatformFolder`) are
+  `tom_basics`' `TomNativeBinaries` (`tom_basics: ^3.4.0`).
+
 ## 0.7.0
 
 - `TomOfficeProcessLauncher.findHelper` looks in the binaries layer's own

@@ -2,10 +2,10 @@ name: tom_pdf_pdfium
 description: >-
   The PDFium engine of the PDF editor: PdfiumEngine (PDFium over FFI on one
   shared worker isolate), the cross-reference fix applied to its saves, and
-  the PDFium locator that finds the library in the binaries layer. It drives
-  tom_pdf_editor's TomPdfEditor. License: BSD-3-Clause; PDFium BSD-3-Clause
+  the PDFium locator that finds the library in the application's bundle or
+  the binaries layer. It drives tom_pdf_editor's TomPdfEditor. License: BSD-3-Clause; PDFium BSD-3-Clause
   (THIRD_PARTY.md).
-version: 0.1.0
+version: 0.2.0
 publish_to: none
 repository: https://github.com/al-the-bear/tom_modules
 
@@ -17,6 +17,8 @@ dependencies:
     sdk: flutter
   # Calling PDFium (dart:ffi helpers: calloc, UTF-16 strings).
   ffi: ^2.2.0
+  # Where the library is: the application's bundle, then the binaries layer.
+  tom_basics: ^3.4.0
   # The engine interface (TomPdfEngine) and the editor it drives.
   tom_pdf_editor:
     path: ../tom_pdf_editor
