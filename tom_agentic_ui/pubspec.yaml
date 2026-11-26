@@ -29,7 +29,7 @@ dev_dependencies:
     path: ../../basics/tom_file_system
   # The send tests fake the Agent SDK transport to run the whole pipeline
   # without opening a socket.
-  tom_vscode_scripting_api: ^8.0.0
+  tom_vscode_scripting_api: ^9.0.0
 
 flutter:
   uses-material-design: true
